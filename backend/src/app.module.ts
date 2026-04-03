@@ -9,6 +9,8 @@ import { DeployModule } from './deploy/deploy.module';
 import { DomainsModule } from './domains/domains.module';
 import { UploadModule } from './upload/upload.module';
 import { ServicesModule } from './services/services.module';
+import { LogsModule } from './logs/logs.module';
+import { DatabaseBrowserModule } from './database-browser/database-browser.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { ServicesModule } from './services/services.module';
     DomainsModule,
     UploadModule,
     ServicesModule,
+    LogsModule,
+    DatabaseBrowserModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
