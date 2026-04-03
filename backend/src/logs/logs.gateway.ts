@@ -1,5 +1,6 @@
 import {
-  WebSocketGateway, WebSocketServer, SubscribeMessage, OnGatewayDisconnect,
+  WebSocketGateway, WebSocketServer, SubscribeMessage,
+  OnGatewayConnection, OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
@@ -7,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { LogsService } from './logs.service';
 
 @WebSocketGateway({ cors: { origin: '*' } })
-export class LogsGateway implements OnGatewayDisconnect {
+export class LogsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
   private clientProjects = new Map<string, string>();
 
@@ -16,6 +17,20 @@ export class LogsGateway implements OnGatewayDisconnect {
     private config: ConfigService,
     private logsService: LogsService,
   ) {}
+
+  async handleConnection(client: Socket) {
+    try {
+      const token = client.handshake.auth?.token;
+      if (!token) { client.disconnect(); return; }
+      const payload = await this.jwt.verifyAsync(token, {
+        secret: this.config.getOrThrow('JWT_SECRET'),
+      });
+      client.data.userId = payload.sub;
+      client.data.role = payload.role;
+    } catch {
+      client.disconnect();
+    }
+  }
 
   async handleDisconnect(client: Socket) {
     const projectId = this.clientProjects.get(client.id);
@@ -31,6 +46,8 @@ export class LogsGateway implements OnGatewayDisconnect {
 
   @SubscribeMessage('join-logs')
   async handleJoinLogs(client: Socket, projectId: string) {
+    if (!client.data.userId) return;
+
     client.join(`logs:${projectId}`);
     this.clientProjects.set(client.id, projectId);
 

@@ -25,7 +25,13 @@ export function useLiveLogs(projectId: string) {
   const [logs, setLogs] = useState<Array<{ type: string; line: string }>>([]);
   const [connected, setConnected] = useState(false);
   const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
   const bufferRef = useRef<Array<{ type: string; line: string }>>([]);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   const clear = useCallback(() => {
     setLogs([]);
@@ -39,7 +45,7 @@ export function useLiveLogs(projectId: string) {
     setConnected(true);
 
     const handler = (data: { type: string; line: string }) => {
-      if (paused) {
+      if (pausedRef.current) {
         bufferRef.current.push(data);
       } else {
         setLogs((prev) => [...prev, data]);
@@ -53,7 +59,7 @@ export function useLiveLogs(projectId: string) {
       socket.emit('leave-logs', projectId);
       setConnected(false);
     };
-  }, [projectId, paused]);
+  }, [projectId]);
 
   const resume = useCallback(() => {
     setPaused(false);

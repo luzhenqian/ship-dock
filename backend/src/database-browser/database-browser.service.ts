@@ -3,7 +3,8 @@ import { ServicesService } from '../services/services.service';
 import { ConnectionPoolService } from '../services/connection-pool.service';
 
 const ALLOWED_SQL = /^\s*(SELECT|INSERT|UPDATE|DELETE|EXPLAIN)\b/i;
-const BLOCKED_SQL = /\b(DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE|SET|COPY)\b/i;
+const BLOCKED_SQL = /\b(DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE|SET|COPY|DO|EXECUTE|PREPARE|CALL)\b/i;
+const HAS_SEMICOLON = /;[\s]*\S/; // detects multi-statement queries
 
 @Injectable()
 export class DatabaseBrowserService {
@@ -91,11 +92,14 @@ export class DatabaseBrowserService {
   }
 
   async executeQuery(projectId: string, sql: string) {
+    if (HAS_SEMICOLON.test(sql)) {
+      throw new BadRequestException('Multi-statement queries are not allowed');
+    }
     if (!ALLOWED_SQL.test(sql)) {
       throw new BadRequestException('Only SELECT, INSERT, UPDATE, DELETE, and EXPLAIN statements are allowed');
     }
     if (BLOCKED_SQL.test(sql)) {
-      throw new BadRequestException('DROP, TRUNCATE, ALTER, CREATE, GRANT, REVOKE, SET, and COPY statements are not allowed');
+      throw new BadRequestException('Destructive statements (DROP, TRUNCATE, ALTER, CREATE, etc.) are not allowed');
     }
 
     const pool = await this.getPool(projectId);
