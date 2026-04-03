@@ -10,6 +10,10 @@ const statusColors: Record<string, string> = { ACTIVE: 'bg-green-500', STOPPED: 
 const tabs = [
   { href: 'deployments', label: 'Deployments' },
   { href: 'pipeline', label: 'Pipeline' },
+  { href: 'logs', label: 'Logs' },
+  { href: 'database', label: 'Database' },
+  { href: 'redis', label: 'Redis' },
+  { href: 'storage', label: 'Storage' },
   { href: 'settings', label: 'Settings' },
 ];
 
