@@ -12,6 +12,7 @@ import { ServicesModule } from './services/services.module';
 import { LogsModule } from './logs/logs.module';
 import { DatabaseBrowserModule } from './database-browser/database-browser.module';
 import { RedisBrowserModule } from './redis-browser/redis-browser.module';
+import { StorageBrowserModule } from './storage-browser/storage-browser.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { RedisBrowserModule } from './redis-browser/redis-browser.module';
     LogsModule,
     DatabaseBrowserModule,
     RedisBrowserModule,
+    StorageBrowserModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
