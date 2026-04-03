@@ -1,7 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCreateProject } from '@/hooks/use-projects';
+import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,16 +15,60 @@ export default function NewProjectPage() {
   const router = useRouter();
   const createProject = useCreateProject();
   const [step, setStep] = useState<Step>('source');
+  const [branches, setBranches] = useState<string[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
+  const [branchFilter, setBranchFilter] = useState('');
+  const branchRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({
     sourceType: '' as 'GITHUB' | 'UPLOAD' | '',
     repoUrl: '',
-    branch: 'main',
+    branch: '',
     name: '',
     slug: '',
     domain: '',
     port: '',
     envVars: {} as Record<string, string>,
   });
+
+  // Fetch branches when repoUrl changes (debounced)
+  useEffect(() => {
+    if (form.sourceType !== 'GITHUB' || !form.repoUrl) {
+      setBranches([]);
+      return;
+    }
+    const match = form.repoUrl.replace(/\.git$/, '').match(/github\.com\/[^/]+\/[^/]+/);
+    if (!match) return;
+
+    const timer = setTimeout(async () => {
+      setBranchesLoading(true);
+      try {
+        const data = await api<{ branches: string[]; defaultBranch: string }>(
+          `/projects/github/branches?repoUrl=${encodeURIComponent(form.repoUrl)}`
+        );
+        setBranches(data.branches);
+        if (!form.branch || form.branch === '') {
+          update({ branch: data.defaultBranch });
+        }
+      } catch {
+        setBranches([]);
+      } finally {
+        setBranchesLoading(false);
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [form.repoUrl, form.sourceType]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (branchRef.current && !branchRef.current.contains(e.target as Node)) {
+        setBranchDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   function update(p: Partial<typeof form>) {
     setForm((prev) => ({ ...prev, ...p }));
@@ -32,6 +77,29 @@ export default function NewProjectPage() {
   function autoSlug(name: string) {
     return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   }
+
+  function repoNameFromUrl(url: string): string {
+    try {
+      const parts = url.replace(/\.git$/, '').split('/');
+      return parts[parts.length - 1] || '';
+    } catch {
+      return '';
+    }
+  }
+
+  function goToBasic() {
+    if (form.sourceType === 'GITHUB' && form.repoUrl && !form.name) {
+      const repoName = repoNameFromUrl(form.repoUrl);
+      if (repoName) {
+        update({ name: repoName, slug: autoSlug(repoName) });
+      }
+    }
+    setStep('basic');
+  }
+
+  const filteredBranches = branches.filter((b) =>
+    b.toLowerCase().includes(branchFilter.toLowerCase())
+  );
 
   async function handleCreate() {
     await createProject.mutateAsync({
@@ -63,10 +131,38 @@ export default function NewProjectPage() {
                 <Label>Repository URL</Label>
                 <Input placeholder="https://github.com/user/repo" value={form.repoUrl} onChange={(e) => update({ repoUrl: e.target.value })} />
                 <Label>Branch</Label>
-                <Input value={form.branch} onChange={(e) => update({ branch: e.target.value })} />
+                <div className="relative" ref={branchRef}>
+                  <Input
+                    value={branchDropdownOpen ? branchFilter : form.branch}
+                    onChange={(e) => {
+                      setBranchFilter(e.target.value);
+                      update({ branch: e.target.value });
+                      if (!branchDropdownOpen) setBranchDropdownOpen(true);
+                    }}
+                    onFocus={() => { setBranchDropdownOpen(true); setBranchFilter(form.branch); }}
+                    placeholder={branchesLoading ? 'Loading branches...' : 'Select or type a branch'}
+                    className="font-mono"
+                  />
+                  {branchDropdownOpen && filteredBranches.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 max-h-48 overflow-auto rounded-md border bg-white shadow-lg">
+                      {filteredBranches.map((b) => (
+                        <button
+                          key={b}
+                          className={`w-full px-3 py-2 text-left text-sm font-mono hover:bg-accent transition-colors ${b === form.branch ? 'bg-accent font-medium' : ''}`}
+                          onClick={() => { update({ branch: b }); setBranchDropdownOpen(false); }}
+                        >
+                          {b}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {branchesLoading && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">loading...</div>
+                  )}
+                </div>
               </div>
             )}
-            <Button onClick={() => setStep('basic')} disabled={!form.sourceType}>Next</Button>
+            <Button onClick={goToBasic} disabled={!form.sourceType}>Next</Button>
           </CardContent>
         </Card>
       )}

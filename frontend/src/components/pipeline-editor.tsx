@@ -10,6 +10,7 @@ interface Stage {
   name: string;
   type: 'builtin' | 'command';
   command?: string;
+  optional?: boolean;
   config?: Record<string, any>;
 }
 
@@ -27,6 +28,12 @@ function SortableStage({ stage, index, onUpdate, onRemove }: { stage: Stage; ind
           {stage.type === 'command' ? (
             <Input value={stage.command || ''} onChange={(e) => onUpdate(index, { ...stage, command: e.target.value })} className="flex-1 font-mono text-sm" placeholder="command" />
           ) : <span className="text-sm text-muted-foreground flex-1">System managed</span>}
+          {stage.type === 'command' && (
+            <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap cursor-pointer">
+              <input type="checkbox" checked={!!stage.optional} onChange={(e) => onUpdate(index, { ...stage, optional: e.target.checked })} className="rounded" />
+              optional
+            </label>
+          )}
           {stage.type === 'command' && <Button variant="ghost" size="sm" onClick={() => onRemove(index)}>X</Button>}
         </div>
       </Card>

@@ -65,7 +65,10 @@ model Project {
   port       Int
   envVars    String        @default("")
   pipeline   Json
-  pm2Name    String
+  directory  String?
+  workDir      String?
+  startCommand String?
+  pm2Name      String
   status     ProjectStatus @default(ACTIVE)
 
   createdBy   User   @relation(fields: [createdById], references: [id])

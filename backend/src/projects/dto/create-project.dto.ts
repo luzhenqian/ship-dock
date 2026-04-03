@@ -28,6 +28,18 @@ export class CreateProjectDto {
   @IsOptional()
   port?: number;
 
+  @IsString()
+  @IsOptional()
+  directory?: string;
+
+  @IsString()
+  @IsOptional()
+  workDir?: string;
+
+  @IsString()
+  @IsOptional()
+  startCommand?: string;
+
   @IsObject()
   @IsOptional()
   envVars?: Record<string, string>;

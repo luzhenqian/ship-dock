@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma.service';
 import { EncryptionService } from '../common/encryption.service';
 import { PortAllocationService } from './port-allocation.service';
@@ -9,7 +10,7 @@ const DEFAULT_PIPELINE = {
   stages: [
     { name: 'clone', type: 'builtin', config: {} },
     { name: 'install', type: 'command', command: 'npm install' },
-    { name: 'migrate', type: 'command', command: 'npx prisma migrate deploy' },
+    { name: 'migrate', type: 'command', command: 'npx prisma migrate deploy', optional: true },
     { name: 'build', type: 'command', command: 'npm run build' },
     { name: 'pm2', type: 'builtin', config: {} },
     { name: 'nginx', type: 'builtin', config: {} },
@@ -23,24 +24,46 @@ export class ProjectsService {
     private prisma: PrismaService,
     private encryption: EncryptionService,
     private portAllocation: PortAllocationService,
+    private config: ConfigService,
   ) {}
 
+  private validateDirectory(dir: string): string {
+    // Sanitize: no path traversal, no absolute paths, no special chars
+    const sanitized = dir.replace(/\\/g, '/').trim();
+    if (sanitized.includes('..') || sanitized.startsWith('/') || /[;&|`$]/.test(sanitized)) {
+      throw new BadRequestException('Invalid directory name');
+    }
+    return sanitized;
+  }
+
+  getProjectsDir(): string {
+    return this.config.get('PROJECTS_DIR', '/var/www');
+  }
+
   async create(userId: string, dto: CreateProjectDto) {
-    const projectId = crypto.randomUUID();
-    const port = dto.port
-      ? await this.portAllocation.allocateSpecific(projectId, dto.port)
-      : await this.portAllocation.allocate(projectId);
-
     const envVars = dto.envVars ? this.encryption.encrypt(JSON.stringify(dto.envVars)) : '';
+    const directory = dto.directory ? this.validateDirectory(dto.directory) : dto.slug;
 
-    return this.prisma.project.create({
+    // Create project first with a temporary port of 0
+    const project = await this.prisma.project.create({
       data: {
-        id: projectId, name: dto.name, slug: dto.slug,
+        name: dto.name, slug: dto.slug,
         sourceType: dto.sourceType as any, repoUrl: dto.repoUrl,
         branch: dto.branch || 'main', domain: dto.domain,
-        port, envVars, pipeline: dto.pipeline || DEFAULT_PIPELINE,
-        pm2Name: dto.slug, createdById: userId,
+        port: 0, envVars, pipeline: dto.pipeline || DEFAULT_PIPELINE,
+        pm2Name: dto.slug, directory, createdById: userId,
       },
+    });
+
+    // Now allocate port (project exists, FK is valid)
+    const port = dto.port
+      ? await this.portAllocation.allocateSpecific(project.id, dto.port)
+      : await this.portAllocation.allocate(project.id);
+
+    // Update project with the real port
+    return this.prisma.project.update({
+      where: { id: project.id },
+      data: { port },
     });
   }
 

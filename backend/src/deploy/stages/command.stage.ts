@@ -30,7 +30,7 @@ export class CommandStage {
       });
 
       child.stderr.on('data', (data) => {
-        data.toString().split('\n').filter((l: string) => l).forEach((line: string) => ctx.onLog(`[stderr] ${line}`));
+        data.toString().split('\n').filter((l: string) => l).forEach((line: string) => ctx.onLog(`\x1b[31m[stderr] ${line}\x1b[0m`));
       });
 
       child.on('close', (code) => {

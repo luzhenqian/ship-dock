@@ -18,7 +18,15 @@ export default function DeploymentsPage({ params }: { params: Promise<{ id: stri
           {triggerDeploy.isPending ? 'Deploying...' : 'Deploy Now'}
         </Button>
       </div>
-      {isLoading && <p>Loading...</p>}
+      {isLoading && <p className="text-muted-foreground">Loading...</p>}
+      {deployments && deployments.length === 0 && (
+        <div className="text-center py-16 border rounded-lg">
+          <p className="text-muted-foreground mb-4">No deployments yet</p>
+          <Button onClick={() => triggerDeploy.mutate()} disabled={triggerDeploy.isPending}>
+            {triggerDeploy.isPending ? 'Deploying...' : 'Deploy Now'}
+          </Button>
+        </div>
+      )}
       <div className="space-y-2">
         {deployments?.map((d: any) => (
           <Link key={d.id} href={`/projects/${projectId}/deployments/${d.id}`}

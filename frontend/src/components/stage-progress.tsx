@@ -1,7 +1,7 @@
 'use client';
 
-const statusIcons: Record<string, string> = { PENDING: 'o', RUNNING: '...', SUCCESS: 'v', FAILED: 'x' };
-const statusColors: Record<string, string> = { PENDING: 'text-muted-foreground', RUNNING: 'text-yellow-500', SUCCESS: 'text-green-500', FAILED: 'text-red-500' };
+const statusIcons: Record<string, string> = { PENDING: 'o', RUNNING: '...', SUCCESS: 'v', FAILED: 'x', SKIPPED: '-' };
+const statusColors: Record<string, string> = { PENDING: 'text-muted-foreground', RUNNING: 'text-yellow-500', SUCCESS: 'text-green-500', FAILED: 'text-red-500', SKIPPED: 'text-yellow-500' };
 
 export function StageProgress({ stages, activeIndex, onStageClick }: { stages: Array<{ name: string; status: string }>; activeIndex?: number; onStageClick?: (i: number) => void }) {
   return (
