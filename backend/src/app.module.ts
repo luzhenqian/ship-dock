@@ -6,6 +6,8 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ProjectsModule } from './projects/projects.module';
 import { DeployModule } from './deploy/deploy.module';
+import { DomainsModule } from './domains/domains.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { DeployModule } from './deploy/deploy.module';
     UsersModule,
     ProjectsModule,
     DeployModule,
+    DomainsModule,
+    UploadModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

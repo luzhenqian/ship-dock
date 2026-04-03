@@ -1,0 +1,38 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../common/prisma.service';
+import { EncryptionService } from '../common/encryption.service';
+import { CreateProviderDto } from './dto/create-provider.dto';
+import { NamecheapProvider } from './providers/namecheap.provider';
+import { GodaddyProvider } from './providers/godaddy.provider';
+import { DnsProviderInterface, DnsRecord } from './providers/dns-provider.interface';
+
+@Injectable()
+export class DomainsService {
+  constructor(private prisma: PrismaService, private encryption: EncryptionService) {}
+
+  async createProvider(userId: string, dto: CreateProviderDto) {
+    return this.prisma.domainProvider.create({
+      data: { provider: dto.provider as any, apiKey: this.encryption.encrypt(dto.apiKey), apiSecret: this.encryption.encrypt(dto.apiSecret), createdById: userId },
+    });
+  }
+
+  async listProviders() {
+    const providers = await this.prisma.domainProvider.findMany();
+    return providers.map((p) => ({ ...p, apiKey: this.encryption.mask(this.encryption.decrypt(p.apiKey)), apiSecret: this.encryption.mask(this.encryption.decrypt(p.apiSecret)) }));
+  }
+
+  async deleteProvider(id: string) { return this.prisma.domainProvider.delete({ where: { id } }); }
+
+  async getProviderClient(providerId: string): Promise<DnsProviderInterface> {
+    const provider = await this.prisma.domainProvider.findUnique({ where: { id: providerId } });
+    if (!provider) throw new NotFoundException('Provider not found');
+    const apiKey = this.encryption.decrypt(provider.apiKey);
+    const apiSecret = this.encryption.decrypt(provider.apiSecret);
+    return provider.provider === 'NAMECHEAP' ? new NamecheapProvider(apiKey, apiSecret) : new GodaddyProvider(apiKey, apiSecret);
+  }
+
+  async listDomains(providerId: string) { return (await this.getProviderClient(providerId)).listDomains(); }
+  async getRecords(providerId: string, domain: string) { return (await this.getProviderClient(providerId)).getRecords(domain); }
+  async addRecord(providerId: string, domain: string, record: DnsRecord) { return (await this.getProviderClient(providerId)).addRecord(domain, record); }
+  async deleteRecord(providerId: string, domain: string, record: { name: string; type: string }) { return (await this.getProviderClient(providerId)).deleteRecord(domain, record); }
+}
