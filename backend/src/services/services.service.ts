@@ -178,7 +178,7 @@ export class ServicesService {
 
   async detectAndSave(projectId: string) {
     const detected = await this.detect(projectId);
-    const results = [];
+    const results: any[] = [];
 
     for (const item of detected) {
       const existing = await this.prisma.serviceConnection.findFirst({
