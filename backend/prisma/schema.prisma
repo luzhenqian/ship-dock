@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  DEVELOPER
+  VIEWER
+}
+
+enum SourceType {
+  GITHUB
+  UPLOAD
+}
+
+enum ProjectStatus {
+  ACTIVE
+  STOPPED
+  ERROR
+}
+
+enum DeploymentStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum DnsProvider {
+  NAMECHEAP
+  GODADDY
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  avatar    String?
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects    Project[]
+  deployments Deployment[]
+  providers   DomainProvider[]
+  invites     Invite[]
+}
+
+model Project {
+  id         String        @id @default(uuid())
+  name       String
+  slug       String        @unique
+  repoUrl    String?
+  branch     String        @default("main")
+  sourceType SourceType
+  domain     String?
+  port       Int
+  envVars    String        @default("")
+  pipeline   Json
+  pm2Name    String
+  status     ProjectStatus @default(ACTIVE)
+
+  createdBy   User   @relation(fields: [createdById], references: [id])
+  createdById String
+
+  deployments    Deployment[]
+  portAllocation PortAllocation?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Deployment {
+  id          String           @id @default(uuid())
+  version     Int
+  commitHash  String?
+  status      DeploymentStatus @default(QUEUED)
+  stages      Json             @default("[]")
+  startedAt   DateTime?
+  finishedAt  DateTime?
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+
+  triggeredBy   User   @relation(fields: [triggeredById], references: [id])
+  triggeredById String
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId, version])
+}
+
+model DomainProvider {
+  id        String      @id @default(uuid())
+  provider  DnsProvider
+  apiKey    String
+  apiSecret String
+
+  createdBy   User   @relation(fields: [createdById], references: [id])
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PortAllocation {
+  id          String   @id @default(uuid())
+  port        Int      @unique
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId   String?  @unique
+  allocatedAt DateTime?
+}
+
+model Invite {
+  id        String   @id @default(uuid())
+  token     String   @unique @default(uuid())
+  email     String?
+  role      Role     @default(DEVELOPER)
+  usedAt    DateTime?
+  expiresAt DateTime
+
+  createdBy   User   @relation(fields: [createdById], references: [id])
+  createdById String
+
+  createdAt DateTime @default(now())
+}
