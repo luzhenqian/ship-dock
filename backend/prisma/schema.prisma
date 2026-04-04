@@ -44,6 +44,18 @@ enum ServiceType {
   MINIO
 }
 
+enum WebhookProvider {
+  GITHUB
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  FILTERED
+  TRIGGERED
+  FAILED
+  REPLAYED
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -83,6 +95,8 @@ model Project {
   deployments    Deployment[]
   portAllocation PortAllocation?
   services       ServiceConnection[]
+  webhookConfig  WebhookConfig?
+  webhookEvents  WebhookEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -104,6 +118,7 @@ model Deployment {
   triggeredById String
 
   createdAt DateTime @default(now())
+  webhookEvent WebhookEvent?
 
   @@index([projectId, version])
 }
@@ -155,4 +170,41 @@ model ServiceConnection {
   updatedAt    DateTime    @updatedAt
 
   @@index([projectId])
+}
+
+model WebhookConfig {
+  id              String          @id @default(uuid())
+  projectId       String          @unique
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  enabled         Boolean         @default(true)
+  secret          String
+  githubToken     String
+  githubWebhookId Int?
+  events          Json
+  branchFilters   Json            @default("[]")
+  pathFilters     Json            @default("[]")
+  provider        WebhookProvider @default(GITHUB)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model WebhookEvent {
+  id           String             @id @default(uuid())
+  projectId    String
+  project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  provider     WebhookProvider
+  deliveryId   String             @unique
+  event        String
+  action       String?
+  headers      Json
+  payload      Json
+  status       WebhookEventStatus @default(RECEIVED)
+  filterReason String?
+  deploymentId String?             @unique
+  deployment   Deployment?        @relation(fields: [deploymentId], references: [id])
+  error        String?
+  processedAt  DateTime?
+  createdAt    DateTime           @default(now())
+
+  @@index([projectId, createdAt])
 }
