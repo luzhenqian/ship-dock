@@ -65,17 +65,33 @@ export function DeployLogViewer({ logs }: DeployLogViewerProps) {
     };
   }, []);
 
+  // Track which logs array identity we last wrote from, so we can detect
+  // when the source switches (e.g. realtime → persisted) and clear + rewrite.
+  const logsSourceRef = useRef(logs);
+
   // Write new logs incrementally
   useEffect(() => {
     const term = termRef.current;
     if (!term) return;
 
+    // If the logs array reference changed and we already wrote some lines,
+    // the source switched (e.g. persisted logs arrived with more data).
+    // Clear the terminal and rewrite from scratch.
+    if (logsSourceRef.current !== logs && writtenCountRef.current > 0) {
+      term.clear();
+      writtenCountRef.current = 0;
+    }
+    logsSourceRef.current = logs;
+
     const start = writtenCountRef.current;
     for (let i = start; i < logs.length; i++) {
       const { stage, line } = logs[i];
-      const isError = line.includes('[stderr]') || line.includes('Error') || line.includes('error:') || line.includes('FAILED');
+      const isWarning = /\bwarn(ing)?\b/i.test(line);
+      const isError = !isWarning && (line.includes('[stderr]') || line.includes('Error') || line.includes('error:') || line.includes('FAILED'));
       const isCommand = line.startsWith('$ ');
-      if (isError) {
+      if (isWarning) {
+        term.writeln(`\x1b[90m[${stage}]\x1b[0m \x1b[33m${line}\x1b[0m`);
+      } else if (isError) {
         term.writeln(`\x1b[90m[${stage}]\x1b[0m \x1b[31m${line}\x1b[0m`);
       } else if (isCommand) {
         term.writeln(`\x1b[90m[${stage}]\x1b[0m \x1b[36m${line}\x1b[0m`);

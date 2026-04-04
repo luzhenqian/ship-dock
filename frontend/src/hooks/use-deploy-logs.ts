@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { connectSocket } from '@/lib/socket';
 
 export function useDeployLogs(deploymentId: string) {
@@ -7,10 +7,23 @@ export function useDeployLogs(deploymentId: string) {
   const [stageStatuses, setStageStatuses] = useState<Record<number, string>>({});
   const [status, setStatus] = useState<string>('');
   const socketRef = useRef(connectSocket());
+  const onCompleteRef = useRef<(() => void) | null>(null);
+
+  const onComplete = useCallback((cb: () => void) => {
+    onCompleteRef.current = cb;
+  }, []);
 
   useEffect(() => {
     const socket = socketRef.current;
-    socket.emit('join-deployment', deploymentId);
+
+    const joinRoom = () => {
+      socket.emit('join-deployment', deploymentId);
+    };
+
+    // Join immediately and also re-join on reconnect
+    joinRoom();
+    socket.on('connect', joinRoom);
+
     socket.on('log', (data: { index?: number; stage?: string; line: string }) => {
       setLogs((prev) => [...prev, { stage: data.stage || `stage-${data.index}`, line: data.line }]);
     });
@@ -22,9 +35,13 @@ export function useDeployLogs(deploymentId: string) {
     });
     socket.on('status', (data: { status: string }) => {
       setStatus(data.status);
+      if (data.status === 'SUCCESS' || data.status === 'FAILED' || data.status === 'CANCELLED') {
+        onCompleteRef.current?.();
+      }
     });
     return () => {
       socket.emit('leave-deployment', deploymentId);
+      socket.off('connect', joinRoom);
       socket.off('log');
       socket.off('stage-start');
       socket.off('stage-end');
@@ -32,5 +49,5 @@ export function useDeployLogs(deploymentId: string) {
     };
   }, [deploymentId]);
 
-  return { logs, stageStatuses, status };
+  return { logs, stageStatuses, status, onComplete };
 }

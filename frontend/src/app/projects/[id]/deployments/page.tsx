@@ -2,7 +2,9 @@
 
 import { use } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useDeployments, useTriggerDeploy } from '@/hooks/use-deployments';
+import { useProject, useStopProject, useRestartProject } from '@/hooks/use-projects';
 import { Button } from '@/components/ui/button';
 
 const statusDot: Record<string, string> = {
@@ -26,16 +28,54 @@ function timeAgo(date: string): string {
 
 export default function DeploymentsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
+  const router = useRouter();
+  const { data: project } = useProject(projectId);
   const { data: deployments, isLoading } = useDeployments(projectId);
   const triggerDeploy = useTriggerDeploy(projectId);
+  const stopProject = useStopProject(projectId);
+  const restartProject = useRestartProject(projectId);
+
+  const isStopped = project?.status === 'STOPPED';
+
+  const handleDeploy = () => {
+    triggerDeploy.mutate(undefined, {
+      onSuccess: (data) => {
+        router.push(`/projects/${projectId}/deployments/${data.id}`);
+      },
+    });
+  };
+
+  const handleRestart = () => {
+    restartProject.mutate(undefined, {
+      onSuccess: () => {
+        router.push(`/projects/${projectId}/logs`);
+      },
+    });
+  };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-medium tracking-tight">Deployments</h2>
-        <Button onClick={() => triggerDeploy.mutate()} disabled={triggerDeploy.isPending}>
-          {triggerDeploy.isPending ? 'Deploying...' : 'Deploy Now'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleRestart}
+            disabled={restartProject.isPending}
+          >
+            {restartProject.isPending ? 'Restarting...' : isStopped ? 'Start' : 'Restart'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => stopProject.mutate()}
+            disabled={stopProject.isPending || isStopped}
+          >
+            {stopProject.isPending ? 'Stopping...' : 'Stop'}
+          </Button>
+          <Button onClick={handleDeploy} disabled={triggerDeploy.isPending}>
+            {triggerDeploy.isPending ? 'Deploying...' : 'Deploy Now'}
+          </Button>
+        </div>
       </div>
       {isLoading && (
         <div className="space-y-0 border rounded-xl overflow-hidden">
@@ -47,7 +87,7 @@ export default function DeploymentsPage({ params }: { params: Promise<{ id: stri
       {deployments && deployments.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 border rounded-xl">
           <p className="text-foreground-secondary mb-4">No deployments yet</p>
-          <Button onClick={() => triggerDeploy.mutate()} disabled={triggerDeploy.isPending}>
+          <Button onClick={handleDeploy} disabled={triggerDeploy.isPending}>
             {triggerDeploy.isPending ? 'Deploying...' : 'Deploy Now'}
           </Button>
         </div>

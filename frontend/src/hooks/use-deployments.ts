@@ -20,7 +20,7 @@ export function useDeployment(deploymentId: string) {
 export function useTriggerDeploy(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api(`/projects/${projectId}/deployments`, { method: 'POST' }),
+    mutationFn: () => api<{ id: string }>(`/projects/${projectId}/deployments`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['deployments', projectId] }),
   });
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { use, useMemo, useState } from 'react';
+import { use, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useDeployment, useCancelDeploy } from '@/hooks/use-deployments';
 import { useDeployLogs } from '@/hooks/use-deploy-logs';
 import { StageProgress } from '@/components/stage-progress';
@@ -17,9 +18,17 @@ const statusDot: Record<string, string> = {
 
 export default function DeploymentDetailPage({ params }: { params: Promise<{ id: string; did: string }> }) {
   const { id: projectId, did: deploymentId } = use(params);
+  const qc = useQueryClient();
   const { data: deployment } = useDeployment(deploymentId);
-  const { logs: realtimeLogs, stageStatuses } = useDeployLogs(deploymentId);
+  const { logs: realtimeLogs, stageStatuses, onComplete } = useDeployLogs(deploymentId);
   const cancelDeploy = useCancelDeploy();
+
+  // When WebSocket reports deployment finished, refetch to get persisted logs
+  useEffect(() => {
+    onComplete(() => {
+      qc.invalidateQueries({ queryKey: ['deployment', deploymentId] });
+    });
+  }, [onComplete, deploymentId, qc]);
   const [activeStage, setActiveStage] = useState(0);
 
   const persistedLogs = useMemo(() => {
@@ -36,9 +45,10 @@ export default function DeploymentDetailPage({ params }: { params: Promise<{ id:
   }, [deployment?.stages]);
 
   const allLogs = useMemo(() => {
-    if (realtimeLogs.length === 0) return persistedLogs;
-    if (persistedLogs.length === 0) return realtimeLogs;
-    return [...persistedLogs, ...realtimeLogs.slice(persistedLogs.length)];
+    // Use whichever source has more logs — persisted logs are complete after
+    // deployment finishes; realtime logs may have missed early entries if the
+    // WebSocket joined late.
+    return persistedLogs.length >= realtimeLogs.length ? persistedLogs : realtimeLogs;
   }, [persistedLogs, realtimeLogs]);
 
   if (!deployment) return <p className="text-foreground-secondary">Loading...</p>;

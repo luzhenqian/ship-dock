@@ -25,3 +25,25 @@ export function useDeleteProject() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
   });
 }
+
+export function useStopProject(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api(`/projects/${id}/stop`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects', id] });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+}
+
+export function useRestartProject(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api(`/projects/${id}/restart`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects', id] });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+}

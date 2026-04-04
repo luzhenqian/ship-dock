@@ -1,10 +1,17 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { execFile } from 'child_process';
+import { writeFileSync } from 'fs';
+import { join } from 'path';
+import { promisify } from 'util';
 import { PrismaService } from '../common/prisma.service';
 import { EncryptionService } from '../common/encryption.service';
 import { PortAllocationService } from './port-allocation.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { Pm2Stage } from '../deploy/stages/pm2.stage';
+
+const execFileAsync = promisify(execFile);
 
 const DEFAULT_PIPELINE = {
   stages: [
@@ -103,5 +110,65 @@ export class ProjectsService {
     if (!project) throw new NotFoundException('Project not found');
     if (!project.envVars) return {};
     return JSON.parse(this.encryption.decrypt(project.envVars));
+  }
+
+  async stop(id: string) {
+    const project = await this.prisma.project.findUnique({ where: { id } });
+    if (!project) throw new NotFoundException('Project not found');
+    if (project.status === 'STOPPED') throw new BadRequestException('Project is already stopped');
+
+    try {
+      await execFileAsync('pm2', ['stop', project.pm2Name]);
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to stop process: ${err.message}`);
+    }
+
+    return this.prisma.project.update({
+      where: { id },
+      data: { status: 'STOPPED' },
+    });
+  }
+
+  async restart(id: string) {
+    const project = await this.prisma.project.findUnique({ where: { id } });
+    if (!project) throw new NotFoundException('Project not found');
+
+    // Regenerate ecosystem.config.js with latest ENV before restarting
+    let envVars: Record<string, string> = {};
+    if (project.envVars) {
+      try { envVars = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
+    }
+
+    const projectsDir = this.config.get('PROJECTS_DIR', '/var/www');
+    const repoDir = join(projectsDir, project.directory || project.slug);
+    const projectDir = project.workDir ? join(repoDir, project.workDir) : repoDir;
+
+    let script = project.startCommand || 'dist/main.js';
+    let isNpmStart = false;
+    if (!project.startCommand) {
+      try {
+        const pkg = JSON.parse(require('fs').readFileSync(join(projectDir, 'package.json'), 'utf8'));
+        if (pkg.scripts?.start) { script = 'npm'; isNpmStart = true; }
+        else if (pkg.main) { script = pkg.main; }
+      } catch {}
+    }
+
+    const pm2Stage = new Pm2Stage();
+    const ecosystemContent = pm2Stage.buildEcosystemConfig(
+      { name: project.pm2Name, script, cwd: projectDir, port: project.port, envVars },
+      isNpmStart,
+    );
+    writeFileSync(join(projectDir, 'ecosystem.config.js'), ecosystemContent);
+
+    try {
+      await execFileAsync('pm2', ['restart', project.pm2Name]);
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to restart process: ${err.message}`);
+    }
+
+    return this.prisma.project.update({
+      where: { id },
+      data: { status: 'ACTIVE' },
+    });
   }
 }

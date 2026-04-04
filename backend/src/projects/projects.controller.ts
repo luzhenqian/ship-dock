@@ -68,4 +68,10 @@ export class ProjectsController {
 
   @Patch(':id/pipeline') @MinRole('DEVELOPER')
   updatePipeline(@Param('id') id: string, @Body() pipeline: any) { return this.projectsService.update(id, { pipeline }); }
+
+  @Post(':id/stop') @MinRole('DEVELOPER')
+  stop(@Param('id') id: string) { return this.projectsService.stop(id); }
+
+  @Post(':id/restart') @MinRole('DEVELOPER')
+  restart(@Param('id') id: string) { return this.projectsService.restart(id); }
 }
