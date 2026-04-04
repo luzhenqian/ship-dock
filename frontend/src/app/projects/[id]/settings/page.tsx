@@ -132,13 +132,13 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
         <CardContent className="space-y-2">
           <Label>Deploy path on server</Label>
           <div className="flex items-center gap-0">
-            <span className="inline-flex items-center px-3 h-9 rounded-l-md border border-r-0 bg-muted text-sm text-muted-foreground font-mono">
+            <span className="inline-flex items-center shrink-0 px-3 h-9 rounded-l-md border border-r-0 bg-muted text-sm text-muted-foreground font-mono whitespace-nowrap">
               {projectsDir}/
             </span>
             <Input
               value={directory}
               onChange={(e) => setDirectory(e.target.value)}
-              className="rounded-l-none font-mono"
+              className="rounded-l-none font-mono min-w-0"
               placeholder={project.slug}
             />
           </div>

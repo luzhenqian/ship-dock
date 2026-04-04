@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { MinRole } from '../common/decorators/roles.decorator';
 import { DomainsService } from './domains.service';
 import { CreateProviderDto } from './dto/create-provider.dto';
+import { UpdateProviderDto } from './dto/update-provider.dto';
 import { CreateDnsRecordDto } from './dto/dns-record.dto';
 
 @Controller('domains')
@@ -16,6 +17,12 @@ export class DomainsController {
 
   @Get('providers') @MinRole('ADMIN')
   listProviders() { return this.domainsService.listProviders(); }
+
+  @Get('providers/:id') @MinRole('ADMIN')
+  getProvider(@Param('id') id: string) { return this.domainsService.getProvider(id); }
+
+  @Patch('providers/:id') @MinRole('ADMIN')
+  updateProvider(@Param('id') id: string, @Body() dto: UpdateProviderDto) { return this.domainsService.updateProvider(id, dto); }
 
   @Delete('providers/:id') @MinRole('ADMIN')
   deleteProvider(@Param('id') id: string) { return this.domainsService.deleteProvider(id); }

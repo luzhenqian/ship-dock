@@ -4,7 +4,7 @@ export class CreateDnsRecordDto {
   @IsString()
   name: string;
 
-  @IsEnum(['A', 'CNAME', 'TXT', 'MX'])
+  @IsEnum(['A', 'A+DDNS', 'AAAA', 'ALIAS', 'CAA', 'CNAME', 'MX', 'NS', 'SRV', 'TXT', 'URL'])
   type: string;
 
   @IsString()

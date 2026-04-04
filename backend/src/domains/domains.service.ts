@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { EncryptionService } from '../common/encryption.service';
 import { CreateProviderDto } from './dto/create-provider.dto';
+import { UpdateProviderDto } from './dto/update-provider.dto';
 import { NamecheapProvider } from './providers/namecheap.provider';
 import { GodaddyProvider } from './providers/godaddy.provider';
 import { DnsProviderInterface, DnsRecord } from './providers/dns-provider.interface';
@@ -19,6 +20,23 @@ export class DomainsService {
   async listProviders() {
     const providers = await this.prisma.domainProvider.findMany();
     return providers.map((p) => ({ ...p, apiKey: this.encryption.mask(this.encryption.decrypt(p.apiKey)), apiSecret: this.encryption.mask(this.encryption.decrypt(p.apiSecret)) }));
+  }
+
+  async updateProvider(id: string, dto: UpdateProviderDto) {
+    const data: any = {};
+    if (dto.apiKey) data.apiKey = this.encryption.encrypt(dto.apiKey);
+    if (dto.apiSecret) data.apiSecret = this.encryption.encrypt(dto.apiSecret);
+    return this.prisma.domainProvider.update({ where: { id }, data });
+  }
+
+  async getProvider(id: string) {
+    const provider = await this.prisma.domainProvider.findUnique({ where: { id } });
+    if (!provider) throw new NotFoundException('Provider not found');
+    return {
+      ...provider,
+      apiKey: this.encryption.decrypt(provider.apiKey),
+      apiSecret: this.encryption.decrypt(provider.apiSecret),
+    };
   }
 
   async deleteProvider(id: string) { return this.prisma.domainProvider.delete({ where: { id } }); }
