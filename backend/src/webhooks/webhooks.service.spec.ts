@@ -54,8 +54,10 @@ describe('WebhooksService', () => {
       mockPrisma.webhookConfig.findUnique.mockResolvedValue({
         projectId: 'proj-1', events: ['push'], branchFilters: [], pathFilters: [], enabled: true,
       });
+      mockPrisma.webhookEvent.findUnique.mockResolvedValue(null);
       mockPrisma.webhookEvent.create.mockResolvedValue({ id: 'evt-1' });
       mockPrisma.webhookEvent.update.mockResolvedValue({});
+      mockPrisma.project.findUnique.mockResolvedValue({ createdById: 'user-1' });
 
       await service.processWebhookEvent(baseArgs);
 
@@ -69,6 +71,7 @@ describe('WebhooksService', () => {
       mockPrisma.webhookConfig.findUnique.mockResolvedValue({
         projectId: 'proj-1', events: ['push'], branchFilters: ['main'], pathFilters: [], enabled: true,
       });
+      mockPrisma.webhookEvent.findUnique.mockResolvedValue(null);
       mockFilter.matchBranch.mockReturnValueOnce({ pass: false, reason: 'not main' });
       mockPrisma.webhookEvent.create.mockResolvedValue({ id: 'evt-1' });
       mockPrisma.webhookEvent.update.mockResolvedValue({});

@@ -134,9 +134,13 @@ export class WebhooksService {
     event: string;
     headers: Record<string, string>;
     payload: any;
+    isReplay?: boolean;
   }) {
     const config = await this.prisma.webhookConfig.findUnique({ where: { projectId: args.projectId } });
     if (!config || !config.enabled) return;
+
+    const existing = await this.prisma.webhookEvent.findUnique({ where: { deliveryId: args.deliveryId } });
+    if (existing) return; // Already processed
 
     const parsed = this.githubProvider.parsePayload(args.event, args.payload);
     const webhookEvent = await this.prisma.webhookEvent.create({
@@ -183,10 +187,11 @@ export class WebhooksService {
     }
 
     try {
-      const deployment = await this.deployService.trigger(args.projectId, 'webhook');
+      const project = await this.prisma.project.findUnique({ where: { id: args.projectId }, select: { createdById: true } });
+      const deployment = await this.deployService.trigger(args.projectId, project!.createdById);
       await this.prisma.webhookEvent.update({
         where: { id: webhookEvent.id },
-        data: { status: 'TRIGGERED', deploymentId: deployment.id, processedAt: new Date() },
+        data: { status: args.isReplay ? 'REPLAYED' : 'TRIGGERED', deploymentId: deployment.id, processedAt: new Date() },
       });
     } catch (err: any) {
       await this.prisma.webhookEvent.update({
@@ -207,6 +212,7 @@ export class WebhooksService {
       event: original.event,
       headers: original.headers as Record<string, string>,
       payload: original.payload,
+      isReplay: true,
     });
   }
 
