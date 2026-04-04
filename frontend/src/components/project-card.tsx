@@ -33,7 +33,8 @@ export function ProjectCard({ project }: { project: any }) {
         </CardHeader>
         <CardContent>
           <div className="space-y-1 text-[13px] text-foreground-secondary">
-            {project.domain && <p>{project.domain}</p>}
+            {project.domain && <p>{project.domain}{project.port ? ` :${project.port}` : ''}</p>}
+            {!project.domain && project.port && <p>:{project.port}</p>}
             {lastDeploy ? (
               <p className="text-foreground-muted">
                 Deploy #{lastDeploy.version} · {lastDeploy.status.toLowerCase()} · {timeAgo(lastDeploy.createdAt)}
