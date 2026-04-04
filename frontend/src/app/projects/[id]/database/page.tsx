@@ -7,6 +7,8 @@ import { useDatabaseTables, useTableData, useTableStructure, useUpdateRow, useDe
 import { useQueryClient } from '@tanstack/react-query';
 import { SqlQueryPanel } from '@/components/sql-query-panel';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { MigrationWizard } from '@/components/migration-wizard';
+import { Upload } from 'lucide-react';
 
 type SubView = 'data' | 'structure' | 'query';
 type EditingCell = { rowIndex: number; column: string } | null;
@@ -25,6 +27,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
   const [newRow, setNewRow] = useState<NewRow>(null);
   const [newRowEditingCol, setNewRowEditingCol] = useState<string | null>(null);
   const [copiedRow, setCopiedRow] = useState<Record<string, any> | null>(null);
+  const [showMigration, setShowMigration] = useState(false);
   const editRef = useRef<HTMLInputElement>(null);
   const newRowRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -218,7 +221,9 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
 
       {/* Main content */}
       <div className="flex-1 min-w-0">
-        {!selectedTable ? (
+        {showMigration ? (
+          <MigrationWizard projectId={id} onClose={() => setShowMigration(false)} />
+        ) : !selectedTable ? (
           <div className="text-sm text-muted-foreground">Select a table to view its data.</div>
         ) : (
           <>
@@ -228,6 +233,10 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
                   {v.charAt(0).toUpperCase() + v.slice(1)}
                 </Button>
               ))}
+              <div className="flex-1" />
+              <Button variant="outline" size="sm" onClick={() => setShowMigration(true)}>
+                <Upload className="h-4 w-4 mr-2" /> Import Data
+              </Button>
             </div>
 
             {subView === 'data' && tableData && (
