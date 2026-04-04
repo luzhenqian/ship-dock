@@ -83,20 +83,22 @@ export function DeployLogViewer({ logs }: DeployLogViewerProps) {
     }
     logsSourceRef.current = logs;
 
+    const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '');
     const start = writtenCountRef.current;
     for (let i = start; i < logs.length; i++) {
       const { stage, line } = logs[i];
-      const isWarning = /\bwarn(ing)?\b/i.test(line);
-      const isError = !isWarning && (line.includes('[stderr]') || line.includes('Error') || line.includes('error:') || line.includes('FAILED'));
-      const isCommand = line.startsWith('$ ');
+      const plain = stripAnsi(line);
+      const isWarning = /\bwarn(ing)?\b/i.test(plain);
+      const isError = !isWarning && (plain.includes('[stderr]') || plain.includes('Error') || plain.includes('error:') || plain.includes('FAILED'));
+      const isCommand = plain.startsWith('$ ');
       if (isWarning) {
-        term.writeln(`\x1b[90m[${stage}]\x1b[0m \x1b[33m${line}\x1b[0m`);
+        term.writeln(`\x1b[90m[${stage}]\x1b[0m \x1b[33m${plain}\x1b[0m`);
       } else if (isError) {
-        term.writeln(`\x1b[90m[${stage}]\x1b[0m \x1b[31m${line}\x1b[0m`);
+        term.writeln(`\x1b[90m[${stage}]\x1b[0m \x1b[31m${plain}\x1b[0m`);
       } else if (isCommand) {
-        term.writeln(`\x1b[90m[${stage}]\x1b[0m \x1b[36m${line}\x1b[0m`);
+        term.writeln(`\x1b[90m[${stage}]\x1b[0m \x1b[36m${plain}\x1b[0m`);
       } else {
-        term.writeln(`\x1b[90m[${stage}]\x1b[0m ${line}`);
+        term.writeln(`\x1b[90m[${stage}]\x1b[0m ${plain}`);
       }
     }
     writtenCountRef.current = logs.length;
