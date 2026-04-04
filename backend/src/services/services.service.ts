@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { EncryptionService } from '../common/encryption.service';
 import { ConnectionPoolService } from './connection-pool.service';
@@ -7,6 +7,8 @@ import { UpdateServiceDto } from './dto/update-service.dto';
 
 @Injectable()
 export class ServicesService {
+  private readonly logger = new Logger(ServicesService.name);
+
   constructor(
     private prisma: PrismaService,
     private encryption: EncryptionService,
@@ -74,12 +76,22 @@ export class ServicesService {
 
   async detect(projectId: string) {
     const project = await this.prisma.project.findUnique({ where: { id: projectId } });
-    if (!project || !project.envVars) return [];
+    if (!project) {
+      this.logger.warn(`detect: project ${projectId} not found`);
+      return [];
+    }
+    if (!project.envVars) {
+      this.logger.warn(`detect: project ${projectId} has no envVars`);
+      return [];
+    }
 
     let envVars: Record<string, string>;
     try {
-      envVars = JSON.parse(this.encryption.decrypt(project.envVars));
-    } catch {
+      const decrypted = this.encryption.decrypt(project.envVars);
+      envVars = JSON.parse(decrypted);
+      this.logger.log(`detect: found env var keys: ${Object.keys(envVars).join(', ')}`);
+    } catch (err: any) {
+      this.logger.error(`detect: failed to decrypt/parse envVars for project ${projectId}: ${err.message}`);
       return [];
     }
 
@@ -100,7 +112,9 @@ export class ServicesService {
             ssl: url.searchParams.get('sslmode') === 'require',
           },
         });
-      } catch {}
+      } catch (err: any) {
+        this.logger.error(`detect: failed to parse DATABASE_URL: ${err.message}`);
+      }
     }
     if (!envVars.DATABASE_URL && envVars.PG_HOST) {
       detected.push({
