@@ -6,18 +6,25 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { RedisCliPanel } from '@/components/redis-cli-panel';
-import { useRedisKeys, useRedisKeyDetail, useDeleteRedisKey } from '@/hooks/use-redis';
+import { useRedisKeys, useRedisKeyDetail, useDeleteRedisKey, useCreateRedisKey } from '@/hooks/use-redis';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 export default function RedisPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [pattern, setPattern] = useState('*');
   const [selectedKey, setSelectedKey] = useState('');
   const [showCli, setShowCli] = useState(false);
+  const [showAddKey, setShowAddKey] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [newKey, setNewKey] = useState({ key: '', type: 'string', value: '', ttl: '' });
 
   const { data: keysData, isLoading } = useRedisKeys(id, pattern);
   const { data: keyDetail } = useRedisKeyDetail(id, selectedKey);
   const deleteMutation = useDeleteRedisKey(id);
+  const createMutation = useCreateRedisKey(id);
 
   const handleDelete = () => {
     if (!deleteTarget) return;
@@ -62,6 +69,7 @@ export default function RedisPage({ params }: { params: Promise<{ id: string }> 
               className="h-8 text-sm"
             />
             <div className="flex gap-1">
+              <Button size="sm" variant="outline" className="text-xs" onClick={() => setShowAddKey(true)}>+ Add Key</Button>
               <Button size="sm" variant="outline" className="text-xs" onClick={() => setShowCli(true)}>CLI</Button>
             </div>
           </div>
@@ -116,6 +124,72 @@ export default function RedisPage({ params }: { params: Promise<{ id: string }> 
         description={`This will permanently delete the key "${deleteTarget}".`}
         onConfirm={handleDelete}
       />
+
+      <Dialog open={showAddKey} onOpenChange={setShowAddKey}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Redis Key</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Key</Label>
+              <Input value={newKey.key} onChange={(e) => setNewKey({ ...newKey, key: e.target.value })} placeholder="my:key" />
+            </div>
+            <div>
+              <Label>Type</Label>
+              <select
+                value={newKey.type}
+                onChange={(e) => setNewKey({ ...newKey, type: e.target.value })}
+                className="w-full h-9 rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="string">String</option>
+                <option value="hash">Hash (JSON)</option>
+                <option value="list">List (comma-separated)</option>
+                <option value="set">Set (comma-separated)</option>
+              </select>
+            </div>
+            <div>
+              <Label>Value</Label>
+              <textarea
+                value={newKey.value}
+                onChange={(e) => setNewKey({ ...newKey, value: e.target.value })}
+                placeholder={newKey.type === 'hash' ? '{"field": "value"}' : newKey.type === 'string' ? 'value' : 'item1, item2, item3'}
+                className="w-full h-20 p-2 font-mono text-sm border rounded-md bg-background resize-y"
+              />
+            </div>
+            <div>
+              <Label>TTL (seconds, optional)</Label>
+              <Input value={newKey.ttl} onChange={(e) => setNewKey({ ...newKey, ttl: e.target.value })} placeholder="3600" type="number" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddKey(false)}>Cancel</Button>
+            <Button
+              disabled={!newKey.key || !newKey.value || createMutation.isPending}
+              onClick={() => {
+                let value: any = newKey.value;
+                if (newKey.type === 'hash') {
+                  try { value = JSON.parse(newKey.value); } catch { return; }
+                } else if (newKey.type === 'list' || newKey.type === 'set') {
+                  value = newKey.value.split(',').map((s) => s.trim()).filter(Boolean);
+                }
+                createMutation.mutate(
+                  { key: newKey.key, type: newKey.type, value, ttl: newKey.ttl ? parseInt(newKey.ttl) : undefined },
+                  {
+                    onSuccess: () => {
+                      setShowAddKey(false);
+                      setNewKey({ key: '', type: 'string', value: '', ttl: '' });
+                      setSelectedKey(newKey.key);
+                    },
+                  },
+                );
+              }}
+            >
+              {createMutation.isPending ? 'Creating...' : 'Create'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

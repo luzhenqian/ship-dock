@@ -168,6 +168,11 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                 </tbody>
               </table>
             </div>
+            {objects?.isTruncated && (
+              <div className="mt-3 text-center">
+                <span className="text-xs text-muted-foreground">Showing first {objects.objects.length} files. More files available.</span>
+              </div>
+            )}
           </>
         )}
       </div>

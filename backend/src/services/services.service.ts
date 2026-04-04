@@ -115,6 +115,19 @@ export class ServicesService {
         },
       });
     }
+    if (!envVars.DATABASE_URL && !envVars.PG_HOST && envVars.POSTGRES_HOST) {
+      detected.push({
+        type: 'POSTGRESQL',
+        name: 'Database (auto-detected)',
+        config: {
+          host: envVars.POSTGRES_HOST,
+          port: parseInt(envVars.POSTGRES_PORT || '5432'),
+          database: envVars.POSTGRES_DB || 'postgres',
+          user: envVars.POSTGRES_USER || 'postgres',
+          password: envVars.POSTGRES_PASSWORD || '',
+        },
+      });
+    }
 
     if (envVars.REDIS_URL) {
       try {

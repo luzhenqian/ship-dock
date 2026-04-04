@@ -29,16 +29,19 @@ export class StorageBrowserService {
     const prefix = options.prefix || '';
     const delimiter = options.delimiter || '/';
 
-    return new Promise<{ objects: any[]; prefixes: string[] }>((resolve, reject) => {
+    return new Promise<{ objects: any[]; prefixes: string[]; isTruncated: boolean; nextMarker?: string }>((resolve, reject) => {
       const objects: any[] = [];
       const prefixes: string[] = [];
+      const maxKeys = options.maxKeys || 100;
+      let count = 0;
+      let lastKey: string | undefined;
+      let truncated = false;
 
       const stream = client.listObjectsV2(bucket, prefix, false, delimiter);
-      let count = 0;
-      const maxKeys = options.maxKeys || 100;
 
       stream.on('data', (obj: any) => {
         if (count >= maxKeys) {
+          truncated = true;
           stream.destroy();
           return;
         }
@@ -51,11 +54,12 @@ export class StorageBrowserService {
             lastModified: obj.lastModified,
             etag: obj.etag,
           });
+          lastKey = obj.name;
         }
         count++;
       });
 
-      stream.on('end', () => resolve({ objects, prefixes }));
+      stream.on('end', () => resolve({ objects, prefixes, isTruncated: truncated, nextMarker: truncated ? lastKey : undefined }));
       stream.on('error', reject);
     });
   }
