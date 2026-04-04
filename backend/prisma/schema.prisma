@@ -70,6 +70,7 @@ model User {
   deployments Deployment[]
   providers   DomainProvider[]
   invites     Invite[]
+  dataMigrations DataMigration[]
 }
 
 model Project {
@@ -99,6 +100,7 @@ model Project {
   services       ServiceConnection[]
   webhookConfig  WebhookConfig?
   webhookEvents  WebhookEvent[]
+  dataMigrations DataMigration[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -209,4 +211,75 @@ model WebhookEvent {
   createdAt    DateTime           @default(now())
 
   @@index([projectId, createdAt])
+}
+
+enum MigrationSource {
+  REMOTE
+  FILE
+}
+
+enum MigrationStatus {
+  PENDING
+  CONNECTING
+  ANALYZING
+  MIGRATING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum MigrationConflictStrategy {
+  ERROR
+  OVERWRITE
+  SKIP
+}
+
+enum MigrationTableStatus {
+  PENDING
+  MIGRATING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+model DataMigration {
+  id               String                    @id @default(uuid())
+  projectId        String
+  project          Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  source           MigrationSource
+  status           MigrationStatus           @default(PENDING)
+  connectionConfig String?
+  fileName         String?
+  fileKey          String?
+  fileSize         BigInt?
+  conflictStrategy MigrationConflictStrategy @default(ERROR)
+  totalTables      Int                       @default(0)
+  completedTables  Int                       @default(0)
+  totalRows        BigInt                    @default(0)
+  completedRows    BigInt                    @default(0)
+  logs             Json                      @default("[]")
+  errorMessage     String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime                  @default(now())
+
+  tables           DataMigrationTable[]
+  triggeredBy      User                      @relation(fields: [triggeredById], references: [id])
+  triggeredById    String
+
+  @@index([projectId])
+}
+
+model DataMigrationTable {
+  id            String               @id @default(uuid())
+  migrationId   String
+  migration     DataMigration        @relation(fields: [migrationId], references: [id], onDelete: Cascade)
+  tableName     String
+  schemaName    String               @default("public")
+  status        MigrationTableStatus @default(PENDING)
+  rowCount      BigInt               @default(0)
+  migratedRows  BigInt               @default(0)
+  errorMessage  String?
+  startedAt     DateTime?
+  completedAt   DateTime?
 }
