@@ -54,10 +54,10 @@ export function SqlQueryPanel({ projectId }: SqlQueryPanelProps) {
       )}
 
       {data?.rows?.length > 0 && (
-        <div className="border rounded-md overflow-auto max-h-96">
+        <div className="border rounded-xl overflow-auto max-h-96">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted/50 border-b">
+              <tr className="bg-muted/30 border-b">
                 {data.columns.map((col: string) => (
                   <th key={col} className="px-3 py-2 text-left font-medium whitespace-nowrap">{col}</th>
                 ))}
@@ -65,7 +65,7 @@ export function SqlQueryPanel({ projectId }: SqlQueryPanelProps) {
             </thead>
             <tbody>
               {data.rows.map((row: any, i: number) => (
-                <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
+                <tr key={i} className="border-b last:border-0 hover:bg-foreground/[0.04]">
                   {data.columns.map((col: string) => (
                     <td key={col} className="px-3 py-2 whitespace-nowrap font-mono text-xs">
                       {row[col] === null ? <span className="text-muted-foreground italic">NULL</span> : String(row[col])}

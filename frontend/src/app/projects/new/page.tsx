@@ -117,7 +117,7 @@ export default function NewProjectPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">New Project</h1>
+      <h1 className="text-xl font-medium tracking-tight mb-6">New Project</h1>
       {step === 'source' && (
         <Card>
           <CardHeader><CardTitle>Step 1: Source</CardTitle></CardHeader>
@@ -144,7 +144,7 @@ export default function NewProjectPage() {
                     className="font-mono"
                   />
                   {branchDropdownOpen && filteredBranches.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 max-h-48 overflow-auto rounded-md border bg-white shadow-lg">
+                    <div className="absolute z-50 w-full mt-1 max-h-48 overflow-auto rounded-xl border bg-popover shadow-lg">
                       {filteredBranches.map((b) => (
                         <button
                           key={b}
