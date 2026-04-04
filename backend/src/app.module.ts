@@ -8,6 +8,11 @@ import { ProjectsModule } from './projects/projects.module';
 import { DeployModule } from './deploy/deploy.module';
 import { DomainsModule } from './domains/domains.module';
 import { UploadModule } from './upload/upload.module';
+import { ServicesModule } from './services/services.module';
+import { LogsModule } from './logs/logs.module';
+import { DatabaseBrowserModule } from './database-browser/database-browser.module';
+import { RedisBrowserModule } from './redis-browser/redis-browser.module';
+import { StorageBrowserModule } from './storage-browser/storage-browser.module';
 
 @Module({
   imports: [
@@ -19,6 +24,11 @@ import { UploadModule } from './upload/upload.module';
     DeployModule,
     DomainsModule,
     UploadModule,
+    ServicesModule,
+    LogsModule,
+    DatabaseBrowserModule,
+    RedisBrowserModule,
+    StorageBrowserModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

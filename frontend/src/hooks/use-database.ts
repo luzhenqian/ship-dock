@@ -1,0 +1,40 @@
+'use client';
+
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+
+export function useDatabaseTables(projectId: string) {
+  return useQuery({
+    queryKey: ['db-tables', projectId],
+    queryFn: () => api(`/projects/${projectId}/database/tables`),
+  });
+}
+
+export function useTableData(projectId: string, table: string, options?: { page?: number; pageSize?: number; sort?: string; order?: string }) {
+  const params = new URLSearchParams();
+  if (options?.page) params.set('page', options.page.toString());
+  if (options?.pageSize) params.set('pageSize', options.pageSize.toString());
+  if (options?.sort) params.set('sort', options.sort);
+  if (options?.order) params.set('order', options.order);
+
+  return useQuery({
+    queryKey: ['db-table-data', projectId, table, options],
+    queryFn: () => api(`/projects/${projectId}/database/tables/${table}?${params}`),
+    enabled: !!table,
+  });
+}
+
+export function useTableStructure(projectId: string, table: string) {
+  return useQuery({
+    queryKey: ['db-table-structure', projectId, table],
+    queryFn: () => api(`/projects/${projectId}/database/tables/${table}/structure`),
+    enabled: !!table,
+  });
+}
+
+export function useExecuteQuery(projectId: string) {
+  return useMutation({
+    mutationFn: (sql: string) =>
+      api(`/projects/${projectId}/database/query`, { method: 'POST', body: JSON.stringify({ sql }) }),
+  });
+}
