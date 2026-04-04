@@ -224,7 +224,14 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
         {showMigration ? (
           <MigrationWizard projectId={id} onClose={() => setShowMigration(false)} />
         ) : !selectedTable ? (
-          <div className="text-sm text-muted-foreground">Select a table to view its data.</div>
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={() => setShowMigration(true)}>
+                <Upload className="h-4 w-4 mr-2" /> Import Data
+              </Button>
+            </div>
+            <div className="text-sm text-muted-foreground">Select a table to view its data.</div>
+          </div>
         ) : (
           <>
             <div className="flex gap-1 mb-4">
