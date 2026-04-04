@@ -35,6 +35,7 @@ const groups = [
   {
     label: 'Config',
     items: [
+      { href: 'webhooks', label: 'Webhooks' },
       { href: 'settings', label: 'Settings' },
     ],
   },
