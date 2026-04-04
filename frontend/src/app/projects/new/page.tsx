@@ -6,15 +6,17 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { EnvVarEditor } from '@/components/env-var-editor';
+import { MigrationWizard } from '@/components/migration-wizard';
 
-type Step = 'source' | 'basic' | 'env' | 'confirm';
+type Step = 'source' | 'basic' | 'env' | 'confirm' | 'import';
 
 export default function NewProjectPage() {
   const router = useRouter();
   const createProject = useCreateProject();
   const [step, setStep] = useState<Step>('source');
+  const [createdProjectId, setCreatedProjectId] = useState('');
   const [branches, setBranches] = useState<string[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
@@ -103,7 +105,7 @@ export default function NewProjectPage() {
   );
 
   async function handleCreate() {
-    await createProject.mutateAsync({
+    const result = await createProject.mutateAsync({
       name: form.name,
       slug: form.slug,
       sourceType: form.sourceType,
@@ -114,7 +116,13 @@ export default function NewProjectPage() {
       useLocalDb: form.useLocalDb || undefined,
       envVars: Object.keys(form.envVars).length > 0 ? form.envVars : undefined,
     });
-    router.push('/dashboard');
+    // If project uses local DB, offer to import data
+    if (form.useLocalDb) {
+      setCreatedProjectId(result.id);
+      setStep('import');
+    } else {
+      router.push(`/projects/${result.id}`);
+    }
   }
 
   return (
@@ -227,6 +235,20 @@ export default function NewProjectPage() {
               <Button variant="outline" onClick={() => setStep('env')}>Back</Button>
               <Button onClick={handleCreate} disabled={createProject.isPending}>{createProject.isPending ? 'Creating...' : 'Create & Deploy'}</Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+      {step === 'import' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Import Existing Data</CardTitle>
+            <CardDescription>You can import data from an existing database now, or skip this step.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <MigrationWizard projectId={createdProjectId} onClose={() => router.push(`/projects/${createdProjectId}`)} />
+            <Button variant="ghost" onClick={() => router.push(`/projects/${createdProjectId}`)}>
+              Skip for now
+            </Button>
           </CardContent>
         </Card>
       )}
