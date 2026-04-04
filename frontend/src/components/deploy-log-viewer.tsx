@@ -87,7 +87,7 @@ export function DeployLogViewer({ logs }: DeployLogViewerProps) {
   }, [logs]);
 
   return (
-    <div className="rounded-md border overflow-hidden">
+    <div className="rounded-xl border overflow-hidden">
       <div
         ref={containerRef}
         style={{ height: 600, backgroundColor: '#0a0a0a' }}
