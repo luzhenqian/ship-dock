@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 export default function SettingsPage() {
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold mb-6">System Settings</h1>
+      <h1 className="text-xl font-medium tracking-tight mb-6">System Settings</h1>
       <Card>
         <CardHeader><CardTitle>Server Info</CardTitle></CardHeader>
         <CardContent className="space-y-4">

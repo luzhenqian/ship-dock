@@ -39,13 +39,13 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
   return (
     <div className="flex gap-4" style={{ height: 'calc(100vh - 220px)' }}>
       {/* Sidebar */}
-      <div className="w-48 shrink-0 border rounded-md">
-        <div className="p-3 border-b text-xs font-medium text-muted-foreground uppercase">Tables</div>
+      <div className="w-48 shrink-0 border rounded-xl">
+        <div className="p-3 border-b text-[11px] font-medium text-foreground-muted uppercase tracking-wider">Tables</div>
         <ScrollArea className="h-full">
           {tables.map((t: any) => (
             <button
               key={t.table_name}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-muted/50 ${selectedTable === t.table_name ? 'bg-muted font-medium' : ''}`}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-foreground/[0.04] ${selectedTable === t.table_name ? 'bg-foreground/[0.06] font-medium' : 'text-foreground-secondary'}`}
               onClick={() => { setSelectedTable(t.table_name); setPage(1); setSort(null); }}
             >
               {t.table_name}
@@ -70,14 +70,14 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
 
             {subView === 'data' && tableData && (
               <>
-                <div className="border rounded-md overflow-auto max-h-[calc(100vh-340px)]">
+                <div className="border rounded-xl overflow-auto max-h-[calc(100vh-340px)]">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-muted/50 border-b sticky top-0">
+                      <tr className="bg-muted/30 border-b sticky top-0">
                         {tableData.columns.map((col: string) => (
                           <th
                             key={col}
-                            className="px-3 py-2 text-left font-medium whitespace-nowrap cursor-pointer hover:bg-muted"
+                            className="px-3 py-2 text-left font-medium whitespace-nowrap cursor-pointer hover:bg-foreground/[0.04]"
                             onClick={() => handleSort(col)}
                           >
                             {col} {sort?.column === col ? (sort.order === 'asc' ? '↑' : '↓') : ''}
@@ -87,7 +87,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
                     </thead>
                     <tbody>
                       {tableData.rows.map((row: any, i: number) => (
-                        <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={i} className="border-b last:border-0 hover:bg-foreground/[0.04]">
                           {tableData.columns.map((col: string) => (
                             <td key={col} className="px-3 py-2 whitespace-nowrap font-mono text-xs max-w-xs truncate">
                               {row[col] === null ? <span className="text-muted-foreground italic">NULL</span> : String(row[col])}
@@ -113,10 +113,10 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
               <div className="space-y-4">
                 <div>
                   <h3 className="text-sm font-medium mb-2">Columns</h3>
-                  <div className="border rounded-md overflow-auto">
+                  <div className="border rounded-xl overflow-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-muted/50 border-b">
+                        <tr className="bg-muted/30 border-b">
                           <th className="px-3 py-2 text-left font-medium">Column</th>
                           <th className="px-3 py-2 text-left font-medium">Type</th>
                           <th className="px-3 py-2 text-left font-medium">Nullable</th>
@@ -139,10 +139,10 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
                 {structure.indexes.length > 0 && (
                   <div>
                     <h3 className="text-sm font-medium mb-2">Indexes</h3>
-                    <div className="border rounded-md overflow-auto">
+                    <div className="border rounded-xl overflow-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="bg-muted/50 border-b">
+                          <tr className="bg-muted/30 border-b">
                             <th className="px-3 py-2 text-left font-medium">Name</th>
                             <th className="px-3 py-2 text-left font-medium">Definition</th>
                           </tr>

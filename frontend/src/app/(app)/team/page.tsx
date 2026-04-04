@@ -18,7 +18,7 @@ export default function TeamPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold mb-6">Team</h1>
+      <h1 className="text-xl font-medium tracking-tight mb-6">Team</h1>
       <Card className="mb-6">
         <CardHeader><CardTitle>Invite Member</CardTitle></CardHeader>
         <CardContent className="space-y-4">

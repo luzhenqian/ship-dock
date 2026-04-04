@@ -344,12 +344,23 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
         </DialogContent>
       </Dialog>
 
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center pt-2">
         <Button onClick={handleSave} disabled={saving}>
           {saving ? 'Saving...' : 'Save Changes'}
         </Button>
-        <Button variant="destructive" onClick={handleDelete}>Delete Project</Button>
       </div>
+
+      <Card className="border-status-error/30">
+        <CardHeader>
+          <CardTitle className="text-status-error">Danger Zone</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-[13px] text-foreground-secondary mb-4">
+            Permanently delete this project. This will stop the process and remove all configuration.
+          </p>
+          <Button variant="destructive" onClick={handleDelete}>Delete Project</Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

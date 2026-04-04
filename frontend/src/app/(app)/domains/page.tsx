@@ -22,7 +22,7 @@ export default function DomainsPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold mb-6">Domain Providers</h1>
+      <h1 className="text-xl font-medium tracking-tight mb-6">Domain Providers</h1>
       <Card className="mb-6">
         <CardHeader><CardTitle>Add Provider</CardTitle></CardHeader>
         <CardContent className="space-y-4">
