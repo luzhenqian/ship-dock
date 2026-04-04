@@ -75,13 +75,13 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   return (
     <div className="flex gap-4" style={{ height: 'calc(100vh - 220px)' }}>
       {/* Bucket list */}
-      <div className="w-48 shrink-0 border rounded-md">
-        <div className="p-3 border-b text-xs font-medium text-muted-foreground uppercase">Buckets</div>
+      <div className="w-48 shrink-0 border rounded-xl">
+        <div className="p-3 border-b text-[11px] font-medium text-foreground-muted uppercase tracking-wider">Buckets</div>
         <ScrollArea className="h-full">
           {buckets.map((b: any) => (
             <button
               key={b.name}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-muted/50 ${selectedBucket === b.name ? 'bg-muted font-medium' : ''}`}
+              className={`w-full text-left px-3 py-2 text-[13px] hover:bg-foreground/[0.04] ${selectedBucket === b.name ? 'bg-foreground/[0.06] font-medium' : 'text-foreground-secondary'}`}
               onClick={() => handleBucketSelect(b.name)}
             >
               {b.name}
@@ -118,10 +118,10 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
               </div>
             </div>
 
-            <div className="border rounded-md overflow-auto">
+            <div className="border rounded-xl overflow-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-muted/50 border-b">
+                  <tr className="bg-muted/30 border-b">
                     <th className="px-3 py-2 text-left font-medium">Name</th>
                     <th className="px-3 py-2 text-left font-medium">Size</th>
                     <th className="px-3 py-2 text-left font-medium">Modified</th>
@@ -132,7 +132,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                   {objects?.prefixes?.map((p: string) => {
                     const name = p.replace(prefix, '').replace(/\/$/, '');
                     return (
-                      <tr key={p} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => handleFolderClick(p)}>
+                      <tr key={p} className="border-b hover:bg-foreground/[0.04] cursor-pointer" onClick={() => handleFolderClick(p)}>
                         <td className="px-3 py-2 font-medium">{name}/</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
@@ -143,7 +143,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                   {objects?.objects?.map((obj: any) => {
                     const name = obj.name.replace(prefix, '');
                     return (
-                      <tr key={obj.name} className="border-b last:border-0 hover:bg-muted/30">
+                      <tr key={obj.name} className="border-b last:border-0 hover:bg-foreground/[0.04]">
                         <td className="px-3 py-2 font-mono text-xs">{name}</td>
                         <td className="px-3 py-2 text-xs text-muted-foreground">{formatSize(obj.size)}</td>
                         <td className="px-3 py-2 text-xs text-muted-foreground">
@@ -151,10 +151,10 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                         </td>
                         <td className="px-3 py-2">
                           <div className="flex gap-2">
-                            <button className="text-xs text-blue-600 hover:underline" onClick={() => handleDownload(obj.name)}>
+                            <button className="text-xs text-foreground-secondary hover:text-foreground hover:underline" onClick={() => handleDownload(obj.name)}>
                               Download
                             </button>
-                            <button className="text-xs text-red-600 hover:underline" onClick={() => setDeleteTarget({ bucket: selectedBucket, key: obj.name })}>
+                            <button className="text-xs text-status-error hover:underline" onClick={() => setDeleteTarget({ bucket: selectedBucket, key: obj.name })}>
                               Delete
                             </button>
                           </div>
