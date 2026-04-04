@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 
 interface DnsRecord { name: string; type: string; value: string; ttl?: number }
 
@@ -23,6 +24,20 @@ export default function DomainsPage() {
   const [editForm, setEditForm] = useState({ apiKey: '', apiSecret: '' });
   const [editingRecord, setEditingRecord] = useState<number | null>(null);
   const [editRecordForm, setEditRecordForm] = useState({ name: '', type: '', value: '', ttl: '' });
+
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    confirmText?: string;
+    destructive?: boolean;
+    onConfirm: () => void;
+  }>({ open: false, title: '', description: '', onConfirm: () => {} });
+
+  const showConfirm = useCallback((opts: Omit<typeof confirmDialog, 'open'>) => {
+    setConfirmDialog({ ...opts, open: true });
+  }, []);
 
   const addProvider = useMutation({
     mutationFn: (data: any) => api('/domains/providers', { method: 'POST', body: JSON.stringify(data) }),
@@ -160,7 +175,13 @@ export default function DomainsPage() {
                   >
                     {expandedProvider === p.id ? 'Hide Domains' : 'Domains'}
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deleteProvider.mutate(p.id)}>Remove</Button>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => showConfirm({
+                    title: 'Remove Provider',
+                    description: `This will remove the ${p.provider} provider and its stored credentials. This action cannot be undone.`,
+                    confirmText: 'remove',
+                    destructive: true,
+                    onConfirm: () => deleteProvider.mutate(p.id),
+                  })}>Remove</Button>
                 </div>
               </div>
 
@@ -171,7 +192,12 @@ export default function DomainsPage() {
                     <div><Label>{providerLabel(p.provider, 'key')}</Label><Input value={editForm.apiKey} onChange={(e) => setEditForm((f) => ({ ...f, apiKey: e.target.value }))} className="font-mono" /></div>
                     <div><Label>{providerLabel(p.provider, 'secret')}</Label><Input type="password" value={editForm.apiSecret} onChange={(e) => setEditForm((f) => ({ ...f, apiSecret: e.target.value }))} className="font-mono" /></div>
                   </div>
-                  <Button size="sm" onClick={() => updateProvider.mutate({ id: p.id, data: editForm })} disabled={updateProvider.isPending}>Save</Button>
+                  <Button size="sm" onClick={() => showConfirm({
+                    title: 'Update Provider Credentials',
+                    description: `Are you sure you want to update the credentials for this ${p.provider} provider?`,
+                    destructive: false,
+                    onConfirm: () => updateProvider.mutate({ id: p.id, data: editForm }),
+                  })} disabled={updateProvider.isPending}>Save</Button>
                 </div>
               )}
 
@@ -260,9 +286,14 @@ export default function DomainsPage() {
                                               size="sm"
                                               className="h-7 text-xs"
                                               disabled={updateRecord.isPending}
-                                              onClick={() => updateRecord.mutate({
-                                                original: r,
-                                                updated: { name: editRecordForm.name, type: editRecordForm.type, value: editRecordForm.value, ttl: parseInt(editRecordForm.ttl) || 600 },
+                                              onClick={() => showConfirm({
+                                                title: 'Update DNS Record',
+                                                description: `Update ${r.type} record "${r.name}" on ${selectedDomain}?`,
+                                                destructive: false,
+                                                onConfirm: () => updateRecord.mutate({
+                                                  original: r,
+                                                  updated: { name: editRecordForm.name, type: editRecordForm.type, value: editRecordForm.value, ttl: parseInt(editRecordForm.ttl) || 600 },
+                                                }),
                                               })}
                                             >
                                               Save
@@ -292,7 +323,13 @@ export default function DomainsPage() {
                                               variant="ghost"
                                               size="sm"
                                               className="h-7 text-xs text-destructive hover:text-destructive"
-                                              onClick={() => deleteRecord.mutate({ type: r.type, name: r.name })}
+                                              onClick={() => showConfirm({
+                                                title: 'Delete DNS Record',
+                                                description: `Delete ${r.type} record "${r.name}" (${r.value}) from ${selectedDomain}? This action cannot be undone.`,
+                                                confirmText: 'delete',
+                                                destructive: true,
+                                                onConfirm: () => deleteRecord.mutate({ type: r.type, name: r.name }),
+                                              })}
                                             >
                                               Delete
                                             </Button>
@@ -336,7 +373,12 @@ export default function DomainsPage() {
                                   <Button
                                     size="sm"
                                     className="h-8"
-                                    onClick={() => addRecord.mutate({ ...recordForm, ttl: parseInt(recordForm.ttl) || 600 })}
+                                    onClick={() => showConfirm({
+                                      title: 'Add DNS Record',
+                                      description: `Add ${recordForm.type} record "${recordForm.name}" → ${recordForm.value} to ${selectedDomain}?`,
+                                      destructive: false,
+                                      onConfirm: () => addRecord.mutate({ ...recordForm, ttl: parseInt(recordForm.ttl) || 600 }),
+                                    })}
                                     disabled={!recordForm.name || !recordForm.value || addRecord.isPending}
                                   >
                                     Add
@@ -355,6 +397,16 @@ export default function DomainsPage() {
           </Card>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        confirmText={confirmDialog.confirmText}
+        destructive={confirmDialog.destructive}
+        onConfirm={confirmDialog.onConfirm}
+      />
     </div>
   );
 }

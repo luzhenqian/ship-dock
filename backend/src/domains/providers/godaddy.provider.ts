@@ -8,12 +8,20 @@ export class GodaddyProvider implements DnsProviderInterface {
 
   async listDomains(): Promise<string[]> {
     const res = await fetch(`${this.baseUrl}/domains`, { headers: this.headers });
-    return ((await res.json()) as any[]).filter((d) => d.status === 'ACTIVE').map((d) => d.domain);
+    const data = await res.json();
+    if (!Array.isArray(data)) {
+      throw new Error(`GoDaddy API error: ${JSON.stringify(data)}`);
+    }
+    return data.filter((d) => d.status === 'ACTIVE').map((d) => d.domain);
   }
 
   async getRecords(domain: string): Promise<DnsRecord[]> {
     const res = await fetch(`${this.baseUrl}/domains/${domain}/records`, { headers: this.headers });
-    return ((await res.json()) as any[]).map((r) => ({ name: r.name, type: r.type, value: r.data, ttl: r.ttl }));
+    const data = await res.json();
+    if (!Array.isArray(data)) {
+      throw new Error(`GoDaddy API error for ${domain}: ${JSON.stringify(data)}`);
+    }
+    return data.map((r) => ({ name: r.name, type: r.type, value: r.data, ttl: r.ttl }));
   }
 
   async addRecord(domain: string, record: DnsRecord): Promise<void> {
