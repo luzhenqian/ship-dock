@@ -61,7 +61,7 @@ export default function RedisPage({ params }: { params: Promise<{ id: string }> 
 
       <div className="flex gap-4" style={{ height: showCli ? 'calc(100vh - 600px)' : 'calc(100vh - 220px)' }}>
         {/* Key list */}
-        <div className="w-64 shrink-0 border rounded-md flex flex-col">
+        <div className="w-64 shrink-0 border rounded-xl flex flex-col">
           <div className="p-3 border-b space-y-2">
             <Input
               placeholder="Filter pattern (e.g. user:*)"
@@ -78,7 +78,7 @@ export default function RedisPage({ params }: { params: Promise<{ id: string }> 
             {keysData?.keys?.map((item: any) => (
               <button
                 key={item.key}
-                className={`w-full text-left px-3 py-2 text-sm flex justify-between hover:bg-muted/50 ${selectedKey === item.key ? 'bg-muted font-medium' : ''}`}
+                className={`w-full text-left px-3 py-2 text-[13px] flex justify-between hover:bg-foreground/[0.04] ${selectedKey === item.key ? 'bg-foreground/[0.06] font-medium' : 'text-foreground-secondary'}`}
                 onClick={() => setSelectedKey(item.key)}
               >
                 <span className="truncate">{item.key}</span>
@@ -106,7 +106,7 @@ export default function RedisPage({ params }: { params: Promise<{ id: string }> 
                 </div>
                 <Button size="sm" variant="destructive" onClick={() => setDeleteTarget(selectedKey)}>Delete</Button>
               </div>
-              <div className="border rounded-md bg-[#0a0a0a] text-[#e5e5e5] p-4 font-mono text-sm overflow-auto max-h-[calc(100vh-360px)]">
+              <div className="border rounded-xl bg-[#0a0a0a] text-[#e5e5e5] p-4 font-mono text-[13px] overflow-auto max-h-[calc(100vh-360px)]">
                 <pre className="whitespace-pre-wrap">
                   {typeof keyDetail.value === 'object'
                     ? JSON.stringify(keyDetail.value, null, 2)

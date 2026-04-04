@@ -61,7 +61,7 @@ export function RedisCliPanel({ projectId }: RedisCliPanelProps) {
   };
 
   return (
-    <div className="border rounded-md bg-[#0a0a0a] text-[#e5e5e5] font-mono text-sm h-80 flex flex-col">
+    <div className="border rounded-xl bg-[#0a0a0a] text-[#e5e5e5] font-mono text-[13px] h-80 flex flex-col">
       <div className="flex-1 overflow-auto p-3">
         {history.map((entry, i) => (
           <div key={i} className="mb-2">
