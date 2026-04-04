@@ -56,7 +56,7 @@ ${envEntries}
     return new Promise((resolve) => {
       const child = spawn('sh', ['-c', command]);
       child.stdout.on('data', (data) => { data.toString().split('\n').filter(Boolean).forEach((line: string) => ctx.onLog(line)); });
-      child.stderr.on('data', (data) => { data.toString().split('\n').filter(Boolean).forEach((line: string) => ctx.onLog(`\x1b[31m${line}\x1b[0m`)); });
+      child.stderr.on('data', (data) => { data.toString().split('\n').filter(Boolean).forEach((line: string) => { const c = /\bwarn(ing)?\b/i.test(line) ? '\x1b[33m' : '\x1b[31m'; ctx.onLog(`${c}${line}\x1b[0m`); }); });
       child.on('close', (code) => { resolve(code === 0 ? { success: true } : { success: false, error: `pm2 exited with code ${code}` }); });
       child.on('error', (err) => resolve({ success: false, error: err.message }));
     });
