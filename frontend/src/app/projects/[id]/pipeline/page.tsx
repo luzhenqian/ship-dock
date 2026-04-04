@@ -30,9 +30,9 @@ export default function PipelinePage({ params }: { params: Promise<{ id: string 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold">Pipeline</h2>
+        <h2 className="text-xl font-medium tracking-tight">Pipeline</h2>
         <div className="flex items-center gap-2">
-          {saved && <span className="text-sm text-green-500">Saved!</span>}
+          {saved && <span className="text-sm text-status-ready">Saved!</span>}
           <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save Pipeline'}</Button>
         </div>
       </div>

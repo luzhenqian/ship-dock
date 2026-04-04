@@ -20,8 +20,8 @@ function SortableStage({ stage, index, onUpdate, onRemove }: { stage: Stage; ind
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-2 mb-2">
-      <div {...attributes} {...listeners} className="cursor-grab px-2 text-muted-foreground">::</div>
-      <Card className="flex-1 p-3">
+      <div {...attributes} {...listeners} className="cursor-grab px-2 text-foreground-muted hover:text-foreground-secondary">::</div>
+      <Card className="flex-1 p-3 shadow-none">
         <div className="flex items-center gap-2">
           <Input value={stage.name} onChange={(e) => onUpdate(index, { ...stage, name: e.target.value })} className="w-32 font-mono text-sm" placeholder="name" />
           <span className="text-xs text-muted-foreground px-2 py-1 rounded bg-muted">{stage.type}</span>

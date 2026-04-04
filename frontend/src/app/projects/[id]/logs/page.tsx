@@ -125,8 +125,8 @@ export default function LogsPage({ params }: { params: Promise<{ id: string }> }
           >
             stderr
           </Button>
-          <span className={`ml-2 h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-400'}`} />
-          <span className="text-xs text-muted-foreground">{connected ? 'Live' : 'Disconnected'}</span>
+          <span className={`ml-2 h-2 w-2 rounded-full ${connected ? 'bg-status-ready shadow-[0_0_6px_rgba(80,227,194,0.4)]' : 'bg-foreground-muted'}`} />
+          <span className="text-xs text-foreground-muted">{connected ? 'Live' : 'Disconnected'}</span>
         </div>
         <div className="flex items-center gap-2">
           <Input
@@ -146,7 +146,7 @@ export default function LogsPage({ params }: { params: Promise<{ id: string }> }
         </div>
       </div>
 
-      <div className="rounded-md border overflow-hidden">
+      <div className="rounded-xl border overflow-hidden">
         <div ref={containerRef} style={{ height: 600, backgroundColor: '#0a0a0a' }} />
       </div>
     </div>
