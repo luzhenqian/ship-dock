@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { MinRole } from '../common/decorators/roles.decorator';
@@ -37,6 +37,33 @@ export class DatabaseBrowserController {
     @Param('table') table: string,
   ) {
     return this.dbService.getTableStructure(projectId, table);
+  }
+
+  @Post('tables/:table/rows') @MinRole('DEVELOPER')
+  insertRow(
+    @Param('projectId') projectId: string,
+    @Param('table') table: string,
+    @Body() body: { data: Record<string, any> },
+  ) {
+    return this.dbService.insertRow(projectId, table, body.data);
+  }
+
+  @Patch('tables/:table/rows') @MinRole('DEVELOPER')
+  updateRow(
+    @Param('projectId') projectId: string,
+    @Param('table') table: string,
+    @Body() body: { primaryKeys: Record<string, any>; column: string; value: any },
+  ) {
+    return this.dbService.updateRow(projectId, table, body.primaryKeys, body.column, body.value);
+  }
+
+  @Delete('tables/:table/rows') @MinRole('DEVELOPER')
+  deleteRows(
+    @Param('projectId') projectId: string,
+    @Param('table') table: string,
+    @Body() body: { rows: Record<string, any>[] },
+  ) {
+    return this.dbService.deleteRows(projectId, table, body.rows);
   }
 
   @Post('query') @MinRole('DEVELOPER')

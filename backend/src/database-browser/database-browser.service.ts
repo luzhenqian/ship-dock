@@ -6,6 +6,24 @@ const ALLOWED_SQL = /^\s*(SELECT|INSERT|UPDATE|DELETE|EXPLAIN)\b/i;
 const BLOCKED_SQL = /\b(DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE|SET|COPY|DO|EXECUTE|PREPARE|CALL)\b/i;
 const HAS_SEMICOLON = /;[\s]*\S/; // detects multi-statement queries
 
+function throwPgError(err: any): never {
+  if (err?.code) {
+    const detail = err.detail ? `: ${err.detail}` : '';
+    const messages: Record<string, string> = {
+      '23505': `Duplicate key violation${detail}`,
+      '23503': `Foreign key violation${detail}`,
+      '23502': `Not-null violation: column "${err.column}" cannot be null`,
+      '23514': `Check constraint violation${detail}`,
+      '22P02': `Invalid input syntax${detail}`,
+      '22003': `Numeric value out of range${detail}`,
+      '22001': `Value too long for column${detail}`,
+      '42703': `Column not found${detail}`,
+    };
+    throw new BadRequestException(messages[err.code] || `Database error (${err.code})${detail}`);
+  }
+  throw err;
+}
+
 @Injectable()
 export class DatabaseBrowserService {
   constructor(
@@ -49,7 +67,98 @@ export class DatabaseBrowserService {
       WHERE schemaname = 'public' AND tablename = $1
     `, [table]);
 
-    return { columns: columns.rows, indexes: indexes.rows };
+    const primaryKeys = await pool.query(`
+      SELECT a.attname AS column_name
+      FROM pg_index i
+      JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+      WHERE i.indrelid = ('"' || $1 || '"')::regclass AND i.indisprimary
+      ORDER BY array_position(i.indkey, a.attnum)
+    `, [table]);
+
+    return { columns: columns.rows, indexes: indexes.rows, primaryKeys: primaryKeys.rows.map((r) => r.column_name) };
+  }
+
+  async updateRow(
+    projectId: string,
+    table: string,
+    primaryKeys: Record<string, any>,
+    column: string,
+    value: any,
+  ) {
+    const pool = await this.getPool(projectId);
+
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(table)) {
+      throw new BadRequestException('Invalid table name');
+    }
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(column)) {
+      throw new BadRequestException('Invalid column name');
+    }
+
+    const pkEntries = Object.entries(primaryKeys);
+    if (pkEntries.length === 0) {
+      throw new BadRequestException('Primary key values are required');
+    }
+
+    for (const key of pkEntries.map(([k]) => k)) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+        throw new BadRequestException('Invalid primary key column name');
+      }
+    }
+
+    const whereClause = pkEntries
+      .map(([k], i) => `"${k}" = $${i + 2}`)
+      .join(' AND ');
+    const params = [value, ...pkEntries.map(([, v]) => v)];
+
+    try {
+      const result = await pool.query(
+        `UPDATE "${table}" SET "${column}" = $1 WHERE ${whereClause}`,
+        params,
+      );
+
+      if (result.rowCount === 0) {
+        throw new BadRequestException('Row not found');
+      }
+
+      return { updated: result.rowCount };
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throwPgError(err);
+    }
+  }
+
+  async insertRow(projectId: string, table: string, data: Record<string, any>) {
+    const pool = await this.getPool(projectId);
+
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(table)) {
+      throw new BadRequestException('Invalid table name');
+    }
+
+    const entries = Object.entries(data).filter(([, v]) => v !== undefined);
+    if (entries.length === 0) {
+      try {
+        const result = await pool.query(`INSERT INTO "${table}" DEFAULT VALUES RETURNING *`);
+        return result.rows[0];
+      } catch (err) { throwPgError(err); }
+    }
+
+    for (const [col] of entries) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col)) {
+        throw new BadRequestException('Invalid column name');
+      }
+    }
+
+    const columns = entries.map(([k]) => `"${k}"`).join(', ');
+    const placeholders = entries.map((_, i) => `$${i + 1}`).join(', ');
+    const values = entries.map(([, v]) => v === '' ? null : v);
+
+    try {
+      const result = await pool.query(
+        `INSERT INTO "${table}" (${columns}) VALUES (${placeholders}) RETURNING *`,
+        values,
+      );
+      return result.rows[0];
+    } catch (err) { throwPgError(err); }
   }
 
   async getTableData(
@@ -91,6 +200,41 @@ export class DatabaseBrowserService {
     };
   }
 
+  async deleteRows(
+    projectId: string,
+    table: string,
+    rows: Record<string, any>[],
+  ) {
+    const pool = await this.getPool(projectId);
+
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(table)) {
+      throw new BadRequestException('Invalid table name');
+    }
+    if (!rows.length) {
+      throw new BadRequestException('No rows specified');
+    }
+
+    // Validate all pk column names
+    const pkColumns = Object.keys(rows[0]);
+    for (const col of pkColumns) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col)) {
+        throw new BadRequestException('Invalid primary key column name');
+      }
+    }
+
+    try {
+      let deleted = 0;
+      for (const pkValues of rows) {
+        const entries = Object.entries(pkValues);
+        const whereClause = entries.map(([k], i) => `"${k}" = $${i + 1}`).join(' AND ');
+        const params = entries.map(([, v]) => v);
+        const result = await pool.query(`DELETE FROM "${table}" WHERE ${whereClause}`, params);
+        deleted += result.rowCount ?? 0;
+      }
+      return { deleted };
+    } catch (err) { throwPgError(err); }
+  }
+
   async executeQuery(projectId: string, sql: string) {
     if (HAS_SEMICOLON.test(sql)) {
       throw new BadRequestException('Multi-statement queries are not allowed');
@@ -103,13 +247,14 @@ export class DatabaseBrowserService {
     }
 
     const pool = await this.getPool(projectId);
-    const result = await pool.query(sql);
-
-    return {
-      rows: result.rows || [],
-      columns: result.fields?.map((f) => f.name) || [],
-      rowCount: result.rowCount,
-      command: result.command,
-    };
+    try {
+      const result = await pool.query(sql);
+      return {
+        rows: result.rows || [],
+        columns: result.fields?.map((f) => f.name) || [],
+        rowCount: result.rowCount,
+        command: result.command,
+      };
+    } catch (err) { throwPgError(err); }
   }
 }

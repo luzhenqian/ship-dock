@@ -32,6 +32,36 @@ export function useTableStructure(projectId: string, table: string) {
   });
 }
 
+export function useInsertRow(projectId: string, table: string) {
+  return useMutation({
+    mutationFn: (data: Record<string, any>) =>
+      api(`/projects/${projectId}/database/tables/${table}/rows`, {
+        method: 'POST',
+        body: JSON.stringify({ data }),
+      }),
+  });
+}
+
+export function useDeleteRows(projectId: string, table: string) {
+  return useMutation({
+    mutationFn: (rows: Record<string, any>[]) =>
+      api(`/projects/${projectId}/database/tables/${table}/rows`, {
+        method: 'DELETE',
+        body: JSON.stringify({ rows }),
+      }),
+  });
+}
+
+export function useUpdateRow(projectId: string, table: string) {
+  return useMutation({
+    mutationFn: (data: { primaryKeys: Record<string, any>; column: string; value: any }) =>
+      api(`/projects/${projectId}/database/tables/${table}/rows`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+  });
+}
+
 export function useExecuteQuery(projectId: string) {
   return useMutation({
     mutationFn: (sql: string) =>

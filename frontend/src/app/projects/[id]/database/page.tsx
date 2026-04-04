@@ -1,12 +1,16 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useDatabaseTables, useTableData, useTableStructure } from '@/hooks/use-database';
+import { useDatabaseTables, useTableData, useTableStructure, useUpdateRow, useDeleteRows, useInsertRow } from '@/hooks/use-database';
+import { useQueryClient } from '@tanstack/react-query';
 import { SqlQueryPanel } from '@/components/sql-query-panel';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 
 type SubView = 'data' | 'structure' | 'query';
+type EditingCell = { rowIndex: number; column: string } | null;
+type NewRow = Record<string, string> | null;
 
 export default function DatabasePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -14,6 +18,16 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
   const [subView, setSubView] = useState<SubView>('data');
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<{ column: string; order: 'asc' | 'desc' } | null>(null);
+  const [editingCell, setEditingCell] = useState<EditingCell>(null);
+  const [editValue, setEditValue] = useState('');
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [newRow, setNewRow] = useState<NewRow>(null);
+  const [newRowEditingCol, setNewRowEditingCol] = useState<string | null>(null);
+  const [copiedRow, setCopiedRow] = useState<Record<string, any> | null>(null);
+  const editRef = useRef<HTMLInputElement>(null);
+  const newRowRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   const { data: tables, isLoading: tablesLoading, error: tablesError } = useDatabaseTables(id);
   const { data: tableData, isLoading: dataLoading } = useTableData(id, selectedTable, {
@@ -23,6 +37,153 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
     order: sort?.order,
   });
   const { data: structure } = useTableStructure(id, selectedTable);
+  const updateRow = useUpdateRow(id, selectedTable);
+  const deleteRows = useDeleteRows(id, selectedTable);
+  const insertRow = useInsertRow(id, selectedTable);
+
+  const primaryKeys: string[] = structure?.primaryKeys || [];
+
+  const toggleRowSelection = useCallback((rowIndex: number) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowIndex)) next.delete(rowIndex);
+      else next.add(rowIndex);
+      return next;
+    });
+  }, []);
+
+  const toggleAllRows = useCallback(() => {
+    if (!tableData) return;
+    setSelectedRows((prev) =>
+      prev.size === tableData.rows.length ? new Set() : new Set(tableData.rows.map((_: any, i: number) => i)),
+    );
+  }, [tableData]);
+
+  const handleDeleteSelected = useCallback(async () => {
+    if (!tableData || primaryKeys.length === 0) return;
+
+    const rowPks = Array.from(selectedRows).map((i) => {
+      const row = tableData.rows[i];
+      const pk: Record<string, any> = {};
+      for (const k of primaryKeys) pk[k] = row[k];
+      return pk;
+    });
+
+    try {
+      await deleteRows.mutateAsync(rowPks);
+      queryClient.invalidateQueries({ queryKey: ['db-table-data', id, selectedTable] });
+      setSelectedRows(new Set());
+    } catch {
+      // error visible via mutation state
+    }
+  }, [tableData, primaryKeys, selectedRows, deleteRows, queryClient, id, selectedTable]);
+
+  const handleAddRow = useCallback(() => {
+    if (!tableData) return;
+    const empty: Record<string, string> = {};
+    for (const col of tableData.columns) empty[col] = '';
+    setNewRow(empty);
+    setNewRowEditingCol(tableData.columns[0] || null);
+  }, [tableData]);
+
+  const handleCopyRow = useCallback(() => {
+    if (!tableData || selectedRows.size !== 1) return;
+    const idx = Array.from(selectedRows)[0];
+    setCopiedRow({ ...tableData.rows[idx] });
+  }, [tableData, selectedRows]);
+
+  const handlePasteRow = useCallback(() => {
+    if (!copiedRow || !tableData) return;
+    const row: Record<string, string> = {};
+    for (const col of tableData.columns) {
+      row[col] = copiedRow[col] === null ? '' : String(copiedRow[col]);
+    }
+    // Clear primary key values so DB can auto-generate
+    for (const pk of primaryKeys) {
+      const colDef = structure?.columns?.find((c: any) => c.column_name === pk);
+      if (colDef?.column_default) row[pk] = '';
+    }
+    setNewRow(row);
+    setNewRowEditingCol(tableData.columns[0] || null);
+  }, [copiedRow, tableData, primaryKeys, structure]);
+
+  const handleSaveNewRow = useCallback(async () => {
+    if (!newRow) return;
+    const data: Record<string, any> = {};
+    for (const [k, v] of Object.entries(newRow)) {
+      if (v !== '') data[k] = v;
+    }
+    try {
+      await insertRow.mutateAsync(data);
+      queryClient.invalidateQueries({ queryKey: ['db-table-data', id, selectedTable] });
+      setNewRow(null);
+      setNewRowEditingCol(null);
+    } catch {
+      // error visible via mutation state
+    }
+  }, [newRow, insertRow, queryClient, id, selectedTable]);
+
+  const handleCancelNewRow = useCallback(() => {
+    setNewRow(null);
+    setNewRowEditingCol(null);
+  }, []);
+
+  const handleCellDoubleClick = useCallback((rowIndex: number, column: string, currentValue: any) => {
+    if (primaryKeys.length === 0) return;
+    setEditingCell({ rowIndex, column });
+    setEditValue(currentValue === null ? '' : String(currentValue));
+  }, [primaryKeys.length]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingCell(null);
+    setEditValue('');
+  }, []);
+
+  const handleSaveEdit = useCallback(async (row: any) => {
+    if (!editingCell || primaryKeys.length === 0) {
+      setEditingCell(null);
+      setEditValue('');
+      return;
+    }
+
+    const originalValue = row[editingCell.column];
+    const originalStr = originalValue === null ? '' : String(originalValue);
+
+    if (editValue === originalStr) {
+      setEditingCell(null);
+      setEditValue('');
+      return;
+    }
+
+    const pkValues: Record<string, any> = {};
+    for (const pk of primaryKeys) {
+      pkValues[pk] = row[pk];
+    }
+
+    const value = editValue === '' ? null : editValue;
+
+    try {
+      await updateRow.mutateAsync({ primaryKeys: pkValues, column: editingCell.column, value });
+      queryClient.invalidateQueries({ queryKey: ['db-table-data', id, selectedTable] });
+    } catch {
+      // error is visible via mutation state
+    }
+    setEditingCell(null);
+    setEditValue('');
+  }, [editingCell, primaryKeys, editValue, updateRow, queryClient, id, selectedTable]);
+
+  useEffect(() => {
+    if (editingCell && editRef.current) {
+      editRef.current.focus();
+      editRef.current.select();
+    }
+  }, [editingCell]);
+
+  useEffect(() => {
+    if (newRowEditingCol && newRowRef.current) {
+      newRowRef.current.focus();
+    }
+  }, [newRowEditingCol]);
 
   const handleSort = (column: string) => {
     setSort((prev) =>
@@ -46,7 +207,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
             <button
               key={t.table_name}
               className={`w-full text-left px-3 py-2 text-sm hover:bg-foreground/[0.04] ${selectedTable === t.table_name ? 'bg-foreground/[0.06] font-medium' : 'text-foreground-secondary'}`}
-              onClick={() => { setSelectedTable(t.table_name); setPage(1); setSort(null); }}
+              onClick={() => { setSelectedTable(t.table_name); setPage(1); setSort(null); setSelectedRows(new Set()); setNewRow(null); setCopiedRow(null); }}
             >
               {t.table_name}
             </button>
@@ -70,10 +231,44 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
 
             {subView === 'data' && tableData && (
               <>
+                <div className="flex items-center gap-2 mb-2">
+                  <Button size="sm" variant="outline" onClick={handleAddRow} disabled={!!newRow}>
+                    + Insert
+                  </Button>
+                  {primaryKeys.length > 0 && selectedRows.size === 1 && (
+                    <Button size="sm" variant="outline" onClick={handleCopyRow}>
+                      Copy
+                    </Button>
+                  )}
+                  {copiedRow && (
+                    <Button size="sm" variant="outline" onClick={handlePasteRow} disabled={!!newRow}>
+                      Paste
+                    </Button>
+                  )}
+                  {primaryKeys.length > 0 && selectedRows.size > 0 && (
+                    <>
+                      <div className="w-px h-5 bg-border" />
+                      <span className="text-sm text-muted-foreground">Selected {selectedRows.size}</span>
+                      <Button size="sm" variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
+                        Delete
+                      </Button>
+                    </>
+                  )}
+                </div>
                 <div className="border rounded-xl overflow-auto max-h-[calc(100vh-340px)]">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-muted/30 border-b sticky top-0">
+                        {primaryKeys.length > 0 && (
+                          <th className="px-3 py-2 w-8">
+                            <input
+                              type="checkbox"
+                              checked={tableData.rows.length > 0 && selectedRows.size === tableData.rows.length}
+                              onChange={toggleAllRows}
+                              className="rounded"
+                            />
+                          </th>
+                        )}
                         {tableData.columns.map((col: string) => (
                           <th
                             key={col}
@@ -87,19 +282,97 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
                     </thead>
                     <tbody>
                       {tableData.rows.map((row: any, i: number) => (
-                        <tr key={i} className="border-b last:border-0 hover:bg-foreground/[0.04]">
+                        <tr key={i} className={`border-b last:border-0 hover:bg-foreground/[0.04] ${selectedRows.has(i) ? 'bg-foreground/[0.06]' : ''}`}>
+                          {primaryKeys.length > 0 && (
+                            <td className="px-3 py-2 w-8">
+                              <input
+                                type="checkbox"
+                                checked={selectedRows.has(i)}
+                                onChange={() => toggleRowSelection(i)}
+                                className="rounded"
+                              />
+                            </td>
+                          )}
+                          {tableData.columns.map((col: string) => {
+                            const isEditing = editingCell?.rowIndex === i && editingCell?.column === col;
+                            return (
+                              <td
+                                key={col}
+                                className={`px-3 py-2 whitespace-nowrap font-mono text-xs max-w-xs ${isEditing ? '' : 'truncate'} ${primaryKeys.length > 0 ? 'cursor-text' : ''}`}
+                                onDoubleClick={() => handleCellDoubleClick(i, col, row[col])}
+                              >
+                                {isEditing ? (
+                                  <input
+                                    ref={editRef}
+                                    className="w-full bg-background border rounded px-1.5 py-0.5 font-mono text-xs outline-none focus:ring-1 focus:ring-ring"
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveEdit(row);
+                                      if (e.key === 'Escape') handleCancelEdit();
+                                    }}
+                                    onBlur={() => handleSaveEdit(row)}
+                                  />
+                                ) : (
+                                  row[col] === null ? <span className="text-muted-foreground italic">NULL</span> : String(row[col])
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                      {newRow && (
+                        <tr className="border-b last:border-0 bg-green-500/5">
+                          {primaryKeys.length > 0 && <td className="px-3 py-2 w-8" />}
                           {tableData.columns.map((col: string) => (
-                            <td key={col} className="px-3 py-2 whitespace-nowrap font-mono text-xs max-w-xs truncate">
-                              {row[col] === null ? <span className="text-muted-foreground italic">NULL</span> : String(row[col])}
+                            <td key={col} className="px-3 py-1 whitespace-nowrap font-mono text-xs">
+                              <input
+                                ref={newRowEditingCol === col ? newRowRef : undefined}
+                                className="w-full bg-background border rounded px-1.5 py-0.5 font-mono text-xs outline-none focus:ring-1 focus:ring-ring"
+                                value={newRow[col] ?? ''}
+                                placeholder={structure?.columns?.find((c: any) => c.column_name === col)?.column_default ? 'DEFAULT' : 'NULL'}
+                                onChange={(e) => setNewRow((prev) => prev ? { ...prev, [col]: e.target.value } : prev)}
+                                onFocus={() => setNewRowEditingCol(col)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveNewRow();
+                                  if (e.key === 'Escape') handleCancelNewRow();
+                                  if (e.key === 'Tab') {
+                                    const cols = tableData.columns;
+                                    const idx = cols.indexOf(col);
+                                    const next = e.shiftKey ? cols[idx - 1] : cols[idx + 1];
+                                    if (next) { e.preventDefault(); setNewRowEditingCol(next); }
+                                  }
+                                }}
+                              />
                             </td>
                           ))}
                         </tr>
-                      ))}
+                      )}
                     </tbody>
+                    {newRow && (
+                      <tfoot>
+                        <tr>
+                          <td colSpan={tableData.columns.length + (primaryKeys.length > 0 ? 1 : 0)} className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" onClick={handleSaveNewRow}>Save</Button>
+                              <Button size="sm" variant="outline" onClick={handleCancelNewRow}>Cancel</Button>
+                              <span className="text-xs text-muted-foreground">Enter to save · Escape to cancel · Tab to move between fields</span>
+                            </div>
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </div>
+                {(updateRow.isError || deleteRows.isError || insertRow.isError) && (
+                  <div className="mt-2 text-xs text-destructive bg-destructive/10 px-3 py-1.5 rounded">
+                    {updateRow.isError && <>Update failed: {(updateRow.error as any)?.message || 'Unknown error'}</>}
+                    {deleteRows.isError && <>Delete failed: {(deleteRows.error as any)?.message || 'Unknown error'}</>}
+                    {insertRow.isError && <>Insert failed: {(insertRow.error as any)?.message || 'Unknown error'}</>}
+                  </div>
+                )}
                 <div className="flex items-center justify-between mt-3 text-sm text-muted-foreground">
-                  <span>{tableData.total} rows total</span>
+                  <span>{tableData.total} rows total{primaryKeys.length === 0 ? ' · No primary key (read-only)' : ''}</span>
                   <div className="flex items-center gap-2">
                     <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>←</Button>
                     <span>{page} / {tableData.totalPages}</span>
@@ -166,6 +439,15 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete rows"
+        description={`Are you sure you want to delete ${selectedRows.size} row${selectedRows.size > 1 ? 's' : ''}? This action cannot be undone.`}
+        onConfirm={handleDeleteSelected}
+        destructive
+      />
     </div>
   );
 }
