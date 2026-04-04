@@ -10,6 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EnvVarEditor } from '@/components/env-var-editor';
+import { useServices, useCreateService, useDeleteService, useDetectServices, useTestService } from '@/hooks/use-services';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
 
 export default function ProjectSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
@@ -32,6 +36,15 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [startCommand, setStartCommand] = useState('');
   const [envVars, setEnvVars] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [showAddService, setShowAddService] = useState(false);
+  const [newService, setNewService] = useState({ type: 'POSTGRESQL', name: '', config: '' });
+  const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
+
+  const { data: services, refetch: refetchServices } = useServices(projectId);
+  const createService = useCreateService(projectId);
+  const deleteService = useDeleteService(projectId);
+  const detectServices = useDetectServices(projectId);
+  const testService = useTestService(projectId);
 
   useEffect(() => {
     if (project) {
@@ -183,6 +196,153 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           <EnvVarEditor value={envVars} onChange={setEnvVars} />
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Services</CardTitle>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => detectServices.mutate(undefined, {
+                  onSuccess: (data) => {
+                    refetchServices();
+                    toast.success(data.length > 0 ? `Detected ${data.length} service(s)` : 'No new services detected');
+                  },
+                })}
+                disabled={detectServices.isPending}
+              >
+                {detectServices.isPending ? 'Detecting...' : 'Auto Detect'}
+              </Button>
+              <Button size="sm" onClick={() => setShowAddService(true)}>+ Add Service</Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-4">
+            Configure connections to your project&apos;s PostgreSQL, Redis, and MinIO services. Use &quot;Auto Detect&quot; to discover connections from environment variables.
+          </p>
+          {(!services || services.length === 0) ? (
+            <p className="text-sm text-muted-foreground py-4 text-center border rounded-md">
+              No services configured. Click &quot;Auto Detect&quot; or &quot;+ Add Service&quot; to get started.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {services.map((svc: any) => (
+                <div key={svc.id} className="flex items-center justify-between p-3 border rounded-md">
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                      svc.type === 'POSTGRESQL' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+                      svc.type === 'REDIS' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
+                      'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                    }`}>
+                      {svc.type}
+                    </span>
+                    <span className="text-sm font-medium">{svc.name}</span>
+                    {svc.autoDetected && <span className="text-xs text-muted-foreground">(auto)</span>}
+                    {testResults[svc.id] && (
+                      <span className={`text-xs ${testResults[svc.id].success ? 'text-green-600' : 'text-red-600'}`}>
+                        {testResults[svc.id].success ? '✓ Connected' : `✗ ${testResults[svc.id].message}`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => testService.mutate(svc.id, {
+                        onSuccess: (result) => setTestResults((prev) => ({ ...prev, [svc.id]: result })),
+                      })}
+                    >
+                      Test
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        if (confirm(`Delete "${svc.name}"?`)) {
+                          deleteService.mutate(svc.id);
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={showAddService} onOpenChange={setShowAddService}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Service Connection</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Type</Label>
+              <select
+                value={newService.type}
+                onChange={(e) => setNewService({ ...newService, type: e.target.value })}
+                className="w-full h-9 rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="POSTGRESQL">PostgreSQL</option>
+                <option value="REDIS">Redis</option>
+                <option value="MINIO">MinIO</option>
+              </select>
+            </div>
+            <div>
+              <Label>Name</Label>
+              <Input
+                value={newService.name}
+                onChange={(e) => setNewService({ ...newService, name: e.target.value })}
+                placeholder="e.g. Main Database"
+              />
+            </div>
+            <div>
+              <Label>Config (JSON)</Label>
+              <textarea
+                value={newService.config}
+                onChange={(e) => setNewService({ ...newService, config: e.target.value })}
+                placeholder={
+                  newService.type === 'POSTGRESQL'
+                    ? '{"host":"localhost","port":5432,"database":"mydb","user":"postgres","password":"xxx"}'
+                    : newService.type === 'REDIS'
+                    ? '{"host":"localhost","port":6379,"password":"","db":0}'
+                    : '{"endPoint":"localhost","port":9000,"accessKey":"xxx","secretKey":"xxx","useSSL":false}'
+                }
+                className="w-full h-24 p-2 font-mono text-xs border rounded-md bg-background resize-y"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddService(false)}>Cancel</Button>
+            <Button
+              disabled={!newService.name || !newService.config || createService.isPending}
+              onClick={() => {
+                let config: Record<string, any>;
+                try { config = JSON.parse(newService.config); } catch { toast.error('Invalid JSON'); return; }
+                createService.mutate(
+                  { type: newService.type, name: newService.name, config },
+                  {
+                    onSuccess: () => {
+                      setShowAddService(false);
+                      setNewService({ type: 'POSTGRESQL', name: '', config: '' });
+                      toast.success('Service added');
+                    },
+                    onError: (err: any) => toast.error(err.message),
+                  },
+                );
+              }}
+            >
+              {createService.isPending ? 'Adding...' : 'Add'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex justify-between items-center">
         <Button onClick={handleSave} disabled={saving}>
