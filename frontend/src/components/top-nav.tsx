@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTheme } from 'next-themes';
+import { SunIcon, MoonIcon } from 'lucide-react';
 
 const globalLinks = [
   { href: '/domains', label: 'Domains' },
@@ -16,6 +18,7 @@ interface TopNavProps {
 
 export function TopNav({ projectName, projectId }: TopNavProps) {
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
 
   return (
     <header className="sticky top-0 z-40 flex h-12 items-center justify-between border-b bg-background/80 px-5 backdrop-blur-sm">
@@ -52,6 +55,14 @@ export function TopNav({ projectName, projectId }: TopNavProps) {
             {link.label}
           </Link>
         ))}
+        <button
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground-muted hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
+          aria-label="Toggle theme"
+        >
+          <SunIcon className="size-4 dark:hidden" />
+          <MoonIcon className="hidden size-4 dark:block" />
+        </button>
       </nav>
     </header>
   );
