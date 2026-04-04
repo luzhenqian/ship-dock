@@ -14,7 +14,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   const [deleteTarget, setDeleteTarget] = useState<{ bucket: string; key: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: buckets, isLoading } = useStorageBuckets(id);
+  const { data: buckets, isLoading, error } = useStorageBuckets(id);
   const { data: objects } = useStorageObjects(id, selectedBucket, prefix);
   const uploadMutation = useUploadFile(id);
   const deleteMutation = useDeleteFile(id);
@@ -70,7 +70,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   };
 
   if (isLoading) return <div className="text-sm text-muted-foreground">Loading...</div>;
-  if (!buckets?.length) return <div className="text-sm text-muted-foreground">No MinIO connection configured. Add one in Settings → Services.</div>;
+  if (error || !buckets?.length) return <div className="text-sm text-muted-foreground">No MinIO connection configured. Add one in Settings → Services.</div>;
 
   return (
     <div className="flex gap-4" style={{ height: 'calc(100vh - 220px)' }}>

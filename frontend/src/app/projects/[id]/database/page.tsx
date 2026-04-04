@@ -15,7 +15,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<{ column: string; order: 'asc' | 'desc' } | null>(null);
 
-  const { data: tables, isLoading: tablesLoading } = useDatabaseTables(id);
+  const { data: tables, isLoading: tablesLoading, error: tablesError } = useDatabaseTables(id);
   const { data: tableData, isLoading: dataLoading } = useTableData(id, selectedTable, {
     page,
     pageSize: 50,
@@ -34,7 +34,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
   };
 
   if (tablesLoading) return <div className="text-sm text-muted-foreground">Loading tables...</div>;
-  if (!tables?.length) return <div className="text-sm text-muted-foreground">No PostgreSQL connection configured. Add one in Settings → Services.</div>;
+  if (tablesError || !tables?.length) return <div className="text-sm text-muted-foreground">No PostgreSQL connection configured. Add one in Settings → Services.</div>;
 
   return (
     <div className="flex gap-4" style={{ height: 'calc(100vh - 220px)' }}>

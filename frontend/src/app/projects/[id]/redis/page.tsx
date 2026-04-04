@@ -21,7 +21,7 @@ export default function RedisPage({ params }: { params: Promise<{ id: string }> 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [newKey, setNewKey] = useState({ key: '', type: 'string', value: '', ttl: '' });
 
-  const { data: keysData, isLoading } = useRedisKeys(id, pattern);
+  const { data: keysData, isLoading, error } = useRedisKeys(id, pattern);
   const { data: keyDetail } = useRedisKeyDetail(id, selectedKey);
   const deleteMutation = useDeleteRedisKey(id);
   const createMutation = useCreateRedisKey(id);
@@ -37,6 +37,7 @@ export default function RedisPage({ params }: { params: Promise<{ id: string }> 
   };
 
   if (isLoading) return <div className="text-sm text-muted-foreground">Loading...</div>;
+  if (error) return <div className="text-sm text-muted-foreground">No Redis connection configured. Add one in Settings → Services.</div>;
 
   const typeColors: Record<string, string> = {
     string: 'text-green-600',
