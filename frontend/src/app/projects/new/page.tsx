@@ -28,6 +28,7 @@ export default function NewProjectPage() {
     slug: '',
     domain: '',
     port: '',
+    useLocalDb: false,
     envVars: {} as Record<string, string>,
   });
 
@@ -110,6 +111,7 @@ export default function NewProjectPage() {
       branch: form.branch,
       domain: form.domain || undefined,
       port: form.port ? parseInt(form.port) : undefined,
+      useLocalDb: form.useLocalDb || undefined,
       envVars: Object.keys(form.envVars).length > 0 ? form.envVars : undefined,
     });
     router.push('/dashboard');
@@ -174,6 +176,21 @@ export default function NewProjectPage() {
             <div><Label>Slug</Label><Input value={form.slug} onChange={(e) => update({ slug: e.target.value })} className="font-mono" /><p className="text-xs text-muted-foreground mt-1">Used for directory name and PM2 process</p></div>
             <div><Label>Domain (optional)</Label><Input placeholder="app.example.com" value={form.domain} onChange={(e) => update({ domain: e.target.value })} /></div>
             <div><Label>Port (optional, auto-assigned if empty)</Label><Input type="number" placeholder="3001-3999" value={form.port} onChange={(e) => update({ port: e.target.value })} /></div>
+            <div className="flex items-center gap-3 py-2">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.useLocalDb}
+                onClick={() => update({ useLocalDb: !form.useLocalDb })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${form.useLocalDb ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform ${form.useLocalDb ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+              <div>
+                <Label className="cursor-pointer" onClick={() => update({ useLocalDb: !form.useLocalDb })}>Use platform database</Label>
+                <p className="text-xs text-muted-foreground">Auto-create a PostgreSQL database and inject DATABASE_URL</p>
+              </div>
+            </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep('source')}>Back</Button>
               <Button onClick={() => setStep('env')} disabled={!form.name || !form.slug}>Next</Button>
@@ -203,6 +220,7 @@ export default function NewProjectPage() {
               <p><strong>Slug:</strong> {form.slug}</p>
               {form.domain && <p><strong>Domain:</strong> {form.domain}</p>}
               {form.port && <p><strong>Port:</strong> {form.port}</p>}
+              {form.useLocalDb && <p><strong>Database:</strong> Platform PostgreSQL (auto-provisioned)</p>}
               {Object.keys(form.envVars).length > 0 && <p><strong>Env vars:</strong> {Object.keys(form.envVars).length} variables</p>}
             </div>
             <div className="flex gap-2">

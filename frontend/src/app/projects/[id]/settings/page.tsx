@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EnvVarEditor } from '@/components/env-var-editor';
 import { useServices, useCreateService, useDeleteService, useDetectServices, useTestService } from '@/hooks/use-services';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -39,6 +40,10 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [showAddService, setShowAddService] = useState(false);
   const [newService, setNewService] = useState({ type: 'POSTGRESQL', name: '', config: '' });
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
+  const [provisioning, setProvisioning] = useState(false);
+  const [showDbDeleteConfirm, setShowDbDeleteConfirm] = useState(false);
+  const [dbDeleting, setDbDeleting] = useState(false);
+  const [dbExporting, setDbExporting] = useState(false);
 
   const { data: services, refetch: refetchServices } = useServices(projectId);
   const createService = useCreateService(projectId);
@@ -187,6 +192,86 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           <p className="text-xs text-muted-foreground">
             The entry file for PM2 to run. Leave empty to auto-detect from <code className="bg-muted px-1 rounded">package.json</code> (uses <code className="bg-muted px-1 rounded">npm start</code> or <code className="bg-muted px-1 rounded">dist/main.js</code>).
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Database</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {project.useLocalDb ? (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Active</span>
+                <span className="text-sm">Platform PostgreSQL</span>
+                <code className="text-xs bg-muted px-2 py-0.5 rounded font-mono">{project.dbName}</code>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={dbExporting}
+                  onClick={async () => {
+                    setDbExporting(true);
+                    try {
+                      const res = await fetch(
+                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/projects/${projectId}/export-database`,
+                        { headers: { Authorization: `Bearer ${(await import('@/lib/api')).getAccessToken()}` } },
+                      );
+                      if (!res.ok) throw new Error('Export failed');
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${project.dbName}-export.sql`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      toast.success('Database exported');
+                    } catch (err: any) {
+                      toast.error(`Export failed: ${err.message}`);
+                    } finally {
+                      setDbExporting(false);
+                    }
+                  }}
+                >
+                  {dbExporting ? 'Exporting...' : 'Export SQL'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={dbDeleting}
+                  onClick={() => setShowDbDeleteConfirm(true)}
+                >
+                  Disable & Delete
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Enable platform database to auto-create a PostgreSQL database and inject <code className="bg-muted px-1 rounded">DATABASE_URL</code> into environment variables.
+              </p>
+              <Button
+                size="sm"
+                disabled={provisioning}
+                onClick={async () => {
+                  setProvisioning(true);
+                  try {
+                    await api(`/projects/${projectId}/provision-database`, { method: 'POST' });
+                    toast.success('Database created', { description: 'DATABASE_URL has been added to your environment variables. Redeploy to apply.' });
+                    refetch();
+                    const newEnv = await api<Record<string, string>>(`/projects/${projectId}/env`);
+                    setEnvVars(newEnv);
+                  } catch (err: any) {
+                    toast.error(`Failed: ${err.message}`);
+                  } finally {
+                    setProvisioning(false);
+                  }
+                }}
+              >
+                {provisioning ? 'Creating...' : 'Enable Platform Database'}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -361,6 +446,28 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           <Button variant="destructive" onClick={handleDelete}>Delete Project</Button>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={showDbDeleteConfirm}
+        onOpenChange={setShowDbDeleteConfirm}
+        title="Delete platform database"
+        description={`This will permanently delete the database "${project.dbName}" and all its data. This action cannot be undone. Consider exporting your data first.`}
+        onConfirm={async () => {
+          setDbDeleting(true);
+          try {
+            await api(`/projects/${projectId}/provision-database`, { method: 'DELETE' });
+            toast.success('Database deleted', { description: 'DATABASE_URL has been removed from environment variables.' });
+            refetch();
+            const newEnv = await api<Record<string, string>>(`/projects/${projectId}/env`);
+            setEnvVars(newEnv);
+          } catch (err: any) {
+            toast.error(`Failed: ${err.message}`);
+          } finally {
+            setDbDeleting(false);
+          }
+        }}
+        destructive
+      />
     </div>
   );
 }

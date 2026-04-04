@@ -6,9 +6,10 @@ import { DeployController } from './deploy.controller';
 import { DeployProcessor } from './deploy.processor';
 import { DeployGateway } from './deploy.gateway';
 import { ProjectsModule } from '../projects/projects.module';
+import { DomainsModule } from '../domains/domains.module';
 
 @Module({
-  imports: [BullModule.registerQueue({ name: 'deploy' }), JwtModule.register({}), ProjectsModule],
+  imports: [BullModule.registerQueue({ name: 'deploy' }), JwtModule.register({}), ProjectsModule, DomainsModule],
   controllers: [DeployController],
   providers: [DeployService, DeployProcessor, DeployGateway],
   exports: [DeployService, DeployGateway],

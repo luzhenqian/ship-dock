@@ -43,10 +43,10 @@ ${proxyBlock}
   async execute(config: NginxConfig, ctx: StageContext): Promise<StageResult> {
     const confPath = `/etc/nginx/sites-available/${config.slug}.conf`;
     const enabledPath = `/etc/nginx/sites-enabled/${config.slug}.conf`;
-    try { writeFileSync(confPath, this.buildConfig(config)); ctx.onLog(`Wrote nginx config to ${confPath}`); }
-    catch (err: any) { return { success: false, error: `Failed to write nginx config: ${err.message}` }; }
-    const command = `ln -sf ${confPath} ${enabledPath} && nginx -t && nginx -s reload`;
-    ctx.onLog(`$ ${command}`);
+    const nginxConf = this.buildConfig(config);
+    // Use sudo tee to write config (avoids permission issues)
+    const command = `echo '${nginxConf.replace(/'/g, "'\\''")}' | sudo tee ${confPath} > /dev/null && sudo ln -sf ${confPath} ${enabledPath} && sudo nginx -t && sudo nginx -s reload`;
+    ctx.onLog(`Writing nginx config to ${confPath}`);
     return new Promise((resolve) => {
       const child = spawn('sh', ['-c', command]);
       child.stdout.on('data', (data) => { data.toString().split('\n').filter(Boolean).forEach((line: string) => ctx.onLog(line)); });

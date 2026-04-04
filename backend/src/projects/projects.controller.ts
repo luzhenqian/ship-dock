@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Header, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { MinRole } from '../common/decorators/roles.decorator';
@@ -68,6 +69,22 @@ export class ProjectsController {
 
   @Patch(':id/pipeline') @MinRole('DEVELOPER')
   updatePipeline(@Param('id') id: string, @Body() pipeline: any) { return this.projectsService.update(id, { pipeline }); }
+
+  @Post(':id/provision-database') @MinRole('ADMIN')
+  provisionDatabase(@Param('id') id: string) { return this.projectsService.provisionDatabase(id); }
+
+  @Delete(':id/provision-database') @MinRole('ADMIN')
+  deprovisionDatabase(@Param('id') id: string) { return this.projectsService.deprovisionDatabase(id); }
+
+  @Get(':id/export-database')
+  @MinRole('ADMIN')
+  async exportDatabase(@Param('id') id: string, @Res() res: Response) {
+    const sql = await this.projectsService.exportDatabase(id);
+    const project = await this.projectsService.findOne(id);
+    res.setHeader('Content-Type', 'application/sql');
+    res.setHeader('Content-Disposition', `attachment; filename="${project.dbName || project.slug}-export.sql"`);
+    res.send(sql);
+  }
 
   @Post(':id/stop') @MinRole('DEVELOPER')
   stop(@Param('id') id: string) { return this.projectsService.stop(id); }

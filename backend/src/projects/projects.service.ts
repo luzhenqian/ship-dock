@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { execFile } from 'child_process';
-import { writeFileSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { promisify } from 'util';
 import { PrismaService } from '../common/prisma.service';
 import { EncryptionService } from '../common/encryption.service';
+import { DatabaseProvisionerService } from '../common/database-provisioner.service';
 import { PortAllocationService } from './port-allocation.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -32,6 +33,7 @@ export class ProjectsService {
     private encryption: EncryptionService,
     private portAllocation: PortAllocationService,
     private config: ConfigService,
+    private dbProvisioner: DatabaseProvisionerService,
   ) {}
 
   private validateDirectory(dir: string): string {
@@ -48,7 +50,17 @@ export class ProjectsService {
   }
 
   async create(userId: string, dto: CreateProjectDto) {
-    const envVars = dto.envVars ? this.encryption.encrypt(JSON.stringify(dto.envVars)) : '';
+    const envVarsObj: Record<string, string> = dto.envVars || {};
+    let dbName: string | undefined;
+
+    // Auto-provision database if requested
+    if (dto.useLocalDb) {
+      dbName = await this.dbProvisioner.generateDbName(dto.slug);
+      const db = await this.dbProvisioner.provision(dbName);
+      envVarsObj.DATABASE_URL = db.databaseUrl;
+    }
+
+    const envVars = Object.keys(envVarsObj).length > 0 ? this.encryption.encrypt(JSON.stringify(envVarsObj)) : '';
     const directory = dto.directory ? this.validateDirectory(dto.directory) : dto.slug;
 
     // Create project first with a temporary port of 0
@@ -59,8 +71,29 @@ export class ProjectsService {
         branch: dto.branch || 'main', domain: dto.domain,
         port: 0, envVars, pipeline: dto.pipeline || DEFAULT_PIPELINE,
         pm2Name: dto.slug, directory, createdById: userId,
+        useLocalDb: dto.useLocalDb || false, dbName,
       },
     });
+
+    // Auto-create service connection for platform DB
+    if (dto.useLocalDb && dbName) {
+      const dbUrl = new URL(envVarsObj.DATABASE_URL);
+      await this.prisma.serviceConnection.create({
+        data: {
+          projectId: project.id,
+          type: 'POSTGRESQL',
+          name: 'Platform Database',
+          config: this.encryption.encrypt(JSON.stringify({
+            host: dbUrl.hostname,
+            port: parseInt(dbUrl.port || '5432'),
+            database: dbName,
+            user: dbUrl.username,
+            password: dbUrl.password,
+          })),
+          autoDetected: true,
+        },
+      });
+    }
 
     // Now allocate port (project exists, FK is valid)
     const port = dto.port
@@ -92,10 +125,122 @@ export class ProjectsService {
   async update(id: string, dto: UpdateProjectDto) {
     const data: any = { ...dto };
     if (data.envVars) {
+      // Sync .env file on server if project directory exists
+      this.syncEnvFile(id, data.envVars);
       data.envVars = this.encryption.encrypt(JSON.stringify(data.envVars));
     }
     delete data.port;
     return this.prisma.project.update({ where: { id }, data });
+  }
+
+  private async syncEnvFile(projectId: string, envVars: Record<string, string>) {
+    try {
+      const project = await this.prisma.project.findUnique({ where: { id: projectId } });
+      if (!project) return;
+      const projectsDir = this.getProjectsDir();
+      const repoDir = join(projectsDir, project.directory || project.slug);
+      const projectDir = project.workDir ? join(repoDir, project.workDir) : repoDir;
+      const envPath = join(projectDir, '.env');
+      if (!existsSync(projectDir)) return;
+      const envContent = Object.entries(envVars).map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
+      writeFileSync(envPath, envContent);
+    } catch {}
+  }
+
+  async provisionDatabase(id: string) {
+    const project = await this.prisma.project.findUnique({ where: { id } });
+    if (!project) throw new NotFoundException('Project not found');
+    if (project.useLocalDb && project.dbName) {
+      throw new BadRequestException('Project already has a platform database');
+    }
+
+    const dbName = await this.dbProvisioner.generateDbName(project.slug);
+    const db = await this.dbProvisioner.provision(dbName);
+
+    // Merge DATABASE_URL into existing envVars
+    let envVarsObj: Record<string, string> = {};
+    if (project.envVars) {
+      try { envVarsObj = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
+    }
+    envVarsObj.DATABASE_URL = db.databaseUrl;
+
+    await this.prisma.project.update({
+      where: { id },
+      data: {
+        useLocalDb: true,
+        dbName,
+        envVars: this.encryption.encrypt(JSON.stringify(envVarsObj)),
+      },
+    });
+
+    // Auto-create service connection
+    const dbUrl = new URL(db.databaseUrl);
+    await this.prisma.serviceConnection.create({
+      data: {
+        projectId: id,
+        type: 'POSTGRESQL',
+        name: 'Platform Database',
+        config: this.encryption.encrypt(JSON.stringify({
+          host: dbUrl.hostname,
+          port: parseInt(dbUrl.port || '5432'),
+          database: dbName,
+          user: dbUrl.username,
+          password: dbUrl.password,
+        })),
+        autoDetected: true,
+      },
+    });
+
+    return { dbName, databaseUrl: db.databaseUrl };
+  }
+
+  async deprovisionDatabase(id: string) {
+    const project = await this.prisma.project.findUnique({ where: { id } });
+    if (!project) throw new NotFoundException('Project not found');
+    if (!project.useLocalDb || !project.dbName) {
+      throw new BadRequestException('Project has no platform database');
+    }
+
+    // Drop the database
+    await this.dbProvisioner.dropDatabase(project.dbName);
+
+    // Remove DATABASE_URL from envVars
+    let envVarsObj: Record<string, string> = {};
+    if (project.envVars) {
+      try { envVarsObj = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
+    }
+    delete envVarsObj.DATABASE_URL;
+
+    // Update project
+    await this.prisma.project.update({
+      where: { id },
+      data: {
+        useLocalDb: false,
+        dbName: null,
+        envVars: Object.keys(envVarsObj).length > 0 ? this.encryption.encrypt(JSON.stringify(envVarsObj)) : '',
+      },
+    });
+
+    // Remove platform database service connection
+    await this.prisma.serviceConnection.deleteMany({
+      where: { projectId: id, type: 'POSTGRESQL', autoDetected: true },
+    });
+
+    // Sync .env file
+    if (Object.keys(envVarsObj).length > 0) {
+      this.syncEnvFile(id, envVarsObj);
+    }
+
+    return { success: true };
+  }
+
+  async exportDatabase(id: string): Promise<string> {
+    const project = await this.prisma.project.findUnique({ where: { id } });
+    if (!project) throw new NotFoundException('Project not found');
+    if (!project.useLocalDb || !project.dbName) {
+      throw new BadRequestException('Project has no platform database');
+    }
+    return this.dbProvisioner.exportDatabase(project.dbName);
   }
 
   async delete(id: string) {

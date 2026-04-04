@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsObject, IsOptional, IsString, IsUrl, Max, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsObject, IsOptional, IsString, IsUrl, Max, Min } from 'class-validator';
 
 export class CreateProjectDto {
   @IsString()
@@ -39,6 +39,10 @@ export class CreateProjectDto {
   @IsString()
   @IsOptional()
   startCommand?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  useLocalDb?: boolean;
 
   @IsObject()
   @IsOptional()

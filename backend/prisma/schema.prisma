@@ -87,6 +87,8 @@ model Project {
   workDir      String?
   startCommand String?
   pm2Name      String
+  useLocalDb   Boolean       @default(false)
+  dbName       String?
   status     ProjectStatus @default(ACTIVE)
 
   createdBy   User   @relation(fields: [createdById], references: [id])

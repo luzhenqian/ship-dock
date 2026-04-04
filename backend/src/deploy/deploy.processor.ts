@@ -10,8 +10,10 @@ import { NginxStage } from './stages/nginx.stage';
 import { SslStage } from './stages/ssl.stage';
 import { CommandStage } from './stages/command.stage';
 import { DeployGateway } from './deploy.gateway';
-import { existsSync } from 'fs';
-import { join } from 'path';
+import { DomainsService } from '../domains/domains.service';
+import { DatabaseProvisionerService } from '../common/database-provisioner.service';
+import { existsSync, writeFileSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
 
 @Processor('deploy')
 export class DeployProcessor extends WorkerHost {
@@ -24,7 +26,8 @@ export class DeployProcessor extends WorkerHost {
   constructor(
     private prisma: PrismaService, private projectsService: ProjectsService,
     private encryption: EncryptionService, private config: ConfigService,
-    private gateway: DeployGateway,
+    private gateway: DeployGateway, private domainsService: DomainsService,
+    private dbProvisioner: DatabaseProvisionerService,
   ) { super(); }
 
   async process(job: Job<{ deploymentId: string; projectId: string; resumeFromStage?: number }>) {
@@ -38,6 +41,12 @@ export class DeployProcessor extends WorkerHost {
 
     await this.prisma.deployment.update({ where: { id: deploymentId }, data: { status: 'RUNNING', startedAt: new Date() } });
     this.gateway.emitToDeployment(deploymentId, 'status', { status: 'RUNNING' });
+
+    // Decrypt project env vars for command stages
+    let projectEnvVars: Record<string, string> = {};
+    if (project.envVars) {
+      try { projectEnvVars = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
+    }
 
     const stages = (project.pipeline as any).stages;
     let allSuccess = true;
@@ -56,11 +65,41 @@ export class DeployProcessor extends WorkerHost {
         stageLogs.push(line);
       };
 
+      // Write .env file after clone stage
+      if (stages[i - 1]?.name === 'clone' || (i === 0 && stage.name !== 'clone')) {
+        try {
+          let envVars: Record<string, string> = {};
+          if (project.envVars) {
+            try { envVars = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
+          }
+          if (Object.keys(envVars).length > 0) {
+            const envPath = join(projectDir, '.env');
+            mkdirSync(dirname(envPath), { recursive: true });
+            const envContent = Object.entries(envVars).map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
+            writeFileSync(envPath, envContent);
+            onLog(`Wrote .env file (${Object.keys(envVars).length} variables)`);
+          }
+        } catch (err: any) {
+          onLog(`\x1b[33m[warning] Failed to write .env: ${err.message}\x1b[0m`);
+        }
+      }
+
+      // Auto-ensure database exists before migrate stage
+      if (stage.name === 'migrate' && project.useLocalDb && project.dbName) {
+        try {
+          onLog(`Ensuring database "${project.dbName}" exists...`);
+          await this.dbProvisioner.ensureDatabase(project.dbName);
+          onLog(`Database "${project.dbName}" ready`);
+        } catch (err: any) {
+          onLog(`\x1b[31mFailed to ensure database: ${err.message}\x1b[0m`);
+        }
+      }
+
       let result: { success: boolean; error?: string };
       if (stage.type === 'builtin') {
         result = await this.executeBuiltinStage(stage.name, project, repoDir, projectDir, isFirstDeploy && i === 0, deploymentId, onLog);
       } else {
-        result = await this.commandStage.execute(stage, { projectDir, onLog });
+        result = await this.commandStage.execute(stage, { projectDir, onLog, envVars: projectEnvVars });
       }
 
       // Optional stages: log warning but continue on failure
@@ -121,7 +160,8 @@ export class DeployProcessor extends WorkerHost {
         return this.nginxStage.execute({ domain: project.domain, port: project.port, slug: project.slug, hasSsl: this.sslStage.hasCert(project.domain) }, ctx);
       case 'ssl':
         if (!project.domain) { onLog('No domain configured, skipping SSL'); return { success: true }; }
-        const sslResult = await this.sslStage.execute(project.domain, ctx);
+        const serverIp = this.config.get('SERVER_IP');
+        const sslResult = await this.sslStage.execute(project.domain, ctx, this.domainsService, serverIp);
         if (sslResult.success) {
           await this.nginxStage.execute({ domain: project.domain, port: project.port, slug: project.slug, hasSsl: true }, ctx);
         }

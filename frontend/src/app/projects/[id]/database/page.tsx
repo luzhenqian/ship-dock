@@ -195,7 +195,8 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
   };
 
   if (tablesLoading) return <div className="text-sm text-muted-foreground">Loading tables...</div>;
-  if (tablesError || !tables?.length) return <div className="text-sm text-muted-foreground">No PostgreSQL connection configured. Add one in Settings → Services.</div>;
+  if (tablesError) return <div className="text-sm text-muted-foreground">No PostgreSQL connection configured. Add one in Settings → Services.</div>;
+  if (!tables?.length) return <div className="text-sm text-muted-foreground">Database is empty — no tables found. Deploy your project to run migrations.</div>;
 
   return (
     <div className="flex gap-4" style={{ height: 'calc(100vh - 220px)' }}>

@@ -5,3 +5,5 @@ dist/
 .next/
 .superpowers/
 *.tsbuildinfo
+*.pem
+scripts/deploy.config.sh

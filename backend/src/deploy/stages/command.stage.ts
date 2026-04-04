@@ -10,6 +10,7 @@ export interface StageConfig {
 export interface StageContext {
   projectDir: string;
   onLog: (line: string) => void;
+  envVars?: Record<string, string>;
 }
 
 export interface StageResult {
@@ -22,7 +23,7 @@ export class CommandStage {
     return new Promise((resolve) => {
       const child = spawn('sh', ['-c', stageConfig.command!], {
         cwd: ctx.projectDir,
-        env: { ...process.env },
+        env: { ...process.env, ...ctx.envVars },
       });
 
       child.stdout.on('data', (data) => {
