@@ -26,8 +26,8 @@ export class NamecheapProvider implements DnsProviderInterface {
     const res = await fetch(`${this.baseUrl}?${params}`);
     const text = await res.text();
     this.checkErrors(text);
-    const matches = [...text.matchAll(/Name="([^"]+)"/g)];
-    return matches.map((m) => m[1]);
+    const matches = [...text.matchAll(/Name="([^"]+)"[^>]*IsExpired="([^"]+)"/g)];
+    return matches.filter((m) => m[2] === 'false').map((m) => m[1]);
   }
 
   async getRecords(domain: string): Promise<DnsRecord[]> {

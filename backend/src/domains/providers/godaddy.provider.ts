@@ -8,7 +8,7 @@ export class GodaddyProvider implements DnsProviderInterface {
 
   async listDomains(): Promise<string[]> {
     const res = await fetch(`${this.baseUrl}/domains`, { headers: this.headers });
-    return ((await res.json()) as any[]).map((d) => d.domain);
+    return ((await res.json()) as any[]).filter((d) => d.status === 'ACTIVE').map((d) => d.domain);
   }
 
   async getRecords(domain: string): Promise<DnsRecord[]> {
