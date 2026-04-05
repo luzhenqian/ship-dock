@@ -22,6 +22,7 @@ const groups = [
       { href: 'deployments', label: 'Deployments' },
       { href: 'pipeline', label: 'Pipeline' },
       { href: 'logs', label: 'Logs' },
+      { href: 'analytics', label: 'Analytics' },
     ],
   },
   {
