@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../common/prisma.service';
@@ -7,19 +7,51 @@ import { ConfigService } from '@nestjs/config';
 import { CreateMigrationDto, AnalyzeFileDto, ConnectionConfigDto } from './dto/create-migration.dto';
 import { RemoteMigrator } from './remote-migrator';
 import { FileMigrator } from './file-migrator';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync, statSync, unlinkSync } from 'fs';
 import { join } from 'path';
 
 const MAX_SIZE_BYTES = 1024 * 1024 * 1024; // 1GB
+const TEMP_FILE_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
+const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // every 10 minutes
 
 @Injectable()
-export class DataMigrationService {
+export class DataMigrationService implements OnModuleInit {
+  private readonly logger = new Logger(DataMigrationService.name);
+  private cleanupTimer: ReturnType<typeof setInterval>;
+
   constructor(
     private prisma: PrismaService,
     @InjectQueue('data-migration') private migrationQueue: Queue,
     private encryption: EncryptionService,
     private config: ConfigService,
   ) {}
+
+  onModuleInit() {
+    this.cleanupTimer = setInterval(() => this.cleanupTempFiles(), CLEANUP_INTERVAL_MS);
+  }
+
+  private cleanupTempFiles() {
+    const tempDir = this.config.get('TEMP_DIR', '/tmp');
+    try {
+      const files = readdirSync(tempDir);
+      const now = Date.now();
+      let cleaned = 0;
+      for (const file of files) {
+        if (!file.startsWith('migration-')) continue;
+        const filePath = join(tempDir, file);
+        try {
+          const stat = statSync(filePath);
+          if (now - stat.mtimeMs > TEMP_FILE_MAX_AGE_MS) {
+            unlinkSync(filePath);
+            cleaned++;
+          }
+        } catch {}
+      }
+      if (cleaned > 0) {
+        this.logger.log(`Cleaned up ${cleaned} stale migration temp file(s)`);
+      }
+    } catch {}
+  }
 
   async testConnection(connection: ConnectionConfigDto) {
     return RemoteMigrator.testConnection(connection);
