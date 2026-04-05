@@ -29,7 +29,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
   const [newRowEditingCol, setNewRowEditingCol] = useState<string | null>(null);
   const [copiedRow, setCopiedRow] = useState<Record<string, any> | null>(null);
   const [showMigration, setShowMigration] = useState(false);
-  const [jsonPreview, setJsonPreview] = useState<{ column: string; value: any } | null>(null);
+  const [jsonPreview, setJsonPreview] = useState<{ column: string; value: any; row?: any } | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
   const newRowRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -391,7 +391,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
                                 ) : typeof row[col] === 'object' ? (
                                   <button
                                     className="text-left text-blue-500 hover:underline truncate block max-w-xs"
-                                    onClick={(e) => { e.stopPropagation(); setJsonPreview({ column: col, value: row[col] }); }}
+                                    onClick={(e) => { e.stopPropagation(); setJsonPreview({ column: col, value: row[col], row }); }}
                                   >
                                     {JSON.stringify(row[col])}
                                   </button>
@@ -536,6 +536,14 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
         onOpenChange={(open) => { if (!open) setJsonPreview(null); }}
         title={jsonPreview?.column ?? 'JSON'}
         value={jsonPreview?.value}
+        onSave={primaryKeys.length > 0 && jsonPreview?.row ? async (newValue) => {
+          const pkValues: Record<string, any> = {};
+          for (const pk of primaryKeys) pkValues[pk] = jsonPreview.row[pk];
+          try {
+            await updateRow.mutateAsync({ primaryKeys: pkValues, column: jsonPreview.column, value: newValue });
+            queryClient.invalidateQueries({ queryKey: ['db-table-data', id, selectedTable] });
+          } catch { /* error visible via mutation state */ }
+        } : undefined}
       />
     </div>
   );
