@@ -7,19 +7,20 @@ import {
   Query,
   Req,
   Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { randomUUID } from 'crypto';
 import Redis from 'ioredis';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ConnectionsService } from './connections.service';
 import { Ga4OAuthService } from '../providers/ga4/ga4-oauth.service';
 import { ClarityOAuthService } from '../providers/clarity/clarity-oauth.service';
 
 @Controller('analytics')
-@UseGuards(JwtAuthGuard)
 export class ConnectionsController {
   private redis: Redis;
 
@@ -28,6 +29,7 @@ export class ConnectionsController {
     private ga4OAuth: Ga4OAuthService,
     private clarityOAuth: ClarityOAuthService,
     private config: ConfigService,
+    private jwt: JwtService,
   ) {
     this.redis = new Redis({
       host: this.config.get('REDIS_HOST', 'localhost'),
@@ -36,25 +38,35 @@ export class ConnectionsController {
     });
   }
 
+  /** Verify JWT from query param (for browser redirects that can't send headers) */
+  private verifyToken(token: string): { id: string; role: string } {
+    try {
+      const payload = this.jwt.verify(token, {
+        secret: this.config.getOrThrow('JWT_SECRET'),
+      });
+      return { id: payload.sub, role: payload.role };
+    } catch {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+  }
+
   @Get('connections')
+  @UseGuards(JwtAuthGuard)
   findAll(@Req() req: any) {
     return this.connectionsService.findAllByUser(req.user.id);
   }
 
   @Delete('connections/:id')
+  @UseGuards(JwtAuthGuard)
   delete(@Param('id') id: string, @Req() req: any) {
     return this.connectionsService.deleteConnection(id, req.user.id);
   }
 
   @Get('connect/google')
-  async connectGoogle(@Req() req: any, @Res() res: Response) {
+  async connectGoogle(@Query('token') token: string, @Res() res: Response) {
+    const user = this.verifyToken(token);
     const state = randomUUID();
-    await this.redis.set(
-      `oauth:state:${state}`,
-      req.user.id,
-      'EX',
-      600,
-    );
+    await this.redis.set(`oauth:state:${state}`, user.id, 'EX', 600);
     const url = this.ga4OAuth.getAuthUrl(state);
     res.redirect(url);
   }
@@ -86,14 +98,10 @@ export class ConnectionsController {
   }
 
   @Get('connect/microsoft')
-  async connectMicrosoft(@Req() req: any, @Res() res: Response) {
+  async connectMicrosoft(@Query('token') token: string, @Res() res: Response) {
+    const user = this.verifyToken(token);
     const state = randomUUID();
-    await this.redis.set(
-      `oauth:state:${state}`,
-      req.user.id,
-      'EX',
-      600,
-    );
+    await this.redis.set(`oauth:state:${state}`, user.id, 'EX', 600);
     const url = await this.clarityOAuth.getAuthUrl(state);
     res.redirect(url);
   }

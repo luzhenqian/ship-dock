@@ -14,6 +14,7 @@ import {
   useAnalyticsConnections,
   useDeleteConnection,
 } from '@/hooks/use-analytics';
+import { getAccessToken } from '@/lib/api';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { toast } from 'sonner';
 
@@ -29,7 +30,8 @@ export default function SettingsAnalyticsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   function handleConnect(provider: 'google' | 'microsoft') {
-    window.location.href = `${API_URL}/analytics/connect/${provider}`;
+    const token = getAccessToken();
+    window.location.href = `${API_URL}/analytics/connect/${provider}?token=${token}`;
   }
 
   async function handleDelete() {
