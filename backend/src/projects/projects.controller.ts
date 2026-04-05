@@ -42,6 +42,14 @@ export class ProjectsController {
     }
   }
 
+  @Get('ports/check')
+  @MinRole('VIEWER')
+  async checkPort(@Query('port') portStr: string) {
+    const port = parseInt(portStr, 10);
+    if (isNaN(port)) throw new BadRequestException('port must be a number');
+    return this.projectsService.checkPortAvailability(port);
+  }
+
   @Get('settings/projects-dir')
   @MinRole('VIEWER')
   getProjectsDir() {

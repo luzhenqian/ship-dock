@@ -49,6 +49,19 @@ export class ProjectsService {
     return this.config.get('PROJECTS_DIR', '/var/www');
   }
 
+  async checkPortAvailability(port: number): Promise<{ available: boolean; message?: string }> {
+    const minPort = this.config.get('PORT_RANGE_MIN', 3001);
+    const maxPort = this.config.get('PORT_RANGE_MAX', 3999);
+    if (port < minPort || port > maxPort) {
+      return { available: false, message: `Port must be between ${minPort} and ${maxPort}` };
+    }
+    const existing = await this.prisma.portAllocation.findUnique({ where: { port } });
+    if (existing && existing.projectId) {
+      return { available: false, message: `Port ${port} is already in use` };
+    }
+    return { available: true };
+  }
+
   async create(userId: string, dto: CreateProjectDto) {
     const envVarsObj: Record<string, string> = dto.envVars || {};
     let dbName: string | undefined;

@@ -1,14 +1,14 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCreateProject } from '@/hooks/use-projects';
-import { api } from '@/lib/api';
+import { api, getAccessToken } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EnvVarEditor } from '@/components/env-var-editor';
 import { MigrationWizard } from '@/components/migration-wizard';
-import { GitBranch, Upload, ChevronRight, Loader2, Check, Database, Globe, Terminal } from 'lucide-react';
+import { GitBranch, Upload, ChevronRight, Loader2, Check, Database, Globe, Terminal, File, X, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 type Step = 'source' | 'basic' | 'env' | 'confirm' | 'import';
 const STEPS: { key: Step; label: string }[] = [
@@ -17,6 +17,9 @@ const STEPS: { key: Step; label: string }[] = [
   { key: 'env', label: 'Environment' },
   { key: 'confirm', label: 'Deploy' },
 ];
+
+const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
+const ACCEPTED_TYPES = ['.zip', '.tar.gz', '.tgz'];
 
 /* ── Validation helpers ── */
 
@@ -48,6 +51,17 @@ function getEnvVarErrors(envVars: Record<string, string>): string | null {
   return null;
 }
 
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isAcceptedFile(name: string) {
+  const lower = name.toLowerCase();
+  return ACCEPTED_TYPES.some((ext) => lower.endsWith(ext));
+}
+
 export default function NewProjectPage() {
   const router = useRouter();
   const createProject = useCreateProject();
@@ -59,6 +73,16 @@ export default function NewProjectPage() {
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
   const [branchFilter, setBranchFilter] = useState('');
   const branchRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadFile, setUploadFile] = useState<globalThis.File | null>(null);
+  const [uploadFileError, setUploadFileError] = useState('');
+  const [uploading, setUploading] = useState(false);
+
+  // Port check state
+  const [portStatus, setPortStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
+  const [portMessage, setPortMessage] = useState('');
+
   const [form, setForm] = useState({
     sourceType: '' as 'GITHUB' | 'UPLOAD' | '',
     repoUrl: '',
@@ -79,24 +103,26 @@ export default function NewProjectPage() {
     else if (!isValidGithubUrl(form.repoUrl)) sourceErrors.repoUrl = 'Enter a valid GitHub repository URL';
     if (!form.branch.trim()) sourceErrors.branch = 'Branch is required';
   }
+  if (form.sourceType === 'UPLOAD') {
+    if (!uploadFile) sourceErrors.file = 'Please select a file to upload';
+  }
   const canContinueFromSource = form.sourceType !== '' && Object.keys(sourceErrors).length === 0;
 
-  const basicErrors = (() => {
-    const e: Record<string, string> = {};
-    if (!form.name.trim()) e.name = 'Project name is required';
-    if (!form.slug.trim()) e.slug = 'Slug is required';
-    else if (!isValidSlug(form.slug)) e.slug = 'Only lowercase letters, numbers, and hyphens';
-    if (form.domain && !isValidDomain(form.domain)) e.domain = 'Enter a valid domain (e.g. app.example.com)';
-    if (form.port && !isValidPort(form.port)) e.port = 'Port must be between 3001 and 3999';
-    return e;
-  })();
-  const canContinueFromBasic = Object.keys(basicErrors).length === 0 && form.name.trim() !== '' && form.slug.trim() !== '';
+  const basicErrors: Record<string, string> = {};
+  if (!form.name.trim()) basicErrors.name = 'Project name is required';
+  if (!form.slug.trim()) basicErrors.slug = 'Slug is required';
+  else if (!isValidSlug(form.slug)) basicErrors.slug = 'Only lowercase letters, numbers, and hyphens';
+  if (form.domain && !isValidDomain(form.domain)) basicErrors.domain = 'Enter a valid domain (e.g. app.example.com)';
+  if (form.port && !isValidPort(form.port)) basicErrors.port = 'Port must be between 3001 and 3999';
+  if (form.port && isValidPort(form.port) && portStatus === 'taken') basicErrors.port = portMessage;
+  const canContinueFromBasic = Object.keys(basicErrors).length === 0 && form.name.trim() !== '' && form.slug.trim() !== '' && portStatus !== 'checking';
 
   const envError = getEnvVarErrors(form.envVars);
   const canContinueFromEnv = envError === null;
 
   /* ── Effects ── */
 
+  // Fetch branches
   useEffect(() => {
     if (form.sourceType !== 'GITHUB' || !form.repoUrl) {
       setBranches([]);
@@ -124,6 +150,35 @@ export default function NewProjectPage() {
     return () => clearTimeout(timer);
   }, [form.repoUrl, form.sourceType]);
 
+  // Check port availability (debounced)
+  useEffect(() => {
+    if (!form.port) {
+      setPortStatus('idle');
+      setPortMessage('');
+      return;
+    }
+    if (!isValidPort(form.port)) {
+      setPortStatus('invalid');
+      setPortMessage('Port must be between 3001 and 3999');
+      return;
+    }
+    setPortStatus('checking');
+    setPortMessage('');
+    const timer = setTimeout(async () => {
+      try {
+        const result = await api<{ available: boolean; message?: string }>(
+          `/projects/ports/check?port=${form.port}`
+        );
+        setPortStatus(result.available ? 'available' : 'taken');
+        setPortMessage(result.message || '');
+      } catch {
+        setPortStatus('idle');
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [form.port]);
+
+  // Close branch dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (branchRef.current && !branchRef.current.contains(e.target as Node)) {
@@ -153,6 +208,46 @@ export default function NewProjectPage() {
     }
   }
 
+  /* ── File handling ── */
+
+  const handleFileSelect = useCallback((file: globalThis.File | null) => {
+    setUploadFileError('');
+    if (!file) return;
+    if (!isAcceptedFile(file.name)) {
+      setUploadFileError('Only .zip and .tar.gz files are accepted');
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setUploadFileError(`File too large (max ${formatFileSize(MAX_FILE_SIZE)})`);
+      return;
+    }
+    if (file.size === 0) {
+      setUploadFileError('File is empty');
+      return;
+    }
+    setUploadFile(file);
+  }, []);
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(true);
+  }
+
+  function removeFile() {
+    setUploadFile(null);
+    setUploadFileError('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  /* ── Navigation ── */
+
   function goToBasic() {
     if (!canContinueFromSource) return;
     if (form.sourceType === 'GITHUB' && form.repoUrl && !form.name) {
@@ -168,6 +263,8 @@ export default function NewProjectPage() {
     b.toLowerCase().includes(branchFilter.toLowerCase())
   );
 
+  /* ── Create & upload ── */
+
   async function handleCreate() {
     setCreateError('');
     try {
@@ -176,12 +273,35 @@ export default function NewProjectPage() {
         slug: form.slug,
         sourceType: form.sourceType,
         repoUrl: form.sourceType === 'GITHUB' ? form.repoUrl : undefined,
-        branch: form.branch,
+        branch: form.branch || undefined,
         domain: form.domain || undefined,
         port: form.port ? parseInt(form.port) : undefined,
         useLocalDb: form.useLocalDb || undefined,
         envVars: Object.keys(form.envVars).length > 0 ? form.envVars : undefined,
       });
+
+      // If UPLOAD, send the file
+      if (form.sourceType === 'UPLOAD' && uploadFile) {
+        setUploading(true);
+        try {
+          const formData = new FormData();
+          formData.append('file', uploadFile);
+          const token = getAccessToken();
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+          const uploadRes = await fetch(`${apiUrl}/projects/${result.id}/upload`, {
+            method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData,
+          });
+          if (!uploadRes.ok) {
+            const err = await uploadRes.json().catch(() => ({ message: 'Upload failed' }));
+            throw new Error(err.message);
+          }
+        } finally {
+          setUploading(false);
+        }
+      }
+
       if (form.useLocalDb) {
         setCreatedProjectId(result.id);
         setStep('import');
@@ -245,7 +365,7 @@ export default function NewProjectPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={() => update({ sourceType: 'GITHUB' })}
+              onClick={() => { update({ sourceType: 'GITHUB' }); removeFile(); }}
               className={`group flex flex-col items-center gap-3 rounded-xl border px-4 py-6 transition-all ${
                 form.sourceType === 'GITHUB'
                   ? 'border-foreground bg-foreground/[0.03] ring-1 ring-foreground'
@@ -277,7 +397,7 @@ export default function NewProjectPage() {
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium">Upload Files</p>
-                <p className="mt-0.5 text-xs text-foreground-muted">Deploy from local files</p>
+                <p className="mt-0.5 text-xs text-foreground-muted">Deploy from archive</p>
               </div>
             </button>
           </div>
@@ -331,6 +451,60 @@ export default function NewProjectPage() {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+
+          {form.sourceType === 'UPLOAD' && (
+            <div className="space-y-3 rounded-xl border p-4">
+              {!uploadFile ? (
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={() => setDragOver(false)}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed px-4 py-10 transition-colors ${
+                    dragOver
+                      ? 'border-foreground bg-foreground/[0.03]'
+                      : 'border-border hover:border-border-hover hover:bg-muted/30'
+                  }`}
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground-muted">
+                    <Upload className="size-4.5" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium">
+                      Drop your archive here, or <span className="text-foreground underline underline-offset-2">browse</span>
+                    </p>
+                    <p className="mt-1 text-xs text-foreground-muted">
+                      .zip or .tar.gz — max {formatFileSize(MAX_FILE_SIZE)}
+                    </p>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".zip,.tar.gz,.tgz"
+                    className="hidden"
+                    onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-background">
+                    <File className="size-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{uploadFile.name}</p>
+                    <p className="text-xs text-foreground-muted">{formatFileSize(uploadFile.size)}</p>
+                  </div>
+                  <button
+                    onClick={removeFile}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-foreground-muted hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
+              <FieldError msg={uploadFileError} />
             </div>
           )}
 
@@ -392,13 +566,26 @@ export default function NewProjectPage() {
                 Port
                 <span className="font-normal text-foreground-muted">(optional, auto-assigned if empty)</span>
               </Label>
-              <Input
-                type="number"
-                placeholder="3001–3999"
-                value={form.port}
-                onChange={(e) => update({ port: e.target.value })}
-              />
-              <FieldError msg={form.port ? basicErrors.port : undefined} />
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder="3001–3999"
+                  value={form.port}
+                  onChange={(e) => update({ port: e.target.value })}
+                />
+                {form.port && (
+                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                    {portStatus === 'checking' && <Loader2 className="size-3.5 animate-spin text-foreground-muted" />}
+                    {portStatus === 'available' && <CheckCircle2 className="size-3.5 text-status-ready" />}
+                    {portStatus === 'taken' && <AlertCircle className="size-3.5 text-destructive" />}
+                  </div>
+                )}
+              </div>
+              {form.port && basicErrors.port ? (
+                <FieldError msg={basicErrors.port} />
+              ) : form.port && portStatus === 'available' ? (
+                <p className="text-xs text-status-ready">Port {form.port} is available</p>
+              ) : null}
             </div>
           </div>
 
@@ -462,7 +649,12 @@ export default function NewProjectPage() {
               <span className="text-[13px] text-foreground-muted">Source</span>
               <span className="text-[13px] font-medium font-mono">
                 {form.sourceType === 'GITHUB' ? 'Git' : 'Upload'}
-                {form.repoUrl && <span className="ml-1 text-foreground-secondary font-normal">{form.repoUrl.split('/').slice(-2).join('/')}</span>}
+                {form.sourceType === 'GITHUB' && form.repoUrl && (
+                  <span className="ml-1 text-foreground-secondary font-normal">{form.repoUrl.split('/').slice(-2).join('/')}</span>
+                )}
+                {form.sourceType === 'UPLOAD' && uploadFile && (
+                  <span className="ml-1 text-foreground-secondary font-normal">{uploadFile.name} ({formatFileSize(uploadFile.size)})</span>
+                )}
               </span>
             </div>
             {form.branch && (
@@ -515,8 +707,10 @@ export default function NewProjectPage() {
             <Button variant="ghost" onClick={() => setStep('env')} className="h-9 text-foreground-secondary">
               Back
             </Button>
-            <Button onClick={handleCreate} disabled={createProject.isPending} className="h-9 px-5">
-              {createProject.isPending ? <><Loader2 className="size-3.5 animate-spin" /> Deploying...</> : 'Deploy'}
+            <Button onClick={handleCreate} disabled={createProject.isPending || uploading} className="h-9 px-5">
+              {createProject.isPending || uploading
+                ? <><Loader2 className="size-3.5 animate-spin" /> {uploading ? 'Uploading...' : 'Deploying...'}</>
+                : 'Deploy'}
             </Button>
           </div>
         </div>
