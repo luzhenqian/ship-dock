@@ -15,6 +15,7 @@ import { RedisBrowserModule } from './redis-browser/redis-browser.module';
 import { StorageBrowserModule } from './storage-browser/storage-browser.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { DataMigrationModule } from './data-migration/data-migration.module';
+import { NginxConfigModule } from './nginx-config/nginx-config.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { DataMigrationModule } from './data-migration/data-migration.module';
     StorageBrowserModule,
     WebhooksModule,
     DataMigrationModule,
+    NginxConfigModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
