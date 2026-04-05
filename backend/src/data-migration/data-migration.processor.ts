@@ -157,6 +157,16 @@ export class DataMigrationProcessor extends WorkerHost {
 
             const skipped = rowsCopied - inserted;
             this.log(migrationId, 'info', `Appended ${inserted} rows to ${qualifiedName}${skipped > 0 ? ` (${skipped} duplicates skipped)` : ''}`);
+
+            await this.prisma.dataMigrationTable.update({
+              where: { id: migTable.id },
+              data: { status: 'COMPLETED', migratedRows: inserted, completedAt: new Date() },
+            });
+            completedTables++;
+            await this.prisma.dataMigration.update({
+              where: { id: migrationId },
+              data: { completedTables, completedRows },
+            });
           } else {
             // Table-level strategies: ERROR, SKIP, OVERWRITE
             if (tableExists) {
@@ -196,17 +206,17 @@ export class DataMigrationProcessor extends WorkerHost {
             );
 
             this.log(migrationId, 'info', `Copied ${rowsCopied} rows for ${qualifiedName}`);
-          }
-          await this.prisma.dataMigrationTable.update({
-            where: { id: migTable.id },
-            data: { status: 'COMPLETED', migratedRows: rowsCopied, completedAt: new Date() },
-          });
-          completedTables++;
 
-          await this.prisma.dataMigration.update({
-            where: { id: migrationId },
-            data: { completedTables, completedRows },
-          });
+            await this.prisma.dataMigrationTable.update({
+              where: { id: migTable.id },
+              data: { status: 'COMPLETED', migratedRows: rowsCopied, completedAt: new Date() },
+            });
+            completedTables++;
+            await this.prisma.dataMigration.update({
+              where: { id: migrationId },
+              data: { completedTables, completedRows },
+            });
+          }
         } catch (err: any) {
           this.log(migrationId, 'error', `Failed to migrate ${qualifiedName}: ${err.message}`);
           await this.prisma.dataMigrationTable.update({
