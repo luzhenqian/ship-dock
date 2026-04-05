@@ -34,9 +34,9 @@ export default function LoginPage() {
       <div className="w-full max-w-[340px] px-4">
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-foreground">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-background">
-              <path d="M12 2L2 19.5h20L12 2Z" fill="currentColor" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-foreground">
+              <path d="M12 22L2 4.5h20L12 22Z" fill="currentColor" />
             </svg>
           </div>
           <h1 className="text-lg font-semibold tracking-tight">Ship Dock</h1>

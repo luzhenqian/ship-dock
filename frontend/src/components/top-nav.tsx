@@ -25,8 +25,13 @@ export function TopNav({ projectName, projectId }: TopNavProps) {
       <div className="flex items-center gap-2 text-sm">
         <Link
           href="/dashboard"
-          className="font-semibold text-foreground hover:text-foreground/80 transition-colors"
+          className="flex items-center gap-2 font-semibold text-foreground hover:text-foreground/80 transition-colors"
         >
+          <span className="flex h-6 w-6 items-center justify-center rounded border border-border bg-background">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-foreground">
+              <path d="M12 22L2 4.5h20L12 22Z" fill="currentColor" />
+            </svg>
+          </span>
           Ship Dock
         </Link>
         {projectName && projectId && (
