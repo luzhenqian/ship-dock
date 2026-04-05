@@ -6,11 +6,17 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { EnvVarEditor } from '@/components/env-var-editor';
 import { MigrationWizard } from '@/components/migration-wizard';
+import { GitBranch, Upload, ChevronRight, Loader2, Check, Database, Globe, Terminal } from 'lucide-react';
 
 type Step = 'source' | 'basic' | 'env' | 'confirm' | 'import';
+const STEPS: { key: Step; label: string }[] = [
+  { key: 'source', label: 'Import' },
+  { key: 'basic', label: 'Configure' },
+  { key: 'env', label: 'Environment' },
+  { key: 'confirm', label: 'Deploy' },
+];
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -34,7 +40,6 @@ export default function NewProjectPage() {
     envVars: {} as Record<string, string>,
   });
 
-  // Fetch branches when repoUrl changes (debounced)
   useEffect(() => {
     if (form.sourceType !== 'GITHUB' || !form.repoUrl) {
       setBranches([]);
@@ -62,7 +67,6 @@ export default function NewProjectPage() {
     return () => clearTimeout(timer);
   }, [form.repoUrl, form.sourceType]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (branchRef.current && !branchRef.current.contains(e.target as Node)) {
@@ -116,7 +120,6 @@ export default function NewProjectPage() {
       useLocalDb: form.useLocalDb || undefined,
       envVars: Object.keys(form.envVars).length > 0 ? form.envVars : undefined,
     });
-    // If project uses local DB, offer to import data
     if (form.useLocalDb) {
       setCreatedProjectId(result.id);
       setStep('import');
@@ -125,22 +128,102 @@ export default function NewProjectPage() {
     }
   }
 
+  const currentStepIndex = STEPS.findIndex((s) => s.key === step);
+
   return (
-    <div className="max-w-2xl mx-auto py-8">
-      <h1 className="text-xl font-medium tracking-tight mb-6">New Project</h1>
+    <div className="mx-auto max-w-2xl py-10">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-xl font-semibold tracking-tight">New Project</h1>
+        <p className="mt-1 text-[13px] text-foreground-muted">Import and deploy your application.</p>
+      </div>
+
+      {/* Step indicator */}
+      {step !== 'import' && (
+        <div className="mb-8 flex items-center gap-1">
+          {STEPS.map((s, i) => {
+            const isActive = s.key === step;
+            const isCompleted = i < currentStepIndex;
+            return (
+              <div key={s.key} className="flex items-center gap-1">
+                {i > 0 && (
+                  <ChevronRight className="mx-1 size-3 text-foreground-muted" />
+                )}
+                <button
+                  onClick={() => isCompleted && setStep(s.key)}
+                  disabled={!isCompleted}
+                  className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'bg-foreground text-background'
+                      : isCompleted
+                        ? 'text-foreground hover:bg-muted cursor-pointer'
+                        : 'text-foreground-muted cursor-default'
+                  }`}
+                >
+                  {isCompleted && <Check className="size-3" />}
+                  {s.label}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Step: Source */}
       {step === 'source' && (
-        <Card>
-          <CardHeader><CardTitle>Step 1: Source</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Button variant={form.sourceType === 'GITHUB' ? 'default' : 'outline'} className="h-24" onClick={() => update({ sourceType: 'GITHUB' })}>GitHub Repository</Button>
-              <Button variant={form.sourceType === 'UPLOAD' ? 'default' : 'outline'} className="h-24" onClick={() => update({ sourceType: 'UPLOAD' })}>Upload Files</Button>
-            </div>
-            {form.sourceType === 'GITHUB' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => update({ sourceType: 'GITHUB' })}
+              className={`group flex flex-col items-center gap-3 rounded-xl border px-4 py-6 transition-all ${
+                form.sourceType === 'GITHUB'
+                  ? 'border-foreground bg-foreground/[0.03] ring-1 ring-foreground'
+                  : 'border-border hover:border-border-hover hover:bg-muted/50'
+              }`}
+            >
+              <div className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${
+                form.sourceType === 'GITHUB' ? 'bg-foreground text-background' : 'bg-muted text-foreground-secondary'
+              }`}>
+                <GitBranch className="size-4.5" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium">Git Repository</p>
+                <p className="mt-0.5 text-xs text-foreground-muted">Import from GitHub</p>
+              </div>
+            </button>
+            <button
+              onClick={() => update({ sourceType: 'UPLOAD' })}
+              className={`group flex flex-col items-center gap-3 rounded-xl border px-4 py-6 transition-all ${
+                form.sourceType === 'UPLOAD'
+                  ? 'border-foreground bg-foreground/[0.03] ring-1 ring-foreground'
+                  : 'border-border hover:border-border-hover hover:bg-muted/50'
+              }`}
+            >
+              <div className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${
+                form.sourceType === 'UPLOAD' ? 'bg-foreground text-background' : 'bg-muted text-foreground-secondary'
+              }`}>
+                <Upload className="size-4.5" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium">Upload Files</p>
+                <p className="mt-0.5 text-xs text-foreground-muted">Deploy from local files</p>
+              </div>
+            </button>
+          </div>
+
+          {form.sourceType === 'GITHUB' && (
+            <div className="space-y-4 rounded-xl border p-4">
               <div className="space-y-2">
-                <Label>Repository URL</Label>
-                <Input placeholder="https://github.com/user/repo" value={form.repoUrl} onChange={(e) => update({ repoUrl: e.target.value })} />
-                <Label>Branch</Label>
+                <Label className="text-[13px] text-foreground-secondary">Repository URL</Label>
+                <Input
+                  placeholder="https://github.com/user/repo"
+                  value={form.repoUrl}
+                  onChange={(e) => update({ repoUrl: e.target.value })}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[13px] text-foreground-secondary">Branch</Label>
                 <div className="relative" ref={branchRef}>
                   <Input
                     value={branchDropdownOpen ? branchFilter : form.branch}
@@ -151,106 +234,222 @@ export default function NewProjectPage() {
                     }}
                     onFocus={() => { setBranchDropdownOpen(true); setBranchFilter(form.branch); }}
                     placeholder={branchesLoading ? 'Loading branches...' : 'Select or type a branch'}
-                    className="font-mono"
+                    className="font-mono text-[13px]"
                   />
                   {branchDropdownOpen && filteredBranches.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 max-h-48 overflow-auto rounded-xl border bg-popover shadow-lg">
-                      {filteredBranches.map((b) => (
-                        <button
-                          key={b}
-                          className={`w-full px-3 py-2 text-left text-sm font-mono hover:bg-accent transition-colors ${b === form.branch ? 'bg-accent font-medium' : ''}`}
-                          onClick={() => { update({ branch: b }); setBranchDropdownOpen(false); }}
-                        >
-                          {b}
-                        </button>
-                      ))}
+                    <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border bg-popover shadow-lg">
+                      <div className="max-h-48 overflow-auto py-1">
+                        {filteredBranches.map((b) => (
+                          <button
+                            key={b}
+                            className={`flex w-full items-center px-3 py-1.5 text-left font-mono text-[13px] transition-colors hover:bg-accent ${b === form.branch ? 'bg-accent text-foreground font-medium' : 'text-foreground-secondary'}`}
+                            onClick={() => { update({ branch: b }); setBranchDropdownOpen(false); }}
+                          >
+                            {b === form.branch && <Check className="mr-2 size-3" />}
+                            {b}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                   {branchesLoading && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">loading...</div>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="size-3.5 animate-spin text-foreground-muted" />
+                    </div>
                   )}
                 </div>
               </div>
-            )}
-            <Button onClick={goToBasic} disabled={!form.sourceType}>Next</Button>
-          </CardContent>
-        </Card>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <Button onClick={goToBasic} disabled={!form.sourceType} className="h-9 px-4">
+              Continue <ChevronRight className="ml-1 size-3.5" />
+            </Button>
+          </div>
+        </div>
       )}
+
+      {/* Step: Basic Info */}
       {step === 'basic' && (
-        <Card>
-          <CardHeader><CardTitle>Step 2: Basic Info</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div><Label>Project Name</Label><Input value={form.name} onChange={(e) => update({ name: e.target.value, slug: autoSlug(e.target.value) })} /></div>
-            <div><Label>Slug</Label><Input value={form.slug} onChange={(e) => update({ slug: e.target.value })} className="font-mono" /><p className="text-xs text-muted-foreground mt-1">Used for directory name and PM2 process</p></div>
-            <div><Label>Domain (optional)</Label><Input placeholder="app.example.com" value={form.domain} onChange={(e) => update({ domain: e.target.value })} /></div>
-            <div><Label>Port (optional, auto-assigned if empty)</Label><Input type="number" placeholder="3001-3999" value={form.port} onChange={(e) => update({ port: e.target.value })} /></div>
-            <div className="flex items-center gap-3 py-2">
+        <div className="space-y-6">
+          <div className="space-y-4 rounded-xl border p-4">
+            <div className="space-y-2">
+              <Label className="text-[13px] text-foreground-secondary">Project Name</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => update({ name: e.target.value, slug: autoSlug(e.target.value) })}
+                placeholder="My Application"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[13px] text-foreground-secondary">Slug</Label>
+              <div className="relative">
+                <Terminal className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-foreground-muted" />
+                <Input
+                  value={form.slug}
+                  onChange={(e) => update({ slug: e.target.value })}
+                  className="pl-8 font-mono text-[13px]"
+                />
+              </div>
+              <p className="text-xs text-foreground-muted">Used for directory name and PM2 process</p>
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-xl border p-4">
+            <div className="space-y-2">
+              <Label className="text-[13px] text-foreground-secondary">
+                <Globe className="size-3.5" /> Domain
+                <span className="font-normal text-foreground-muted">(optional)</span>
+              </Label>
+              <Input
+                placeholder="app.example.com"
+                value={form.domain}
+                onChange={(e) => update({ domain: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[13px] text-foreground-secondary">
+                Port
+                <span className="font-normal text-foreground-muted">(optional, auto-assigned if empty)</span>
+              </Label>
+              <Input
+                type="number"
+                placeholder="3001–3999"
+                value={form.port}
+                onChange={(e) => update({ port: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-xl border p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${form.useLocalDb ? 'bg-foreground text-background' : 'bg-muted text-foreground-muted'}`}>
+                  <Database className="size-3.5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Platform Database</p>
+                  <p className="text-xs text-foreground-muted">Auto-create PostgreSQL and inject DATABASE_URL</p>
+                </div>
+              </div>
               <button
                 type="button"
                 role="switch"
                 aria-checked={form.useLocalDb}
                 onClick={() => update({ useLocalDb: !form.useLocalDb })}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${form.useLocalDb ? 'bg-primary' : 'bg-muted'}`}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ${form.useLocalDb ? 'bg-foreground' : 'bg-border'}`}
               >
-                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform ${form.useLocalDb ? 'translate-x-4' : 'translate-x-0'}`} />
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform mt-0.5 ${form.useLocalDb ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
               </button>
-              <div>
-                <Label className="cursor-pointer" onClick={() => update({ useLocalDb: !form.useLocalDb })}>Use platform database</Label>
-                <p className="text-xs text-muted-foreground">Auto-create a PostgreSQL database and inject DATABASE_URL</p>
-              </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep('source')}>Back</Button>
-              <Button onClick={() => setStep('env')} disabled={!form.name || !form.slug}>Next</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      {step === 'env' && (
-        <Card>
-          <CardHeader><CardTitle>Step 3: Environment Variables</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <EnvVarEditor value={form.envVars} onChange={(envVars) => update({ envVars })} />
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep('basic')}>Back</Button>
-              <Button onClick={() => setStep('confirm')}>Next</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      {step === 'confirm' && (
-        <Card>
-          <CardHeader><CardTitle>Step 4: Confirm</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2 text-sm">
-              <p><strong>Source:</strong> {form.sourceType} {form.repoUrl && `(${form.repoUrl})`}</p>
-              <p><strong>Name:</strong> {form.name}</p>
-              <p><strong>Slug:</strong> {form.slug}</p>
-              {form.domain && <p><strong>Domain:</strong> {form.domain}</p>}
-              {form.port && <p><strong>Port:</strong> {form.port}</p>}
-              {form.useLocalDb && <p><strong>Database:</strong> Platform PostgreSQL (auto-provisioned)</p>}
-              {Object.keys(form.envVars).length > 0 && <p><strong>Env vars:</strong> {Object.keys(form.envVars).length} variables</p>}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep('env')}>Back</Button>
-              <Button onClick={handleCreate} disabled={createProject.isPending}>{createProject.isPending ? 'Creating...' : 'Create & Deploy'}</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      {step === 'import' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Import Existing Data</CardTitle>
-            <CardDescription>You can import data from an existing database now, or skip this step.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <MigrationWizard projectId={createdProjectId} onClose={() => router.push(`/projects/${createdProjectId}`)} />
-            <Button variant="ghost" onClick={() => router.push(`/projects/${createdProjectId}`)}>
-              Skip for now
+          </div>
+
+          <div className="flex justify-between">
+            <Button variant="ghost" onClick={() => setStep('source')} className="h-9 text-foreground-secondary">
+              Back
             </Button>
-          </CardContent>
-        </Card>
+            <Button onClick={() => setStep('env')} disabled={!form.name || !form.slug} className="h-9 px-4">
+              Continue <ChevronRight className="ml-1 size-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Environment Variables */}
+      {step === 'env' && (
+        <div className="space-y-6">
+          <div className="rounded-xl border p-4">
+            <EnvVarEditor value={form.envVars} onChange={(envVars) => update({ envVars })} />
+          </div>
+          <div className="flex justify-between">
+            <Button variant="ghost" onClick={() => setStep('basic')} className="h-9 text-foreground-secondary">
+              Back
+            </Button>
+            <Button onClick={() => setStep('confirm')} className="h-9 px-4">
+              Continue <ChevronRight className="ml-1 size-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Confirm */}
+      {step === 'confirm' && (
+        <div className="space-y-6">
+          <div className="rounded-xl border divide-y">
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-[13px] text-foreground-muted">Source</span>
+              <span className="text-[13px] font-medium font-mono">
+                {form.sourceType === 'GITHUB' ? 'Git' : 'Upload'}
+                {form.repoUrl && <span className="ml-1 text-foreground-secondary font-normal">{form.repoUrl.split('/').slice(-2).join('/')}</span>}
+              </span>
+            </div>
+            {form.branch && (
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-[13px] text-foreground-muted">Branch</span>
+                <span className="text-[13px] font-mono">{form.branch}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-[13px] text-foreground-muted">Project</span>
+              <span className="text-[13px] font-medium">{form.name}</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-[13px] text-foreground-muted">Slug</span>
+              <span className="text-[13px] font-mono">{form.slug}</span>
+            </div>
+            {form.domain && (
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-[13px] text-foreground-muted">Domain</span>
+                <span className="text-[13px]">{form.domain}</span>
+              </div>
+            )}
+            {form.port && (
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-[13px] text-foreground-muted">Port</span>
+                <span className="text-[13px] font-mono">{form.port}</span>
+              </div>
+            )}
+            {form.useLocalDb && (
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-[13px] text-foreground-muted">Database</span>
+                <span className="text-[13px]">PostgreSQL <span className="text-foreground-muted">(auto-provisioned)</span></span>
+              </div>
+            )}
+            {Object.keys(form.envVars).length > 0 && (
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-[13px] text-foreground-muted">Environment</span>
+                <span className="text-[13px]">{Object.keys(form.envVars).length} variable{Object.keys(form.envVars).length !== 1 ? 's' : ''}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-between">
+            <Button variant="ghost" onClick={() => setStep('env')} className="h-9 text-foreground-secondary">
+              Back
+            </Button>
+            <Button onClick={handleCreate} disabled={createProject.isPending} className="h-9 px-5">
+              {createProject.isPending ? <><Loader2 className="size-3.5 animate-spin" /> Deploying...</> : 'Deploy'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Import */}
+      {step === 'import' && (
+        <div className="space-y-6">
+          <div className="rounded-xl border p-4">
+            <div className="mb-4">
+              <h2 className="text-sm font-medium">Import Existing Data</h2>
+              <p className="mt-1 text-xs text-foreground-muted">You can import data from an existing database now, or skip this step.</p>
+            </div>
+            <MigrationWizard projectId={createdProjectId} onClose={() => router.push(`/projects/${createdProjectId}`)} />
+          </div>
+          <Button variant="ghost" onClick={() => router.push(`/projects/${createdProjectId}`)} className="h-9 text-foreground-secondary">
+            Skip for now
+          </Button>
+        </div>
       )}
     </div>
   );
