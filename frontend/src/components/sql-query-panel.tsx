@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { JsonPreviewDialog } from '@/components/json-preview-dialog';
 import { useExecuteQuery } from '@/hooks/use-database';
 
 interface SqlQueryPanelProps {
@@ -12,6 +13,7 @@ interface SqlQueryPanelProps {
 export function SqlQueryPanel({ projectId }: SqlQueryPanelProps) {
   const [sql, setSql] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
+  const [jsonPreview, setJsonPreview] = useState<{ column: string; value: any } | null>(null);
   const { mutate, data, isPending, error } = useExecuteQuery(projectId);
 
   const handleExecute = () => {
@@ -67,8 +69,19 @@ export function SqlQueryPanel({ projectId }: SqlQueryPanelProps) {
               {data.rows.map((row: any, i: number) => (
                 <tr key={i} className="border-b last:border-0 hover:bg-foreground/[0.04]">
                   {data.columns.map((col: string) => (
-                    <td key={col} className="px-3 py-2 whitespace-nowrap font-mono text-xs">
-                      {row[col] === null ? <span className="text-muted-foreground italic">NULL</span> : String(row[col])}
+                    <td key={col} className="px-3 py-2 whitespace-nowrap font-mono text-xs max-w-xs truncate">
+                      {row[col] === null ? (
+                        <span className="text-muted-foreground italic">NULL</span>
+                      ) : typeof row[col] === 'object' ? (
+                        <button
+                          className="text-left text-blue-500 hover:underline truncate block max-w-xs"
+                          onClick={() => setJsonPreview({ column: col, value: row[col] })}
+                        >
+                          {JSON.stringify(row[col])}
+                        </button>
+                      ) : (
+                        String(row[col])
+                      )}
                     </td>
                   ))}
                 </tr>
@@ -84,6 +97,13 @@ export function SqlQueryPanel({ projectId }: SqlQueryPanelProps) {
         title="Execute destructive query?"
         description={`You are about to run: ${sql.slice(0, 100)}...`}
         onConfirm={() => mutate(sql)}
+      />
+
+      <JsonPreviewDialog
+        open={!!jsonPreview}
+        onOpenChange={(open) => { if (!open) setJsonPreview(null); }}
+        title={jsonPreview?.column ?? 'JSON'}
+        value={jsonPreview?.value}
       />
     </div>
   );

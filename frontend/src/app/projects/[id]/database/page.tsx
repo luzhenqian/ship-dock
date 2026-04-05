@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SqlQueryPanel } from '@/components/sql-query-panel';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { MigrationWizard } from '@/components/migration-wizard';
+import { JsonPreviewDialog } from '@/components/json-preview-dialog';
 import { Upload } from 'lucide-react';
 
 type SubView = 'data' | 'structure' | 'query';
@@ -28,7 +29,8 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
   const [newRowEditingCol, setNewRowEditingCol] = useState<string | null>(null);
   const [copiedRow, setCopiedRow] = useState<Record<string, any> | null>(null);
   const [showMigration, setShowMigration] = useState(false);
-  const editRef = useRef<HTMLInputElement>(null);
+  const [jsonPreview, setJsonPreview] = useState<{ column: string; value: any } | null>(null);
+  const editRef = useRef<HTMLTextAreaElement>(null);
   const newRowRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -100,7 +102,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
     if (!copiedRow || !tableData) return;
     const row: Record<string, string> = {};
     for (const col of tableData.columns) {
-      row[col] = copiedRow[col] === null ? '' : String(copiedRow[col]);
+      row[col] = copiedRow[col] === null ? '' : (typeof copiedRow[col] === 'object' ? JSON.stringify(copiedRow[col]) : String(copiedRow[col]));
     }
     // Clear primary key values so DB can auto-generate
     for (const pk of primaryKeys) {
@@ -135,7 +137,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
   const handleCellDoubleClick = useCallback((rowIndex: number, column: string, currentValue: any) => {
     if (primaryKeys.length === 0) return;
     setEditingCell({ rowIndex, column });
-    setEditValue(currentValue === null ? '' : String(currentValue));
+    setEditValue(currentValue === null ? '' : (typeof currentValue === 'object' ? JSON.stringify(currentValue, null, 2) : String(currentValue)));
   }, [primaryKeys.length]);
 
   const handleCancelEdit = useCallback(() => {
@@ -151,7 +153,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
     }
 
     const originalValue = row[editingCell.column];
-    const originalStr = originalValue === null ? '' : String(originalValue);
+    const originalStr = originalValue === null ? '' : (typeof originalValue === 'object' ? JSON.stringify(originalValue, null, 2) : String(originalValue));
 
     if (editValue === originalStr) {
       setEditingCell(null);
@@ -164,7 +166,11 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
       pkValues[pk] = row[pk];
     }
 
-    const value = editValue === '' ? null : editValue;
+    let value: any = editValue === '' ? null : editValue;
+    // Try to parse as JSON if original was an object or if it looks like JSON
+    if (value !== null && (typeof originalValue === 'object' || /^\s*[\[{]/.test(value))) {
+      try { value = JSON.parse(value); } catch { /* keep as string */ }
+    }
 
     try {
       await updateRow.mutateAsync({ primaryKeys: pkValues, column: editingCell.column, value });
@@ -368,19 +374,29 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
                                 onDoubleClick={() => handleCellDoubleClick(i, col, row[col])}
                               >
                                 {isEditing ? (
-                                  <input
+                                  <textarea
                                     ref={editRef}
-                                    className="w-full bg-background border rounded px-1.5 py-0.5 font-mono text-xs outline-none focus:ring-1 focus:ring-ring"
+                                    className="w-full bg-background border rounded px-1.5 py-0.5 font-mono text-xs outline-none focus:ring-1 focus:ring-ring resize-y"
+                                    rows={typeof row[col] === 'object' && row[col] !== null ? 4 : 1}
                                     value={editValue}
                                     onChange={(e) => setEditValue(e.target.value)}
                                     onKeyDown={(e) => {
-                                      if (e.key === 'Enter') handleSaveEdit(row);
+                                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSaveEdit(row); }
                                       if (e.key === 'Escape') handleCancelEdit();
                                     }}
                                     onBlur={() => handleSaveEdit(row)}
                                   />
+                                ) : row[col] === null ? (
+                                  <span className="text-muted-foreground italic">NULL</span>
+                                ) : typeof row[col] === 'object' ? (
+                                  <button
+                                    className="text-left text-blue-500 hover:underline truncate block max-w-xs"
+                                    onClick={(e) => { e.stopPropagation(); setJsonPreview({ column: col, value: row[col] }); }}
+                                  >
+                                    {JSON.stringify(row[col])}
+                                  </button>
                                 ) : (
-                                  row[col] === null ? <span className="text-muted-foreground italic">NULL</span> : String(row[col])
+                                  String(row[col])
                                 )}
                               </td>
                             );
@@ -513,6 +529,13 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
         description={`Are you sure you want to delete ${selectedRows.size} row${selectedRows.size > 1 ? 's' : ''}? This action cannot be undone.`}
         onConfirm={handleDeleteSelected}
         destructive
+      />
+
+      <JsonPreviewDialog
+        open={!!jsonPreview}
+        onOpenChange={(open) => { if (!open) setJsonPreview(null); }}
+        title={jsonPreview?.column ?? 'JSON'}
+        value={jsonPreview?.value}
       />
     </div>
   );
