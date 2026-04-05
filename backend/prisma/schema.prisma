@@ -71,6 +71,7 @@ model User {
   providers   DomainProvider[]
   invites     Invite[]
   dataMigrations DataMigration[]
+  analyticsConnections AnalyticsConnection[]
 }
 
 model Project {
@@ -102,6 +103,7 @@ model Project {
   webhookEvents  WebhookEvent[]
   dataMigrations DataMigration[]
   nginxConfig    NginxConfig?
+  analyticsIntegrations AnalyticsIntegration[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -305,4 +307,47 @@ model NginxConfig {
 
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+enum AnalyticsProvider {
+  GOOGLE_GA4
+  MICROSOFT_CLARITY
+}
+
+model AnalyticsConnection {
+  id           String            @id @default(uuid())
+  userId       String
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     AnalyticsProvider
+  accessToken  String
+  refreshToken String
+  tokenExpiry  DateTime
+  accountEmail String
+  accountId    String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  integrations AnalyticsIntegration[]
+
+  @@unique([userId, provider, accountEmail])
+}
+
+model AnalyticsIntegration {
+  id                  String              @id @default(uuid())
+  projectId           String
+  project             Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  connectionId        String
+  connection          AnalyticsConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  provider            AnalyticsProvider
+  ga4PropertyId       String?
+  ga4StreamId         String?
+  measurementId       String?
+  clarityProjectId    String?
+  clarityTrackingCode String?
+  enabled             Boolean             @default(true)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@unique([projectId, provider])
+  @@index([connectionId])
 }
