@@ -95,6 +95,9 @@ export default function NginxConfigPage({ params }: { params: Promise<{ id: stri
     if (data?.config) setForm(data.config);
   }, [data]);
 
+  const preview = project?.domain ? buildPreview(project.domain, project.port, form) : '';
+  const highlightedPreview = useHighlightedCode(preview, 'nginx');
+
   function setField<K extends keyof NginxConfigData>(key: K, value: NginxConfigData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
@@ -119,9 +122,6 @@ export default function NginxConfigPage({ params }: { params: Promise<{ id: stri
       </div>
     );
   }
-
-  const preview = buildPreview(project.domain, project.port, form);
-  const highlightedPreview = useHighlightedCode(preview, 'nginx');
 
   return (
     <div className="space-y-6">
