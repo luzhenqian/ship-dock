@@ -3,6 +3,13 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
+export function useDatabaseOverview(projectId: string) {
+  return useQuery({
+    queryKey: ['db-overview', projectId],
+    queryFn: () => api(`/projects/${projectId}/database/overview`),
+  });
+}
+
 export function useDatabaseTables(projectId: string) {
   return useQuery({
     queryKey: ['db-tables', projectId],

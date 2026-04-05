@@ -3,7 +3,7 @@
 import { use, useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useDatabaseTables, useTableData, useTableStructure, useUpdateRow, useDeleteRows, useInsertRow } from '@/hooks/use-database';
+import { useDatabaseTables, useDatabaseOverview, useTableData, useTableStructure, useUpdateRow, useDeleteRows, useInsertRow } from '@/hooks/use-database';
 import { useQueryClient } from '@tanstack/react-query';
 import { SqlQueryPanel } from '@/components/sql-query-panel';
 import { ConfirmDialog } from '@/components/confirm-dialog';
@@ -33,6 +33,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
   const queryClient = useQueryClient();
 
   const { data: tables, isLoading: tablesLoading, error: tablesError } = useDatabaseTables(id);
+  const { data: overview } = useDatabaseOverview(id);
   const { data: tableData, isLoading: dataLoading } = useTableData(id, selectedTable, {
     page,
     pageSize: 50,
@@ -230,7 +231,55 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
                 <Upload className="h-4 w-4 mr-2" /> Import Data
               </Button>
             </div>
-            <div className="text-sm text-muted-foreground">Select a table to view its data.</div>
+            {overview ? (
+              <div className="space-y-4">
+                {/* Summary cards */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="border rounded-xl p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Database Size</p>
+                    <p className="text-xl font-semibold">{formatBytes(overview.dbSize)}</p>
+                  </div>
+                  <div className="border rounded-xl p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Tables</p>
+                    <p className="text-xl font-semibold">{overview.tableCount}</p>
+                  </div>
+                  <div className="border rounded-xl p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Total Rows</p>
+                    <p className="text-xl font-semibold">{overview.totalRows.toLocaleString()}</p>
+                  </div>
+                </div>
+                {/* Per-table breakdown */}
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Tables by Size</p>
+                  <div className="border rounded-xl overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/30 border-b">
+                          <th className="px-3 py-2 text-left font-medium">Table</th>
+                          <th className="px-3 py-2 text-right font-medium">Rows</th>
+                          <th className="px-3 py-2 text-right font-medium">Size</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {overview.tables.map((t: any) => (
+                          <tr
+                            key={t.name}
+                            className="border-b last:border-0 hover:bg-foreground/[0.04] cursor-pointer"
+                            onClick={() => { setSelectedTable(t.name); setPage(1); setSort(null); setSelectedRows(new Set()); setNewRow(null); setCopiedRow(null); }}
+                          >
+                            <td className="px-3 py-2 font-mono text-xs">{t.name}</td>
+                            <td className="px-3 py-2 text-right text-muted-foreground">{t.rows.toLocaleString()}</td>
+                            <td className="px-3 py-2 text-right text-muted-foreground">{formatBytes(t.size)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">Select a table to view its data.</div>
+            )}
           </div>
         ) : (
           <>
@@ -467,4 +516,11 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
       />
     </div>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }

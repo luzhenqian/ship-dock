@@ -9,6 +9,11 @@ import { DatabaseBrowserService } from './database-browser.service';
 export class DatabaseBrowserController {
   constructor(private dbService: DatabaseBrowserService) {}
 
+  @Get('overview') @MinRole('VIEWER')
+  getOverview(@Param('projectId') projectId: string) {
+    return this.dbService.getOverview(projectId);
+  }
+
   @Get('tables') @MinRole('VIEWER')
   getTables(@Param('projectId') projectId: string) {
     return this.dbService.getTables(projectId);

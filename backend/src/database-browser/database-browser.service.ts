@@ -47,6 +47,35 @@ export class DatabaseBrowserService {
     return result.rows;
   }
 
+  async getOverview(projectId: string) {
+    const pool = await this.getPool(projectId);
+
+    // Database size
+    const sizeResult = await pool.query(`SELECT pg_database_size(current_database()) AS size`);
+    const dbSize = Number(sizeResult.rows[0].size);
+
+    // Per-table stats
+    const tablesResult = await pool.query(`
+      SELECT
+        relname AS table_name,
+        n_live_tup AS row_count,
+        pg_total_relation_size(quote_ident(schemaname) || '.' || quote_ident(relname)) AS size
+      FROM pg_stat_user_tables
+      WHERE schemaname = 'public'
+      ORDER BY pg_total_relation_size(quote_ident(schemaname) || '.' || quote_ident(relname)) DESC
+    `);
+
+    const tables = tablesResult.rows.map((r: any) => ({
+      name: r.table_name,
+      rows: Number(r.row_count),
+      size: Number(r.size),
+    }));
+
+    const totalRows = tables.reduce((sum: number, t: any) => sum + t.rows, 0);
+
+    return { dbSize, totalRows, tableCount: tables.length, tables };
+  }
+
   async getTableStructure(projectId: string, table: string) {
     const pool = await this.getPool(projectId);
 
