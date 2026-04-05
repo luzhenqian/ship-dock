@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useState, useRef, useEffect, useCallback } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDatabaseTables, useDatabaseOverview, useTableData, useTableStructure, useUpdateRow, useDeleteRows, useInsertRow } from '@/hooks/use-database';
@@ -17,10 +18,38 @@ type NewRow = Record<string, string> | null;
 
 export default function DatabasePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [selectedTable, setSelectedTable] = useState('');
-  const [subView, setSubView] = useState<SubView>('data');
-  const [page, setPage] = useState(1);
-  const [sort, setSort] = useState<{ column: string; order: 'asc' | 'desc' } | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const selectedTable = searchParams.get('table') ?? '';
+  const subView = (searchParams.get('view') as SubView) || 'data';
+  const page = Number(searchParams.get('page')) || 1;
+  const sortParam = searchParams.get('sort');
+  const orderParam = searchParams.get('order') as 'asc' | 'desc' | null;
+  const sort = sortParam ? { column: sortParam, order: orderParam || 'asc' } : null;
+
+  const updateParams = useCallback((updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null) params.delete(key);
+      else params.set(key, value);
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [searchParams, pathname, router]);
+
+  const setSelectedTable = useCallback((table: string) => {
+    updateParams({ table: table || null, page: null, sort: null, order: null, view: null });
+  }, [updateParams]);
+
+  const setSubView = useCallback((view: SubView) => {
+    updateParams({ view: view === 'data' ? null : view });
+  }, [updateParams]);
+
+  const setPage = useCallback((p: number) => {
+    updateParams({ page: p <= 1 ? null : String(p) });
+  }, [updateParams]);
+
   const [editingCell, setEditingCell] = useState<EditingCell>(null);
   const [editValue, setEditValue] = useState('');
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
@@ -196,12 +225,8 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
   }, [newRowEditingCol]);
 
   const handleSort = (column: string) => {
-    setSort((prev) =>
-      prev?.column === column
-        ? { column, order: prev.order === 'asc' ? 'desc' : 'asc' }
-        : { column, order: 'asc' },
-    );
-    setPage(1);
+    const newOrder = sort?.column === column && sort.order === 'asc' ? 'desc' : 'asc';
+    updateParams({ sort: column, order: newOrder, page: null });
   };
 
   if (tablesLoading) return <div className="text-sm text-muted-foreground">Loading tables...</div>;
@@ -218,7 +243,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
             <button
               key={t.table_name}
               className={`w-full text-left px-3 py-2 text-sm hover:bg-foreground/[0.04] ${selectedTable === t.table_name ? 'bg-foreground/[0.06] font-medium' : 'text-foreground-secondary'}`}
-              onClick={() => { setSelectedTable(t.table_name); setPage(1); setSort(null); setSelectedRows(new Set()); setNewRow(null); setCopiedRow(null); }}
+              onClick={() => { setSelectedTable(t.table_name); setSelectedRows(new Set()); setNewRow(null); setCopiedRow(null); }}
             >
               {t.table_name}
             </button>
@@ -271,7 +296,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
                           <tr
                             key={t.name}
                             className="border-b last:border-0 hover:bg-foreground/[0.04] cursor-pointer"
-                            onClick={() => { setSelectedTable(t.name); setPage(1); setSort(null); setSelectedRows(new Set()); setNewRow(null); setCopiedRow(null); }}
+                            onClick={() => { setSelectedTable(t.name); setSelectedRows(new Set()); setNewRow(null); setCopiedRow(null); }}
                           >
                             <td className="px-3 py-2 font-mono text-xs">{t.name}</td>
                             <td className="px-3 py-2 text-right text-muted-foreground">{t.rows.toLocaleString()}</td>
