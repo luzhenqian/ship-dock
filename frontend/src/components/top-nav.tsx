@@ -9,6 +9,7 @@ const globalLinks = [
   { href: '/domains', label: 'Domains' },
   { href: '/team', label: 'Team' },
   { href: '/settings', label: 'Settings' },
+  { href: '/docs', label: 'Docs' },
 ];
 
 interface TopNavProps {
