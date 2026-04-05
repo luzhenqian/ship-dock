@@ -8,12 +8,16 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { Ga4AdminService } from './ga4-admin.service';
+import { Ga4DataService } from './ga4-data.service';
 import { CreatePropertyDto, CreateDataStreamDto } from '../../dto/ga4.dto';
 
 @Controller('analytics/ga4')
 @UseGuards(JwtAuthGuard)
 export class Ga4AdminController {
-  constructor(private ga4Admin: Ga4AdminService) {}
+  constructor(
+    private ga4Admin: Ga4AdminService,
+    private ga4Data: Ga4DataService,
+  ) {}
 
   @Get('accounts')
   listAccounts(@Query('connectionId') connectionId: string) {
@@ -55,5 +59,15 @@ export class Ga4AdminController {
       dto.displayName,
       dto.defaultUri,
     );
+  }
+
+  @Get('dimensions')
+  getDimensions() {
+    return this.ga4Data.getAvailableDimensions();
+  }
+
+  @Get('metrics')
+  getMetrics() {
+    return this.ga4Data.getAvailableMetrics();
   }
 }
