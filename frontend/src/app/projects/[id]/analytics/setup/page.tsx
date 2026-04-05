@@ -209,7 +209,7 @@ export default function AnalyticsSetupPage({
             {filteredConnections?.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No connected accounts.{' '}
-                <a href="/settings/analytics" className="underline">
+                <a href="/settings/integrations" className="underline">
                   Connect one in Settings
                 </a>
               </p>

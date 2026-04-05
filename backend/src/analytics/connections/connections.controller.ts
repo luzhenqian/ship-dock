@@ -94,7 +94,7 @@ export class ConnectionsController {
     });
 
     const frontendUrl = this.config.get('FRONTEND_URL', 'http://localhost:3000');
-    res.redirect(`${frontendUrl}/settings/analytics?connected=google`);
+    res.redirect(`${frontendUrl}/settings/integrations?connected=google`);
   }
 
   @Get('connect/microsoft')
@@ -129,6 +129,6 @@ export class ConnectionsController {
     });
 
     const frontendUrl = this.config.get('FRONTEND_URL', 'http://localhost:3000');
-    res.redirect(`${frontendUrl}/settings/analytics?connected=microsoft`);
+    res.redirect(`${frontendUrl}/settings/integrations?connected=microsoft`);
   }
 }

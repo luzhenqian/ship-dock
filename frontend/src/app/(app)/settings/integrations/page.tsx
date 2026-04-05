@@ -24,7 +24,7 @@ function getProviderLabel(provider: string) {
   return provider === 'GOOGLE_GA4' ? 'Google Analytics' : 'Microsoft Clarity';
 }
 
-export default function SettingsAnalyticsPage() {
+export default function IntegrationsPage() {
   const { data: connections, isLoading } = useAnalyticsConnections();
   const deleteConnection = useDeleteConnection();
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -46,11 +46,10 @@ export default function SettingsAnalyticsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Analytics Connections</h1>
-        <p className="text-muted-foreground mt-1">
-          Connect your Google and Microsoft accounts to manage analytics tracking.
+        <p className="text-muted-foreground">
+          Connect third-party accounts to enable analytics tracking across your projects.
         </p>
       </div>
 
