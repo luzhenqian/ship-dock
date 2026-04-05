@@ -38,8 +38,8 @@ export class Ga4AdminController {
       dto.connectionId,
       dto.accountId,
       dto.displayName,
-      dto.timeZone,
-      dto.currencyCode,
+      dto.timeZone!,
+      dto.currencyCode!,
     );
   }
 

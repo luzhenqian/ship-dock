@@ -54,7 +54,7 @@ export class IntegrationsController {
     const integrations = await this.integrationsService.findByProject(projectId);
     const ga4 = integrations.find((i: any) => i.provider === 'GOOGLE_GA4');
     if (!ga4) throw new NotFoundException('No GA4 integration for this project');
-    return this.ga4Data.runReport(ga4.connectionId, ga4.ga4PropertyId, dto);
+    return this.ga4Data.runReport(ga4.connectionId, ga4.ga4PropertyId!, dto);
   }
 
   @Get(':projectId/realtime')
@@ -62,6 +62,6 @@ export class IntegrationsController {
     const integrations = await this.integrationsService.findByProject(projectId);
     const ga4 = integrations.find((i: any) => i.provider === 'GOOGLE_GA4');
     if (!ga4) throw new NotFoundException('No GA4 integration for this project');
-    return this.ga4Data.runRealtimeReport(ga4.connectionId, ga4.ga4PropertyId);
+    return this.ga4Data.runRealtimeReport(ga4.connectionId, ga4.ga4PropertyId!);
   }
 }
