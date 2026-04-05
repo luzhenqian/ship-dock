@@ -134,10 +134,12 @@ export class RemoteMigrator {
     schemaName: string,
     tableName: string,
     onProgress: (rows: number) => void,
+    targetTableName?: string,
   ): Promise<number> {
-    const qualifiedName = `"${schemaName}"."${tableName}"`;
-    const sourceStream = sourceClient.query(copyTo(`COPY ${qualifiedName} TO STDOUT`));
-    const targetStream = targetClient.query(copyFrom(`COPY ${qualifiedName} FROM STDIN`));
+    const sourceQualified = `"${schemaName}"."${tableName}"`;
+    const targetQualified = targetTableName ? `"${targetTableName}"` : sourceQualified;
+    const sourceStream = sourceClient.query(copyTo(`COPY ${sourceQualified} TO STDOUT`));
+    const targetStream = targetClient.query(copyFrom(`COPY ${targetQualified} FROM STDIN`));
 
     let rowCount = 0;
     sourceStream.on('data', (chunk: Buffer) => {

@@ -62,7 +62,7 @@ export class FileMigrator {
     filePath: string,
     databaseUrl: string,
     tables: FileTableInfo[],
-    conflictStrategy: 'ERROR' | 'OVERWRITE' | 'SKIP',
+    conflictStrategy: 'ERROR' | 'OVERWRITE' | 'SKIP' | 'APPEND',
     onLog: (line: string) => void,
   ): Promise<{ success: boolean; error?: string }> {
     const url = new URL(databaseUrl);
@@ -116,7 +116,7 @@ export class FileMigrator {
     filePath: string,
     databaseUrl: string,
     tables: FileTableInfo[],
-    conflictStrategy: 'ERROR' | 'OVERWRITE' | 'SKIP',
+    conflictStrategy: 'ERROR' | 'OVERWRITE' | 'SKIP' | 'APPEND',
     onLog: (line: string) => void,
   ): Promise<{ success: boolean; error?: string }> {
     const url = new URL(databaseUrl);
@@ -144,7 +144,7 @@ export class FileMigrator {
       '-U', url.username,
       '-d', url.pathname.slice(1),
       '-f', filePath,
-      '-v', 'ON_ERROR_STOP=' + (conflictStrategy === 'ERROR' ? '1' : '0'),
+      '-v', 'ON_ERROR_STOP=' + (conflictStrategy === 'ERROR' ? '1' : '0'), // APPEND and SKIP both continue past errors
     ];
 
     try {

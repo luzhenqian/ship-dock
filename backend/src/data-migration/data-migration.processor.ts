@@ -107,43 +107,96 @@ export class DataMigrationProcessor extends WorkerHost {
           );
           const tableExists = existsResult.rows[0].exists;
 
-          if (tableExists) {
-            if (migration.conflictStrategy === 'ERROR') {
-              throw new Error(`Table ${qualifiedName} already exists in target database`);
-            } else if (migration.conflictStrategy === 'SKIP') {
-              this.log(migrationId, 'info', `Skipping ${qualifiedName} (already exists)`);
+          if (migration.conflictStrategy === 'APPEND') {
+            // APPEND mode: table must exist, insert data with ON CONFLICT DO NOTHING
+            if (!tableExists) {
+              this.log(migrationId, 'info', `Skipping ${qualifiedName} (table does not exist in target)`);
               await this.prisma.dataMigrationTable.update({
                 where: { id: migTable.id },
                 data: { status: 'SKIPPED', completedAt: new Date() },
               });
               completedTables++;
               continue;
-            } else {
-              // OVERWRITE
-              this.log(migrationId, 'info', `Dropping existing ${qualifiedName} for overwrite`);
-              await targetClient.query(`DROP TABLE IF EXISTS ${qualifiedName} CASCADE`);
             }
+
+            // Copy into temp table, then INSERT ... ON CONFLICT DO NOTHING
+            const tempName = `_migration_tmp_${table.tableName}_${Date.now()}`;
+            const tempQualified = `"${table.schemaName}"."${tempName}"`;
+            await targetClient.query(`CREATE TEMP TABLE "${tempName}" (LIKE ${qualifiedName} INCLUDING ALL)`);
+            this.log(migrationId, 'info', `Appending data to ${qualifiedName} (skip duplicates)...`);
+
+            const rowsCopied = await RemoteMigrator.copyTableData(
+              sourceClient, targetClient, table.schemaName, table.tableName,
+              (rows) => {
+                completedRows += BigInt(rows);
+                this.emitProgress(migrationId, completedTables, migration.tables.length, migTable.tableName);
+              },
+              tempName,
+            );
+
+            // Get primary key columns for ON CONFLICT
+            const pkResult = await targetClient.query(`
+              SELECT a.attname FROM pg_index i
+              JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+              WHERE i.indrelid = ${qualifiedName}::regclass AND i.indisprimary
+            `);
+            const pkCols = pkResult.rows.map((r: any) => `"${r.attname}"`).join(', ');
+
+            let inserted = 0;
+            if (pkCols) {
+              const res = await targetClient.query(
+                `INSERT INTO ${qualifiedName} SELECT * FROM "${tempName}" ON CONFLICT (${pkCols}) DO NOTHING`,
+              );
+              inserted = res.rowCount || 0;
+            } else {
+              // No primary key — just insert all, duplicates may occur
+              const res = await targetClient.query(`INSERT INTO ${qualifiedName} SELECT * FROM "${tempName}"`);
+              inserted = res.rowCount || 0;
+            }
+            await targetClient.query(`DROP TABLE IF EXISTS "${tempName}"`);
+
+            const skipped = rowsCopied - inserted;
+            this.log(migrationId, 'info', `Appended ${inserted} rows to ${qualifiedName}${skipped > 0 ? ` (${skipped} duplicates skipped)` : ''}`);
+          } else {
+            // Table-level strategies: ERROR, SKIP, OVERWRITE
+            if (tableExists) {
+              if (migration.conflictStrategy === 'ERROR') {
+                throw new Error(`Table ${qualifiedName} already exists in target database`);
+              } else if (migration.conflictStrategy === 'SKIP') {
+                this.log(migrationId, 'info', `Skipping ${qualifiedName} (already exists)`);
+                await this.prisma.dataMigrationTable.update({
+                  where: { id: migTable.id },
+                  data: { status: 'SKIPPED', completedAt: new Date() },
+                });
+                completedTables++;
+                continue;
+              } else {
+                // OVERWRITE
+                this.log(migrationId, 'info', `Dropping existing ${qualifiedName} for overwrite`);
+                await targetClient.query(`DROP TABLE IF EXISTS ${qualifiedName} CASCADE`);
+              }
+            }
+
+            // Create table DDL
+            const ddl = await RemoteMigrator.getTableDDL(sourceClient, table.schemaName, table.tableName);
+            await targetClient.query(ddl);
+            this.log(migrationId, 'info', `Created table structure for ${qualifiedName}`);
+
+            // Collect foreign keys for later
+            const fks = await RemoteMigrator.getTableForeignKeys(sourceClient, table.schemaName, table.tableName);
+            allForeignKeys.push(...fks);
+
+            // Copy data
+            const rowsCopied = await RemoteMigrator.copyTableData(
+              sourceClient, targetClient, table.schemaName, table.tableName,
+              (rows) => {
+                completedRows += BigInt(rows);
+                this.emitProgress(migrationId, completedTables, migration.tables.length, migTable.tableName);
+              },
+            );
+
+            this.log(migrationId, 'info', `Copied ${rowsCopied} rows for ${qualifiedName}`);
           }
-
-          // Create table DDL
-          const ddl = await RemoteMigrator.getTableDDL(sourceClient, table.schemaName, table.tableName);
-          await targetClient.query(ddl);
-          this.log(migrationId, 'info', `Created table structure for ${qualifiedName}`);
-
-          // Collect foreign keys for later
-          const fks = await RemoteMigrator.getTableForeignKeys(sourceClient, table.schemaName, table.tableName);
-          allForeignKeys.push(...fks);
-
-          // Copy data
-          const rowsCopied = await RemoteMigrator.copyTableData(
-            sourceClient, targetClient, table.schemaName, table.tableName,
-            (rows) => {
-              completedRows += BigInt(rows);
-              this.emitProgress(migrationId, completedTables, migration.tables.length, migTable.tableName);
-            },
-          );
-
-          this.log(migrationId, 'info', `Copied ${rowsCopied} rows for ${qualifiedName}`);
           await this.prisma.dataMigrationTable.update({
             where: { id: migTable.id },
             data: { status: 'COMPLETED', migratedRows: rowsCopied, completedAt: new Date() },

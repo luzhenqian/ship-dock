@@ -13,7 +13,7 @@ import { Database, Upload, Check, X, Loader2, AlertCircle, ChevronDown, ChevronU
 
 type Step = 'source' | 'tables' | 'execute' | 'complete';
 type SourceMode = 'REMOTE' | 'FILE' | '';
-type ConflictStrategy = 'ERROR' | 'OVERWRITE' | 'SKIP';
+type ConflictStrategy = 'ERROR' | 'OVERWRITE' | 'SKIP' | 'APPEND';
 
 interface TableInfo {
   tableName: string;
@@ -38,7 +38,7 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
   const [fileName, setFileName] = useState('');
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
-  const [conflictStrategy, setConflictStrategy] = useState<ConflictStrategy>('ERROR');
+  const [conflictStrategy, setConflictStrategy] = useState<ConflictStrategy>('APPEND');
   const [migrationId, setMigrationId] = useState('');
   const [connectionError, setConnectionError] = useState('');
   const [showLogs, setShowLogs] = useState(false);
@@ -305,13 +305,19 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
             })}
           </div>
 
-          <div className="space-y-2">
-            <Label>Conflict Strategy (when table already exists)</Label>
-            <div className="flex gap-3">
-              {([['ERROR', 'Stop on conflict'], ['OVERWRITE', 'Drop & reimport'], ['SKIP', 'Skip existing']] as const).map(([value, label]) => (
-                <label key={value} className="flex items-center gap-2 text-sm">
-                  <input type="radio" name="conflict" checked={conflictStrategy === value} onChange={() => setConflictStrategy(value)} />
-                  {label}
+          <div className="space-y-3">
+            <Label>Conflict Strategy</Label>
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Row-level</p>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" name="conflict" className="mt-0.5" checked={conflictStrategy === 'APPEND'} onChange={() => setConflictStrategy('APPEND')} />
+                <span><span className="font-medium">Append, skip duplicates</span> — insert into existing tables, skip rows with duplicate primary keys</span>
+              </label>
+              <p className="text-xs text-muted-foreground mt-3">Table-level</p>
+              {([['ERROR', 'Stop on conflict', 'error if table already exists'], ['OVERWRITE', 'Drop & reimport', 'delete existing table and reimport from scratch'], ['SKIP', 'Skip existing table', 'skip the entire table if it already exists']] as const).map(([value, label, desc]) => (
+                <label key={value} className="flex items-start gap-2 text-sm">
+                  <input type="radio" name="conflict" className="mt-0.5" checked={conflictStrategy === value} onChange={() => setConflictStrategy(value)} />
+                  <span><span className="font-medium">{label}</span> — {desc}</span>
                 </label>
               ))}
             </div>

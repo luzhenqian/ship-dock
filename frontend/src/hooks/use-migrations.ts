@@ -22,7 +22,7 @@ interface CreateMigrationDto {
   fileKey?: string;
   fileName?: string;
   tables: SelectedTable[];
-  conflictStrategy: 'ERROR' | 'OVERWRITE' | 'SKIP';
+  conflictStrategy: 'ERROR' | 'OVERWRITE' | 'SKIP' | 'APPEND';
 }
 
 export function useMigrations(projectId: string) {

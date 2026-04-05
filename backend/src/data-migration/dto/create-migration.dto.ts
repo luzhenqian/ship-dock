@@ -61,8 +61,8 @@ export class CreateMigrationDto {
   @Type(() => SelectedTableDto)
   tables: SelectedTableDto[];
 
-  @IsEnum(['ERROR', 'OVERWRITE', 'SKIP'])
-  conflictStrategy: 'ERROR' | 'OVERWRITE' | 'SKIP';
+  @IsEnum(['ERROR', 'OVERWRITE', 'SKIP', 'APPEND'])
+  conflictStrategy: 'ERROR' | 'OVERWRITE' | 'SKIP' | 'APPEND';
 }
 
 export class AnalyzeFileDto {

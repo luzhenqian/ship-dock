@@ -232,6 +232,7 @@ enum MigrationConflictStrategy {
   ERROR
   OVERWRITE
   SKIP
+  APPEND
 }
 
 enum MigrationTableStatus {
