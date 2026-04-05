@@ -155,17 +155,50 @@ export class DeployProcessor extends WorkerHost {
           isFirstDeploy, ctx, isNpmStart,
         );
       }
-      case 'nginx':
+      case 'nginx': {
         if (!project.domain) { onLog('No domain configured, skipping nginx'); return { success: true }; }
-        return this.nginxStage.execute({ domain: project.domain, port: project.port, slug: project.slug, hasSsl: this.sslStage.hasCert(project.domain) }, ctx);
-      case 'ssl':
+        const nginxConfig = await this.prisma.nginxConfig.findUnique({ where: { projectId: project.id } });
+        return this.nginxStage.execute({
+          domain: project.domain, port: project.port, slug: project.slug,
+          hasSsl: this.sslStage.hasCert(project.domain),
+          ...(nginxConfig && {
+            clientMaxBodySize: nginxConfig.clientMaxBodySize,
+            proxyReadTimeout: nginxConfig.proxyReadTimeout,
+            proxySendTimeout: nginxConfig.proxySendTimeout,
+            proxyConnectTimeout: nginxConfig.proxyConnectTimeout,
+            gzipEnabled: nginxConfig.gzipEnabled,
+            gzipMinLength: nginxConfig.gzipMinLength,
+            gzipTypes: nginxConfig.gzipTypes,
+            proxyBuffering: nginxConfig.proxyBuffering,
+            proxyBufferSize: nginxConfig.proxyBufferSize,
+            proxyBuffers: nginxConfig.proxyBuffers,
+          }),
+        }, ctx);
+      }
+      case 'ssl': {
         if (!project.domain) { onLog('No domain configured, skipping SSL'); return { success: true }; }
         const serverIp = this.config.get('SERVER_IP');
         const sslResult = await this.sslStage.execute(project.domain, ctx, this.domainsService, serverIp);
         if (sslResult.success) {
-          await this.nginxStage.execute({ domain: project.domain, port: project.port, slug: project.slug, hasSsl: true }, ctx);
+          const nginxConfig = await this.prisma.nginxConfig.findUnique({ where: { projectId: project.id } });
+          await this.nginxStage.execute({
+            domain: project.domain, port: project.port, slug: project.slug, hasSsl: true,
+            ...(nginxConfig && {
+              clientMaxBodySize: nginxConfig.clientMaxBodySize,
+              proxyReadTimeout: nginxConfig.proxyReadTimeout,
+              proxySendTimeout: nginxConfig.proxySendTimeout,
+              proxyConnectTimeout: nginxConfig.proxyConnectTimeout,
+              gzipEnabled: nginxConfig.gzipEnabled,
+              gzipMinLength: nginxConfig.gzipMinLength,
+              gzipTypes: nginxConfig.gzipTypes,
+              proxyBuffering: nginxConfig.proxyBuffering,
+              proxyBufferSize: nginxConfig.proxyBufferSize,
+              proxyBuffers: nginxConfig.proxyBuffers,
+            }),
+          }, ctx);
         }
         return sslResult;
+      }
       default:
         onLog(`Unknown builtin stage: ${name}`);
         return { success: false, error: `Unknown builtin stage: ${name}` };
