@@ -60,16 +60,37 @@ export function useDiscoverTables(projectId: string) {
   });
 }
 
-export function useUploadDump(projectId: string) {
+export function useUploadDump(projectId: string, onProgress?: (percent: number) => void) {
   return useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await apiRaw(`/projects/${projectId}/migrations/upload`, {
-        method: 'POST',
-        body: formData,
+    mutationFn: (file: File) => {
+      return new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        xhr.open('POST', `${API_URL}/projects/${projectId}/migrations/upload`);
+
+        const token = localStorage.getItem('access_token');
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.withCredentials = true;
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable && onProgress) {
+            onProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(JSON.parse(xhr.responseText));
+          } else {
+            reject(new Error(`Upload failed: ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Upload failed: network error'));
+
+        const formData = new FormData();
+        formData.append('file', file);
+        xhr.send(formData);
       });
-      return res.json();
     },
   });
 }

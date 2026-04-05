@@ -42,10 +42,11 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
   const [migrationId, setMigrationId] = useState('');
   const [connectionError, setConnectionError] = useState('');
   const [showLogs, setShowLogs] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState(0);
 
   const testConnection = useTestConnection(projectId);
   const discoverTables = useDiscoverTables(projectId);
-  const uploadDump = useUploadDump(projectId);
+  const uploadDump = useUploadDump(projectId, setUploadPercent);
   const analyzeFile = useAnalyzeFile(projectId);
   const createMigration = useCreateMigration(projectId);
   const cancelMigration = useCancelMigration(projectId);
@@ -224,23 +225,35 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
 
           {sourceMode === 'FILE' && (
             <div className="space-y-3">
-              <div
-                className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const file = e.dataTransfer.files[0];
-                  if (file) handleFileUpload(file);
-                }}
-              >
-                <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  {uploadDump.isPending || analyzeFile.isPending ? 'Uploading and analyzing...' : 'Click or drag and drop a .sql or .dump file (max 1GB)'}
-                </p>
-                {(uploadDump.isPending || analyzeFile.isPending) && <Loader2 className="h-4 w-4 mx-auto mt-2 animate-spin" />}
-              </div>
+              {uploadDump.isPending || analyzeFile.isPending ? (
+                <div className="border-2 border-dashed rounded-lg p-8 text-center opacity-70">
+                  <Loader2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground animate-spin" />
+                  <p className="text-sm font-medium mb-3">
+                    {analyzeFile.isPending ? 'Analyzing file...' : `Uploading... ${uploadPercent}%`}
+                  </p>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden max-w-xs mx-auto">
+                    <div
+                      className="h-full bg-primary transition-all duration-300"
+                      style={{ width: analyzeFile.isPending ? '100%' : `${uploadPercent}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files[0];
+                    if (file) handleFileUpload(file);
+                  }}
+                >
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Click or drag and drop a .sql or .dump file (max 1GB)</p>
+                </div>
+              )}
               <input
                 ref={fileInputRef}
                 type="file"
