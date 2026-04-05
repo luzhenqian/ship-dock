@@ -16,6 +16,7 @@ import { StorageBrowserModule } from './storage-browser/storage-browser.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { DataMigrationModule } from './data-migration/data-migration.module';
 import { NginxConfigModule } from './nginx-config/nginx-config.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -37,6 +38,7 @@ import { AppController } from './app.controller';
     WebhooksModule,
     DataMigrationModule,
     NginxConfigModule,
+    AnalyticsModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
