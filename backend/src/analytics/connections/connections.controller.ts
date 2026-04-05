@@ -16,6 +16,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ConnectionsService } from './connections.service';
 import { Ga4OAuthService } from '../providers/ga4/ga4-oauth.service';
+import { ClarityOAuthService } from '../providers/clarity/clarity-oauth.service';
 
 @Controller('analytics')
 @UseGuards(JwtAuthGuard)
@@ -25,6 +26,7 @@ export class ConnectionsController {
   constructor(
     private connectionsService: ConnectionsService,
     private ga4OAuth: Ga4OAuthService,
+    private clarityOAuth: ClarityOAuthService,
     private config: ConfigService,
   ) {
     this.redis = new Redis({
@@ -81,5 +83,44 @@ export class ConnectionsController {
 
     const frontendUrl = this.config.get('FRONTEND_URL', 'http://localhost:3000');
     res.redirect(`${frontendUrl}/settings/analytics?connected=google`);
+  }
+
+  @Get('connect/microsoft')
+  async connectMicrosoft(@Req() req: any, @Res() res: Response) {
+    const state = randomUUID();
+    await this.redis.set(
+      `oauth:state:${state}`,
+      req.user.id,
+      'EX',
+      600,
+    );
+    const url = await this.clarityOAuth.getAuthUrl(state);
+    res.redirect(url);
+  }
+
+  @Get('callback/microsoft')
+  async callbackMicrosoft(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ) {
+    const userId = await this.redis.get(`oauth:state:${state}`);
+    if (!userId) throw new BadRequestException('Invalid or expired OAuth state');
+    await this.redis.del(`oauth:state:${state}`);
+
+    const tokens = await this.clarityOAuth.exchangeCode(code);
+
+    await this.connectionsService.saveConnection({
+      userId,
+      provider: 'MICROSOFT_CLARITY',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      tokenExpiry: tokens.tokenExpiry,
+      accountEmail: tokens.accountEmail,
+      accountId: tokens.accountId,
+    });
+
+    const frontendUrl = this.config.get('FRONTEND_URL', 'http://localhost:3000');
+    res.redirect(`${frontendUrl}/settings/analytics?connected=microsoft`);
   }
 }
