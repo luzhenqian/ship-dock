@@ -43,11 +43,12 @@ export class DataMigrationService {
 
     if (format === 'custom') {
       const tables = await FileMigrator.parseTablesFromDump(filePath);
-      return { tables, format };
+      return { tables, format, hasCreateStatements: false };
     } else {
       const sql = readFileSync(filePath, 'utf-8');
       const tables = FileMigrator.parseTablesFromSql(sql);
-      return { tables, format };
+      const hasCreateStatements = /CREATE\s+TABLE\s/i.test(sql);
+      return { tables, format, hasCreateStatements };
     }
   }
 

@@ -10,6 +10,7 @@ import {
 } from '@/hooks/use-migrations';
 import { useMigrationLogs } from '@/hooks/use-migration-logs';
 import { Database, Upload, Check, X, Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { toast } from 'sonner';
 
 type Step = 'source' | 'tables' | 'execute' | 'complete';
 type SourceMode = 'REMOTE' | 'FILE' | '';
@@ -40,7 +41,6 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
   const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
   const [conflictStrategy, setConflictStrategy] = useState<ConflictStrategy>('APPEND');
   const [migrationId, setMigrationId] = useState('');
-  const [connectionError, setConnectionError] = useState('');
   const [showLogs, setShowLogs] = useState(false);
   const [uploadPercent, setUploadPercent] = useState(0);
 
@@ -56,33 +56,32 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
 
   // --- Source Step handlers ---
   const handleTestConnection = async () => {
-    setConnectionError('');
     try {
       const result = await testConnection.mutateAsync(connection);
       if (!result.success) {
-        setConnectionError(result.error || 'Connection failed');
+        toast.error(result.error || 'Connection failed');
         return;
       }
       const discovered = await discoverTables.mutateAsync(connection);
       setTables(discovered.tables);
       setSelectedTables(new Set(discovered.tables.map((t: TableInfo) => `${t.schemaName}.${t.tableName}`)));
+      setConflictStrategy('OVERWRITE');
       setStep('tables');
     } catch (err: any) {
-      setConnectionError(err.message || 'Connection failed');
+      toast.error(err.message || 'Connection failed');
     }
   };
 
   const handleFileUpload = async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase();
     if (!['sql', 'dump'].includes(ext || '')) {
-      setConnectionError('Only .sql and .dump files are supported');
+      toast.error('Only .sql and .dump files are supported');
       return;
     }
     if (file.size > 1024 * 1024 * 1024) {
-      setConnectionError('File exceeds 1GB limit');
+      toast.error('File exceeds 1GB limit');
       return;
     }
-    setConnectionError('');
     try {
       const result = await uploadDump.mutateAsync(file);
       setFileKey(result.fileKey);
@@ -90,9 +89,11 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
       const analyzed = await analyzeFile.mutateAsync(result.fileKey);
       setTables(analyzed.tables.map((t: any) => ({ ...t, estimatedRows: 0, estimatedSize: 0, estimatedSizeFormatted: '-' })));
       setSelectedTables(new Set(analyzed.tables.map((t: any) => `${t.schemaName}.${t.tableName}`)));
+      // Auto-select strategy: data-only files → APPEND, files with CREATE TABLE → OVERWRITE
+      setConflictStrategy(analyzed.hasCreateStatements ? 'OVERWRITE' : 'APPEND');
       setStep('tables');
     } catch (err: any) {
-      setConnectionError(err.message || 'Upload failed');
+      toast.error(err.message || 'Upload failed');
     }
   };
 
@@ -162,7 +163,7 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
           <div className="grid grid-cols-2 gap-4">
             <Card
               className={`cursor-pointer transition-colors ${sourceMode === 'REMOTE' ? 'border-primary' : 'hover:border-muted-foreground/50'}`}
-              onClick={() => { setSourceMode('REMOTE'); setConnectionError(''); }}
+              onClick={() => setSourceMode('REMOTE')}
             >
               <CardContent className="flex flex-col items-center gap-2 py-6">
                 <Database className="h-8 w-8" />
@@ -172,7 +173,7 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
             </Card>
             <Card
               className={`cursor-pointer transition-colors ${sourceMode === 'FILE' ? 'border-primary' : 'hover:border-muted-foreground/50'}`}
-              onClick={() => { setSourceMode('FILE'); setConnectionError(''); }}
+              onClick={() => setSourceMode('FILE')}
             >
               <CardContent className="flex flex-col items-center gap-2 py-6">
                 <Upload className="h-8 w-8" />
@@ -208,11 +209,6 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
                 <Label>Database</Label>
                 <Input value={connection.database} onChange={(e) => setConnection({ ...connection, database: e.target.value })} />
               </div>
-              {connectionError && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" /> {connectionError}
-                </p>
-              )}
               <Button
                 onClick={handleTestConnection}
                 disabled={!connection.host || !connection.username || !connection.database || testConnection.isPending || discoverTables.isPending}
@@ -264,11 +260,6 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
                   if (file) handleFileUpload(file);
                 }}
               />
-              {connectionError && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" /> {connectionError}
-                </p>
-              )}
             </div>
           )}
         </div>
