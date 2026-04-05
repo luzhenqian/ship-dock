@@ -27,5 +27,27 @@ describe('FileMigrator', () => {
       expect(tables).toContainEqual({ schemaName: 'public', tableName: 'posts' });
       expect(tables).toContainEqual({ schemaName: 'public', tableName: 'comments' });
     });
+
+    it('extracts table names from INSERT INTO (data-only dumps)', () => {
+      const sql = `
+        INSERT INTO public.article_chunks VALUES ('id1', 'data');
+        INSERT INTO public.users VALUES ('id2', 'name');
+        INSERT INTO public.article_chunks VALUES ('id3', 'more data');
+      `;
+      const tables = FileMigrator.parseTablesFromSql(sql);
+      expect(tables).toContainEqual({ schemaName: 'public', tableName: 'article_chunks' });
+      expect(tables).toContainEqual({ schemaName: 'public', tableName: 'users' });
+      expect(tables).toHaveLength(2); // deduped
+    });
+
+    it('extracts table names from COPY ... FROM stdin', () => {
+      const sql = `
+        COPY public.messages (id, content) FROM stdin;
+        COPY "public"."users" (id, name) FROM stdin;
+      `;
+      const tables = FileMigrator.parseTablesFromSql(sql);
+      expect(tables).toContainEqual({ schemaName: 'public', tableName: 'messages' });
+      expect(tables).toContainEqual({ schemaName: 'public', tableName: 'users' });
+    });
   });
 });

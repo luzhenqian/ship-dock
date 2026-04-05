@@ -14,15 +14,36 @@ export class FileMigrator {
   }
 
   static parseTablesFromSql(sql: string): FileTableInfo[] {
+    const seen = new Set<string>();
     const tables: FileTableInfo[] = [];
-    const regex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"?(\w+)"?\.)?"?(\w+)"?\s*\(/gi;
+
+    const addTable = (schema: string, table: string) => {
+      const key = `${schema}.${table}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        tables.push({ schemaName: schema, tableName: table });
+      }
+    };
+
+    // Match CREATE TABLE
+    const createRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"?(\w+)"?\.)?"?(\w+)"?\s*\(/gi;
     let match: RegExpExecArray | null;
-    while ((match = regex.exec(sql)) !== null) {
-      tables.push({
-        schemaName: match[1] || 'public',
-        tableName: match[2],
-      });
+    while ((match = createRegex.exec(sql)) !== null) {
+      addTable(match[1] || 'public', match[2]);
     }
+
+    // Match INSERT INTO (for data-only dumps)
+    const insertRegex = /INSERT\s+INTO\s+(?:"?(\w+)"?\.)?"?(\w+)"?\s/gi;
+    while ((match = insertRegex.exec(sql)) !== null) {
+      addTable(match[1] || 'public', match[2]);
+    }
+
+    // Match COPY ... FROM (for pg_dump plain format)
+    const copyRegex = /COPY\s+(?:"?(\w+)"?\.)?"?(\w+)"?\s.*FROM\s+stdin/gi;
+    while ((match = copyRegex.exec(sql)) !== null) {
+      addTable(match[1] || 'public', match[2]);
+    }
+
     return tables;
   }
 
