@@ -50,7 +50,7 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
   const analyzeFile = useAnalyzeFile(projectId);
   const createMigration = useCreateMigration(projectId);
   const cancelMigration = useCancelMigration(projectId);
-  const { logs, progress, status } = useMigrationLogs(migrationId);
+  const { logs, progress, status } = useMigrationLogs(projectId, migrationId);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
