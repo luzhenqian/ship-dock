@@ -298,8 +298,12 @@ export function MigrationWizard({ projectId, onClose }: MigrationWizardProps) {
                 <label key={key} className="flex items-center gap-3 px-3 py-2 border-b last:border-0 hover:bg-muted/50 cursor-pointer">
                   <input type="checkbox" checked={selectedTables.has(key)} onChange={() => toggleTable(key)} />
                   <span className="flex-1 font-mono text-sm">{t.schemaName !== 'public' ? `${t.schemaName}.` : ''}{t.tableName}</span>
-                  <span className="text-xs text-muted-foreground w-20 text-right">{t.estimatedRows?.toLocaleString() ?? '-'} rows</span>
-                  <span className="text-xs text-muted-foreground w-20 text-right">{t.estimatedSizeFormatted || '-'}</span>
+                  {sourceMode === 'REMOTE' && (
+                    <>
+                      <span className="text-xs text-muted-foreground w-20 text-right">{t.estimatedRows?.toLocaleString() ?? '-'} rows</span>
+                      <span className="text-xs text-muted-foreground w-20 text-right">{t.estimatedSizeFormatted || '-'}</span>
+                    </>
+                  )}
                 </label>
               );
             })}
