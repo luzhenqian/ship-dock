@@ -31,27 +31,22 @@ echo "    Project: ${PROJECT_DIR}"
 echo "    Branch:  ${GIT_BRANCH}"
 echo ""
 
-# ── Check if server has the backend source ──
-HAS_PROJECT=$(ssh $SSH_OPTS "${SSH_USER}@${SERVER_HOST}" \
-  "[[ -d '${PROJECT_DIR}/backend/src' ]] && echo yes || echo no")
-
-if [[ "$HAS_PROJECT" == "no" ]]; then
-  echo ">> Server has no source code, uploading via rsync ..."
-  ssh $SSH_OPTS "${SSH_USER}@${SERVER_HOST}" "sudo mkdir -p '${PROJECT_DIR}' && sudo chown ${SSH_USER}:${SSH_USER} '${PROJECT_DIR}'"
-  rsync -az --delete \
-    --exclude '.git' \
-    --exclude 'node_modules' \
-    --exclude '.next' \
-    --exclude 'dist' \
-    --exclude '.env' \
-    --exclude '.env.*' \
-    --exclude 'scripts/deploy.config.sh' \
-    --exclude '*.pem' \
-    -e "$RSYNC_SSH" \
-    "${PROJECT_ROOT}/" "${SSH_USER}@${SERVER_HOST}:${PROJECT_DIR}/"
-  echo "   Upload complete"
-  echo ""
-fi
+# ── Upload source code to server ──
+echo ">> Uploading source code via rsync ..."
+ssh $SSH_OPTS "${SSH_USER}@${SERVER_HOST}" "sudo mkdir -p '${PROJECT_DIR}' && sudo chown ${SSH_USER}:${SSH_USER} '${PROJECT_DIR}'"
+rsync -az --delete \
+  --exclude '.git' \
+  --exclude 'node_modules' \
+  --exclude '.next' \
+  --exclude 'dist' \
+  --exclude '.env' \
+  --exclude '.env.*' \
+  --exclude 'scripts/deploy.config.sh' \
+  --exclude '*.pem' \
+  -e "$RSYNC_SSH" \
+  "${PROJECT_ROOT}/" "${SSH_USER}@${SERVER_HOST}:${PROJECT_DIR}/"
+echo "   Upload complete"
+echo ""
 
 # ── Always sync scripts to server ──
 echo ">> Syncing deploy scripts ..."

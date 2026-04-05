@@ -1,6 +1,5 @@
 import { StageContext, StageResult } from './command.stage';
-import { spawn } from 'child_process';
-import { existsSync } from 'fs';
+import { spawn, execSync } from 'child_process';
 import { DomainsService } from '../../domains/domains.service';
 
 export class SslStage {
@@ -9,7 +8,12 @@ export class SslStage {
   }
 
   hasCert(domain: string): boolean {
-    return existsSync(`/etc/letsencrypt/live/${domain}/fullchain.pem`);
+    try {
+      execSync(`sudo test -f /etc/letsencrypt/live/${domain}/fullchain.pem`, { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**

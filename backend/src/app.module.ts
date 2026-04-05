@@ -16,8 +16,10 @@ import { StorageBrowserModule } from './storage-browser/storage-browser.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { DataMigrationModule } from './data-migration/data-migration.module';
 import { NginxConfigModule } from './nginx-config/nginx-config.module';
+import { AppController } from './app.controller';
 
 @Module({
+  controllers: [AppController],
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     CommonModule,
