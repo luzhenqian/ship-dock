@@ -18,11 +18,42 @@ const STEPS: { key: Step; label: string }[] = [
   { key: 'confirm', label: 'Deploy' },
 ];
 
+/* ── Validation helpers ── */
+
+function isValidGithubUrl(url: string) {
+  return /^https?:\/\/github\.com\/[^/]+\/[^/]+/.test(url.replace(/\.git$/, ''));
+}
+
+function isValidSlug(slug: string) {
+  return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug);
+}
+
+function isValidDomain(domain: string) {
+  return /^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(domain);
+}
+
+function isValidPort(port: string) {
+  const n = parseInt(port, 10);
+  return Number.isInteger(n) && n >= 3001 && n <= 3999;
+}
+
+function getEnvVarErrors(envVars: Record<string, string>): string | null {
+  const keys = Object.keys(envVars);
+  for (const key of keys) {
+    if (key.trim() === '') return 'Variable name cannot be empty';
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) return `Invalid variable name: ${key}`;
+  }
+  const unique = new Set(keys);
+  if (unique.size !== keys.length) return 'Duplicate variable names found';
+  return null;
+}
+
 export default function NewProjectPage() {
   const router = useRouter();
   const createProject = useCreateProject();
   const [step, setStep] = useState<Step>('source');
   const [createdProjectId, setCreatedProjectId] = useState('');
+  const [createError, setCreateError] = useState('');
   const [branches, setBranches] = useState<string[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
@@ -39,6 +70,32 @@ export default function NewProjectPage() {
     useLocalDb: false,
     envVars: {} as Record<string, string>,
   });
+
+  /* ── Per-step validation ── */
+
+  const sourceErrors: Record<string, string> = {};
+  if (form.sourceType === 'GITHUB') {
+    if (!form.repoUrl) sourceErrors.repoUrl = 'Repository URL is required';
+    else if (!isValidGithubUrl(form.repoUrl)) sourceErrors.repoUrl = 'Enter a valid GitHub repository URL';
+    if (!form.branch.trim()) sourceErrors.branch = 'Branch is required';
+  }
+  const canContinueFromSource = form.sourceType !== '' && Object.keys(sourceErrors).length === 0;
+
+  const basicErrors = (() => {
+    const e: Record<string, string> = {};
+    if (!form.name.trim()) e.name = 'Project name is required';
+    if (!form.slug.trim()) e.slug = 'Slug is required';
+    else if (!isValidSlug(form.slug)) e.slug = 'Only lowercase letters, numbers, and hyphens';
+    if (form.domain && !isValidDomain(form.domain)) e.domain = 'Enter a valid domain (e.g. app.example.com)';
+    if (form.port && !isValidPort(form.port)) e.port = 'Port must be between 3001 and 3999';
+    return e;
+  })();
+  const canContinueFromBasic = Object.keys(basicErrors).length === 0 && form.name.trim() !== '' && form.slug.trim() !== '';
+
+  const envError = getEnvVarErrors(form.envVars);
+  const canContinueFromEnv = envError === null;
+
+  /* ── Effects ── */
 
   useEffect(() => {
     if (form.sourceType !== 'GITHUB' || !form.repoUrl) {
@@ -77,6 +134,8 @@ export default function NewProjectPage() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  /* ── Helpers ── */
+
   function update(p: Partial<typeof form>) {
     setForm((prev) => ({ ...prev, ...p }));
   }
@@ -95,6 +154,7 @@ export default function NewProjectPage() {
   }
 
   function goToBasic() {
+    if (!canContinueFromSource) return;
     if (form.sourceType === 'GITHUB' && form.repoUrl && !form.name) {
       const repoName = repoNameFromUrl(form.repoUrl);
       if (repoName) {
@@ -109,26 +169,37 @@ export default function NewProjectPage() {
   );
 
   async function handleCreate() {
-    const result = await createProject.mutateAsync({
-      name: form.name,
-      slug: form.slug,
-      sourceType: form.sourceType,
-      repoUrl: form.sourceType === 'GITHUB' ? form.repoUrl : undefined,
-      branch: form.branch,
-      domain: form.domain || undefined,
-      port: form.port ? parseInt(form.port) : undefined,
-      useLocalDb: form.useLocalDb || undefined,
-      envVars: Object.keys(form.envVars).length > 0 ? form.envVars : undefined,
-    });
-    if (form.useLocalDb) {
-      setCreatedProjectId(result.id);
-      setStep('import');
-    } else {
-      router.push(`/projects/${result.id}`);
+    setCreateError('');
+    try {
+      const result = await createProject.mutateAsync({
+        name: form.name,
+        slug: form.slug,
+        sourceType: form.sourceType,
+        repoUrl: form.sourceType === 'GITHUB' ? form.repoUrl : undefined,
+        branch: form.branch,
+        domain: form.domain || undefined,
+        port: form.port ? parseInt(form.port) : undefined,
+        useLocalDb: form.useLocalDb || undefined,
+        envVars: Object.keys(form.envVars).length > 0 ? form.envVars : undefined,
+      });
+      if (form.useLocalDb) {
+        setCreatedProjectId(result.id);
+        setStep('import');
+      } else {
+        router.push(`/projects/${result.id}`);
+      }
+    } catch (err: any) {
+      setCreateError(err.message || 'Failed to create project');
     }
   }
 
   const currentStepIndex = STEPS.findIndex((s) => s.key === step);
+
+  /* ── Inline error helper ── */
+  function FieldError({ msg }: { msg?: string }) {
+    if (!msg) return null;
+    return <p className="text-xs text-destructive">{msg}</p>;
+  }
 
   return (
     <div className="mx-auto max-w-2xl py-10">
@@ -221,6 +292,7 @@ export default function NewProjectPage() {
                   onChange={(e) => update({ repoUrl: e.target.value })}
                   autoFocus
                 />
+                <FieldError msg={form.repoUrl ? sourceErrors.repoUrl : undefined} />
               </div>
               <div className="space-y-2">
                 <Label className="text-[13px] text-foreground-secondary">Branch</Label>
@@ -263,7 +335,7 @@ export default function NewProjectPage() {
           )}
 
           <div className="flex justify-end">
-            <Button onClick={goToBasic} disabled={!form.sourceType} className="h-9 px-4">
+            <Button onClick={goToBasic} disabled={!canContinueFromSource} className="h-9 px-4">
               Continue <ChevronRight className="ml-1 size-3.5" />
             </Button>
           </div>
@@ -282,6 +354,7 @@ export default function NewProjectPage() {
                 placeholder="My Application"
                 autoFocus
               />
+              <FieldError msg={form.name ? basicErrors.name : undefined} />
             </div>
             <div className="space-y-2">
               <Label className="text-[13px] text-foreground-secondary">Slug</Label>
@@ -293,7 +366,11 @@ export default function NewProjectPage() {
                   className="pl-8 font-mono text-[13px]"
                 />
               </div>
-              <p className="text-xs text-foreground-muted">Used for directory name and PM2 process</p>
+              {form.slug && basicErrors.slug ? (
+                <FieldError msg={basicErrors.slug} />
+              ) : (
+                <p className="text-xs text-foreground-muted">Used for directory name and PM2 process</p>
+              )}
             </div>
           </div>
 
@@ -308,6 +385,7 @@ export default function NewProjectPage() {
                 value={form.domain}
                 onChange={(e) => update({ domain: e.target.value })}
               />
+              <FieldError msg={form.domain ? basicErrors.domain : undefined} />
             </div>
             <div className="space-y-2">
               <Label className="text-[13px] text-foreground-secondary">
@@ -320,6 +398,7 @@ export default function NewProjectPage() {
                 value={form.port}
                 onChange={(e) => update({ port: e.target.value })}
               />
+              <FieldError msg={form.port ? basicErrors.port : undefined} />
             </div>
           </div>
 
@@ -350,7 +429,7 @@ export default function NewProjectPage() {
             <Button variant="ghost" onClick={() => setStep('source')} className="h-9 text-foreground-secondary">
               Back
             </Button>
-            <Button onClick={() => setStep('env')} disabled={!form.name || !form.slug} className="h-9 px-4">
+            <Button onClick={() => setStep('env')} disabled={!canContinueFromBasic} className="h-9 px-4">
               Continue <ChevronRight className="ml-1 size-3.5" />
             </Button>
           </div>
@@ -360,14 +439,15 @@ export default function NewProjectPage() {
       {/* Step: Environment Variables */}
       {step === 'env' && (
         <div className="space-y-6">
-          <div className="rounded-xl border p-4">
+          <div className="rounded-xl border p-4 space-y-3">
             <EnvVarEditor value={form.envVars} onChange={(envVars) => update({ envVars })} />
+            <FieldError msg={envError ?? undefined} />
           </div>
           <div className="flex justify-between">
             <Button variant="ghost" onClick={() => setStep('basic')} className="h-9 text-foreground-secondary">
               Back
             </Button>
-            <Button onClick={() => setStep('confirm')} className="h-9 px-4">
+            <Button onClick={() => setStep('confirm')} disabled={!canContinueFromEnv} className="h-9 px-4">
               Continue <ChevronRight className="ml-1 size-3.5" />
             </Button>
           </div>
@@ -424,6 +504,12 @@ export default function NewProjectPage() {
               </div>
             )}
           </div>
+
+          {createError && (
+            <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              {createError}
+            </div>
+          )}
 
           <div className="flex justify-between">
             <Button variant="ghost" onClick={() => setStep('env')} className="h-9 text-foreground-secondary">
