@@ -101,6 +101,7 @@ model Project {
   webhookConfig  WebhookConfig?
   webhookEvents  WebhookEvent[]
   dataMigrations DataMigration[]
+  nginxConfig    NginxConfig?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -283,4 +284,25 @@ model DataMigrationTable {
   errorMessage  String?
   startedAt     DateTime?
   completedAt   DateTime?
+}
+
+model NginxConfig {
+  id                  String  @id @default(uuid())
+  projectId           String  @unique
+  project             Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  clientMaxBodySize   Int     @default(10)
+  proxyReadTimeout    Int     @default(60)
+  proxySendTimeout    Int     @default(60)
+  proxyConnectTimeout Int     @default(60)
+
+  gzipEnabled         Boolean @default(true)
+  gzipMinLength       Int     @default(1024)
+  gzipTypes           String  @default("text/plain text/css application/json application/javascript text/xml")
+  proxyBuffering      Boolean @default(true)
+  proxyBufferSize     String  @default("4k")
+  proxyBuffers        String  @default("8 4k")
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
