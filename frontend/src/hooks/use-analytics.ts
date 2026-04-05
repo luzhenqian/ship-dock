@@ -59,6 +59,7 @@ export function useGa4Streams(
 }
 
 export function useCreateGa4Property() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: {
       connectionId: string;
@@ -71,10 +72,15 @@ export function useCreateGa4Property() {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    onSuccess: (_, variables) =>
+      qc.invalidateQueries({
+        queryKey: ['analytics', 'ga4', 'properties', variables.connectionId, variables.accountId],
+      }),
   });
 }
 
 export function useCreateGa4Stream() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: {
       connectionId: string;
@@ -85,6 +91,10 @@ export function useCreateGa4Stream() {
       api('/analytics/ga4/streams', {
         method: 'POST',
         body: JSON.stringify(data),
+      }),
+    onSuccess: (_, variables) =>
+      qc.invalidateQueries({
+        queryKey: ['analytics', 'ga4', 'streams', variables.connectionId, variables.propertyId],
       }),
   });
 }
@@ -101,6 +111,7 @@ export function useClarityProjects(connectionId: string | null) {
 }
 
 export function useCreateClarityProject() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: {
       connectionId: string;
@@ -110,6 +121,10 @@ export function useCreateClarityProject() {
       api('/analytics/clarity/projects', {
         method: 'POST',
         body: JSON.stringify(data),
+      }),
+    onSuccess: (_, variables) =>
+      qc.invalidateQueries({
+        queryKey: ['analytics', 'clarity', 'projects', variables.connectionId],
       }),
   });
 }
