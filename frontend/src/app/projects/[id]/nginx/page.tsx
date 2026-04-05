@@ -8,6 +8,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { codeToHtml } from 'shiki';
+
+function useHighlightedCode(code: string, lang: string) {
+  const [html, setHtml] = useState('');
+  useEffect(() => {
+    let cancelled = false;
+    codeToHtml(code, {
+      lang,
+      theme: 'github-dark',
+    }).then((result) => {
+      if (!cancelled) setHtml(result);
+    });
+    return () => { cancelled = true; };
+  }, [code, lang]);
+  return html;
+}
 
 function buildPreview(
   domain: string,
@@ -105,6 +121,7 @@ export default function NginxConfigPage({ params }: { params: Promise<{ id: stri
   }
 
   const preview = buildPreview(project.domain, project.port, form);
+  const highlightedPreview = useHighlightedCode(preview, 'nginx');
 
   return (
     <div className="space-y-6">
@@ -249,9 +266,16 @@ export default function NginxConfigPage({ params }: { params: Promise<{ id: stri
       <Card>
         <CardHeader><CardTitle>Generated Configuration</CardTitle></CardHeader>
         <CardContent>
-          <pre className="bg-muted p-4 rounded-md text-xs font-mono overflow-x-auto whitespace-pre leading-relaxed">
-            {preview}
-          </pre>
+          {highlightedPreview ? (
+            <div
+              className="rounded-md text-xs overflow-x-auto leading-relaxed [&_pre]:p-4 [&_pre]:rounded-md"
+              dangerouslySetInnerHTML={{ __html: highlightedPreview }}
+            />
+          ) : (
+            <pre className="bg-muted p-4 rounded-md text-xs font-mono overflow-x-auto whitespace-pre leading-relaxed">
+              {preview}
+            </pre>
+          )}
         </CardContent>
       </Card>
     </div>
