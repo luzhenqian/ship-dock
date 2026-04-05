@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
 import { ConnectionsController } from './connections/connections.controller';
 import { ConnectionsService } from './connections/connections.service';
 import { Ga4OAuthService } from './providers/ga4/ga4-oauth.service';
@@ -12,6 +13,7 @@ import { IntegrationsService } from './integrations/integrations.service';
 import { IntegrationsController } from './integrations/integrations.controller';
 
 @Module({
+  imports: [JwtModule.register({})],
   controllers: [ConnectionsController, Ga4AdminController, ClarityAdminController, IntegrationsController],
   providers: [ConnectionsService, Ga4OAuthService, Ga4AdminService, Ga4DataService, ClarityOAuthService, ClarityAdminService, IntegrationsService],
   exports: [ConnectionsService, Ga4OAuthService, Ga4AdminService, Ga4DataService, ClarityOAuthService, ClarityAdminService, IntegrationsService],
