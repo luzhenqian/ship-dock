@@ -1,14 +1,22 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useGitHubInstallations, useGitHubInstallationUrl, useGitHubCallback, useDeleteGitHubInstallation } from '@/hooks/use-github-app';
-import { Github, Trash2, Loader2, ExternalLink } from 'lucide-react';
+import { GitBranch, Trash2, Loader2, ExternalLink } from 'lucide-react';
 
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading...</div>}>
+      <SettingsContent />
+    </Suspense>
+  );
+}
+
+function SettingsContent() {
   const searchParams = useSearchParams();
   const { data: installations, isLoading: installationsLoading } = useGitHubInstallations();
   const { data: urlData } = useGitHubInstallationUrl();
@@ -41,7 +49,7 @@ export default function SettingsPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <Github className="h-5 w-5" />
+              <GitBranch className="h-5 w-5" />
               GitHub Connection
             </CardTitle>
             {urlData?.url && (
@@ -50,7 +58,7 @@ export default function SettingsPage() {
                 size="sm"
                 onClick={() => window.location.href = urlData.url}
               >
-                <Github className="mr-2 h-4 w-4" />
+                <GitBranch className="mr-2 h-4 w-4" />
                 Connect GitHub
               </Button>
             )}
@@ -77,7 +85,7 @@ export default function SettingsPage() {
                   className="flex items-center justify-between rounded-lg border p-3"
                 >
                   <div className="flex items-center gap-3">
-                    <Github className="h-5 w-5 text-muted-foreground" />
+                    <GitBranch className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <p className="font-medium">{inst.accountLogin}</p>
                       <p className="text-xs text-muted-foreground">

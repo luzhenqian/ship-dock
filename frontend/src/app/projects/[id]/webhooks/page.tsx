@@ -14,7 +14,7 @@ import {
   useRegenerateSecret, useWebhookEvents, useReplayWebhookEvent,
 } from '@/hooks/use-webhooks';
 import { useProject } from '@/hooks/use-projects';
-import { Github } from 'lucide-react';
+import { GitBranch } from 'lucide-react';
 
 const EVENT_OPTIONS = ['push', 'pull_request', 'release', 'create', 'delete'];
 
@@ -132,7 +132,7 @@ export default function WebhooksPage({ params }: { params: Promise<{ id: string 
         isAppConnected ? (
           <Card>
             <CardContent className="flex items-center gap-3 py-6">
-              <Github className="h-5 w-5 text-muted-foreground" />
+              <GitBranch className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="font-medium">Webhooks automatically configured via GitHub App</p>
                 <p className="text-sm text-muted-foreground">

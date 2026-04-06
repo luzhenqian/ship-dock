@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useGitHubInstallations, useGitHubRepositories } from '@/hooks/use-github-app';
-import { Github, Search, Lock, Globe, Loader2 } from 'lucide-react';
+import { GitBranch, Search, Lock, Globe, Loader2 } from 'lucide-react';
 
 interface RepoSelectorProps {
   onSelect: (repoUrl: string, defaultBranch: string) => void;
@@ -49,7 +49,7 @@ export function RepoSelector({ onSelect, onSwitchToManual }: RepoSelectorProps) 
               size="sm"
               onClick={() => setSelectedInstallation(inst.installationId)}
             >
-              <Github className="mr-1.5 h-3.5 w-3.5" />
+              <GitBranch className="mr-1.5 h-3.5 w-3.5" />
               {inst.accountLogin}
             </Button>
           ))}
