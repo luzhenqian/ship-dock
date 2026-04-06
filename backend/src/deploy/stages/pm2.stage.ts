@@ -5,33 +5,36 @@ import { spawn } from 'child_process';
 
 export interface Pm2Config {
   name: string; script: string; cwd: string; port: number; envVars: Record<string, string>;
+  instances?: number;
+  execMode?: string;
+  maxMemoryRestart?: string;
 }
 
 export class Pm2Stage {
   buildEcosystemConfig(config: Pm2Config, isNpmStart = false): string {
     const envEntries = Object.entries(config.envVars).map(([k, v]) => `      ${k}: '${v}'`).join(',\n');
 
-    if (isNpmStart) {
-      return `module.exports = {
-  apps: [{
-    name: '${config.name}',
-    script: 'npm',
-    args: 'start',
-    cwd: '${config.cwd}',
-    env: {
-      PORT: ${config.port},
-      NODE_ENV: 'production',
-${envEntries}
+    const optionalLines: string[] = [];
+    if (config.instances !== undefined && config.instances !== 1) {
+      optionalLines.push(`    instances: ${config.instances},`);
     }
-  }]
-};`;
+    if (config.execMode && config.execMode !== 'fork') {
+      optionalLines.push(`    exec_mode: '${config.execMode}',`);
     }
+    if (config.maxMemoryRestart) {
+      optionalLines.push(`    max_memory_restart: '${config.maxMemoryRestart}',`);
+    }
+    const optionalBlock = optionalLines.length > 0 ? '\n' + optionalLines.join('\n') : '';
+
+    const scriptLine = isNpmStart
+      ? `    script: 'npm',\n    args: 'start',`
+      : `    script: '${config.script}',`;
 
     return `module.exports = {
   apps: [{
     name: '${config.name}',
-    script: '${config.script}',
-    cwd: '${config.cwd}',
+${scriptLine}
+    cwd: '${config.cwd}',${optionalBlock}
     env: {
       PORT: ${config.port},
       NODE_ENV: 'production',
