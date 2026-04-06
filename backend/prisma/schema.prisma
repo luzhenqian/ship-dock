@@ -66,43 +66,44 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  projects    Project[]
-  deployments Deployment[]
-  providers   DomainProvider[]
-  invites     Invite[]
-  dataMigrations DataMigration[]
+  projects             Project[]
+  deployments          Deployment[]
+  providers            DomainProvider[]
+  invites              Invite[]
+  dataMigrations       DataMigration[]
   analyticsConnections AnalyticsConnection[]
 }
 
 model Project {
-  id         String        @id @default(uuid())
-  name       String
-  slug       String        @unique
-  repoUrl    String?
-  branch     String        @default("main")
-  sourceType SourceType
-  domain     String?
-  port       Int
-  envVars    String        @default("")
-  pipeline   Json
-  directory  String?
+  id           String        @id @default(uuid())
+  name         String
+  slug         String        @unique
+  repoUrl      String?
+  branch       String        @default("main")
+  sourceType   SourceType
+  domain       String?
+  port         Int
+  envVars      String        @default("")
+  pipeline     Json
+  directory    String?
   workDir      String?
   startCommand String?
   pm2Name      String
   useLocalDb   Boolean       @default(false)
   dbName       String?
-  status     ProjectStatus @default(ACTIVE)
+  status       ProjectStatus @default(ACTIVE)
 
   createdBy   User   @relation(fields: [createdById], references: [id])
   createdById String
 
-  deployments    Deployment[]
-  portAllocation PortAllocation?
-  services       ServiceConnection[]
-  webhookConfig  WebhookConfig?
-  webhookEvents  WebhookEvent[]
-  dataMigrations DataMigration[]
-  nginxConfig    NginxConfig?
+  deployments           Deployment[]
+  portAllocation        PortAllocation?
+  services              ServiceConnection[]
+  webhookConfig         WebhookConfig?
+  webhookEvents         WebhookEvent[]
+  dataMigrations        DataMigration[]
+  nginxConfig           NginxConfig?
+  pm2Config             Pm2Config?
   analyticsIntegrations AnalyticsIntegration[]
 
   createdAt DateTime @default(now())
@@ -110,21 +111,21 @@ model Project {
 }
 
 model Deployment {
-  id          String           @id @default(uuid())
-  version     Int
-  commitHash  String?
-  status      DeploymentStatus @default(QUEUED)
-  stages      Json             @default("[]")
-  startedAt   DateTime?
-  finishedAt  DateTime?
+  id         String           @id @default(uuid())
+  version    Int
+  commitHash String?
+  status     DeploymentStatus @default(QUEUED)
+  stages     Json             @default("[]")
+  startedAt  DateTime?
+  finishedAt DateTime?
 
-  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectId   String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
 
   triggeredBy   User   @relation(fields: [triggeredById], references: [id])
   triggeredById String
 
-  createdAt DateTime @default(now())
+  createdAt    DateTime      @default(now())
   webhookEvent WebhookEvent?
 
   @@index([projectId, version])
@@ -144,18 +145,18 @@ model DomainProvider {
 }
 
 model PortAllocation {
-  id          String   @id @default(uuid())
-  port        Int      @unique
-  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  projectId   String?  @unique
+  id          String    @id @default(uuid())
+  port        Int       @unique
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId   String?   @unique
   allocatedAt DateTime?
 }
 
 model Invite {
-  id        String   @id @default(uuid())
-  token     String   @unique @default(uuid())
+  id        String    @id @default(uuid())
+  token     String    @unique @default(uuid())
   email     String?
-  role      Role     @default(DEVELOPER)
+  role      Role      @default(DEVELOPER)
   usedAt    DateTime?
   expiresAt DateTime
 
@@ -207,7 +208,7 @@ model WebhookEvent {
   payload      Json
   status       WebhookEventStatus @default(RECEIVED)
   filterReason String?
-  deploymentId String?             @unique
+  deploymentId String?            @unique
   deployment   Deployment?        @relation(fields: [deploymentId], references: [id])
   error        String?
   processedAt  DateTime?
@@ -267,46 +268,60 @@ model DataMigration {
   completedAt      DateTime?
   createdAt        DateTime                  @default(now())
 
-  tables           DataMigrationTable[]
-  triggeredBy      User                      @relation(fields: [triggeredById], references: [id])
-  triggeredById    String
+  tables        DataMigrationTable[]
+  triggeredBy   User                 @relation(fields: [triggeredById], references: [id])
+  triggeredById String
 
   @@index([projectId])
 }
 
 model DataMigrationTable {
-  id            String               @id @default(uuid())
-  migrationId   String
-  migration     DataMigration        @relation(fields: [migrationId], references: [id], onDelete: Cascade)
-  tableName     String
-  schemaName    String               @default("public")
-  status        MigrationTableStatus @default(PENDING)
-  rowCount      BigInt               @default(0)
-  migratedRows  BigInt               @default(0)
-  errorMessage  String?
-  startedAt     DateTime?
-  completedAt   DateTime?
+  id           String               @id @default(uuid())
+  migrationId  String
+  migration    DataMigration        @relation(fields: [migrationId], references: [id], onDelete: Cascade)
+  tableName    String
+  schemaName   String               @default("public")
+  status       MigrationTableStatus @default(PENDING)
+  rowCount     BigInt               @default(0)
+  migratedRows BigInt               @default(0)
+  errorMessage String?
+  startedAt    DateTime?
+  completedAt  DateTime?
 }
 
 model NginxConfig {
-  id                  String  @id @default(uuid())
-  projectId           String  @unique
-  project             Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  projectId String  @unique
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  clientMaxBodySize   Int     @default(10)
-  proxyReadTimeout    Int     @default(60)
-  proxySendTimeout    Int     @default(60)
-  proxyConnectTimeout Int     @default(60)
+  clientMaxBodySize   Int @default(10)
+  proxyReadTimeout    Int @default(60)
+  proxySendTimeout    Int @default(60)
+  proxyConnectTimeout Int @default(60)
 
-  gzipEnabled         Boolean @default(true)
-  gzipMinLength       Int     @default(1024)
-  gzipTypes           String  @default("text/plain text/css application/json application/javascript text/xml")
-  proxyBuffering      Boolean @default(true)
-  proxyBufferSize     String  @default("4k")
-  proxyBuffers        String  @default("8 4k")
+  gzipEnabled     Boolean @default(true)
+  gzipMinLength   Int     @default(1024)
+  gzipTypes       String  @default("text/plain text/css application/json application/javascript text/xml")
+  proxyBuffering  Boolean @default(true)
+  proxyBufferSize String  @default("4k")
+  proxyBuffers    String  @default("8 4k")
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Pm2Config {
+  id        String  @id @default(uuid())
+  projectId String  @unique
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  script           String?
+  instances        Int     @default(1)
+  execMode         String  @default("fork")
+  maxMemoryRestart String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum AnalyticsProvider {
@@ -333,9 +348,9 @@ model AnalyticsConnection {
 }
 
 model AnalyticsIntegration {
-  id                  String              @id @default(uuid())
+  id                  String               @id @default(uuid())
   projectId           String
-  project             Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project             Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   connectionId        String?
   connection          AnalyticsConnection? @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   provider            AnalyticsProvider
@@ -344,9 +359,9 @@ model AnalyticsIntegration {
   measurementId       String?
   clarityProjectId    String?
   clarityTrackingCode String?
-  enabled             Boolean             @default(true)
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  enabled             Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@unique([projectId, provider])
   @@index([connectionId])
