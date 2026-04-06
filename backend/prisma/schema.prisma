@@ -56,6 +56,19 @@ enum WebhookEventStatus {
   REPLAYED
 }
 
+model GitHubInstallation {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  installationId Int      @unique
+  accountLogin   String
+  accountType    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  projects Project[]
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -72,6 +85,7 @@ model User {
   invites              Invite[]
   dataMigrations       DataMigration[]
   analyticsConnections AnalyticsConnection[]
+  githubInstallations  GitHubInstallation[]
 }
 
 model Project {
@@ -95,6 +109,9 @@ model Project {
 
   createdBy   User   @relation(fields: [createdById], references: [id])
   createdById String
+
+  githubInstallationId String?
+  githubInstallation   GitHubInstallation? @relation(fields: [githubInstallationId], references: [id], onDelete: SetNull)
 
   deployments           Deployment[]
   portAllocation        PortAllocation?
