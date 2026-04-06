@@ -1,6 +1,6 @@
 'use client';
 
-import { use } from 'react';
+import { use, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDeployments, useTriggerDeploy } from '@/hooks/use-deployments';
@@ -26,16 +26,49 @@ function timeAgo(date: string): string {
   return `${days}d ago`;
 }
 
+function formatDuration(seconds: number | null): string {
+  if (seconds === null) return '';
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
+
 export default function DeploymentsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
   const router = useRouter();
   const { data: project } = useProject(projectId);
-  const { data: deployments, isLoading } = useDeployments(projectId);
+  const {
+    data,
+    isLoading,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useDeployments(projectId);
   const triggerDeploy = useTriggerDeploy(projectId);
   const stopProject = useStopProject(projectId);
   const restartProject = useRestartProject(projectId);
 
   const isStopped = project?.status === 'STOPPED';
+  const deployments = data?.pages.flatMap((p) => p.items) ?? [];
+
+  // Infinite scroll sentinel
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const handleIntersect = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage],
+  );
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(handleIntersect, { threshold: 0 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handleIntersect]);
 
   const handleDeploy = () => {
     triggerDeploy.mutate(undefined, {
@@ -84,7 +117,7 @@ export default function DeploymentsPage({ params }: { params: Promise<{ id: stri
           ))}
         </div>
       )}
-      {deployments && deployments.length === 0 && (
+      {!isLoading && deployments.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 border rounded-xl">
           <p className="text-foreground-secondary mb-4">No deployments yet</p>
           <Button onClick={handleDeploy} disabled={triggerDeploy.isPending}>
@@ -92,7 +125,7 @@ export default function DeploymentsPage({ params }: { params: Promise<{ id: stri
           </Button>
         </div>
       )}
-      {deployments && deployments.length > 0 && (
+      {deployments.length > 0 && (
         <div className="border rounded-xl overflow-hidden">
           {deployments.map((d: any, i: number) => (
             <Link
@@ -110,9 +143,21 @@ export default function DeploymentsPage({ params }: { params: Promise<{ id: stri
                   <span className="text-[13px] text-foreground-muted">by {d.triggeredBy.name}</span>
                 )}
               </div>
-              <span className="text-[13px] text-foreground-muted">{timeAgo(d.createdAt)}</span>
+              <div className="flex items-center gap-4">
+                {d.duration !== null && (
+                  <span className="text-[13px] text-foreground-muted font-mono">{formatDuration(d.duration)}</span>
+                )}
+                <span className="text-[13px] text-foreground-muted">{timeAgo(d.createdAt)}</span>
+              </div>
             </Link>
           ))}
+        </div>
+      )}
+      {/* Infinite scroll sentinel */}
+      <div ref={sentinelRef} className="h-8" />
+      {isFetchingNextPage && (
+        <div className="flex justify-center py-4">
+          <div className="h-5 w-5 border-2 border-foreground-muted border-t-foreground rounded-full animate-spin" />
         </div>
       )}
     </div>
