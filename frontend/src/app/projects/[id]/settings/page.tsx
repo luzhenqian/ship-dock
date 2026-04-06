@@ -576,7 +576,9 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
                       method: 'PATCH',
                       body: JSON.stringify({ repoUrl, branch: repoBranch || 'main' }),
                     });
-                    toast.success('Repository connected');
+                    toast.success('Repository connected', {
+                      description: 'Redeploy to pull from GitHub.',
+                    });
                     setShowRepoConnect(false);
                     refetch();
                   } catch (err: any) {
@@ -597,12 +599,12 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
         open={showRepoDisconnect}
         onOpenChange={setShowRepoDisconnect}
         title="Disconnect repository"
-        description="This will disconnect the GitHub repository from this project. You can reconnect it later."
+        description="This will disconnect the GitHub repository. The project will switch back to file upload mode and any configured webhook will be removed."
         onConfirm={async () => {
           try {
             await api(`/projects/${projectId}`, {
               method: 'PATCH',
-              body: JSON.stringify({ repoUrl: '' }),
+              body: JSON.stringify({ repoUrl: null }),
             });
             toast.success('Repository disconnected');
             refetch();
