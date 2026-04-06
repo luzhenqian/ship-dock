@@ -206,7 +206,7 @@ export class DeployProcessor extends WorkerHost {
     }
   }
 
-  private async updateStageStatus(deploymentId: string, index: number, status: string, error?: string, logs?: string[]) {
+  private async updateStageStatus(deploymentId: string, index: number, status: string, error?: string, logs?: Array<{ t: number; m: string }>) {
     const deployment = await this.prisma.deployment.findUnique({ where: { id: deploymentId } });
     const stages = deployment!.stages as any[];
     // Preserve existing logs, only update status and error
