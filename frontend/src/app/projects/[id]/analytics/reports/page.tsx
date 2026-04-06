@@ -74,10 +74,15 @@ export default function Ga4ReportsPage({
 
   const reportData = runReport.data;
 
-  function toggleItem(list: string[], item: string, setter: (v: string[]) => void) {
-    setter(
-      list.includes(item) ? list.filter((i) => i !== item) : [...list, item],
-    );
+  const MAX_DIMENSIONS = 9;
+
+  function toggleItem(list: string[], item: string, setter: (v: string[]) => void, max?: number) {
+    if (list.includes(item)) {
+      setter(list.filter((i) => i !== item));
+    } else {
+      if (max && list.length >= max) return;
+      setter([...list, item]);
+    }
   }
 
   function handleRunReport() {
@@ -154,22 +159,25 @@ export default function Ga4ReportsPage({
 
           {/* Dimensions */}
           <div className="space-y-2">
-            <Label>Dimensions</Label>
+            <Label>Dimensions ({selectedDimensions.length}/{MAX_DIMENSIONS})</Label>
             <div className="flex flex-wrap gap-1">
-              {availableDimensions?.map((d: any) => (
-                <Button
-                  key={d.name}
-                  size="sm"
-                  variant={
-                    selectedDimensions.includes(d.name) ? 'default' : 'outline'
-                  }
-                  onClick={() =>
-                    toggleItem(selectedDimensions, d.name, setSelectedDimensions)
-                  }
-                >
-                  {d.description}
-                </Button>
-              ))}
+              {availableDimensions?.map((d: any) => {
+                const selected = selectedDimensions.includes(d.name);
+                const atLimit = selectedDimensions.length >= MAX_DIMENSIONS;
+                return (
+                  <Button
+                    key={d.name}
+                    size="sm"
+                    variant={selected ? 'default' : 'outline'}
+                    disabled={!selected && atLimit}
+                    onClick={() =>
+                      toggleItem(selectedDimensions, d.name, setSelectedDimensions, MAX_DIMENSIONS)
+                    }
+                  >
+                    {d.description}
+                  </Button>
+                );
+              })}
             </div>
           </div>
 

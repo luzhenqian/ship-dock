@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { BadRequestException, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { google } from 'googleapis';
 import { createHash } from 'crypto';
@@ -47,15 +47,21 @@ export class Ga4DataService implements OnModuleDestroy {
     const auth = await this.ga4Admin.getAuthClientForConnection(connectionId);
     const analyticsData = google.analyticsdata({ version: 'v1beta', auth });
 
-    const { data } = await analyticsData.properties.runReport({
-      property: propertyId,
-      requestBody: {
-        dimensions: query.dimensions.map((name) => ({ name })),
-        metrics: query.metrics.map((name) => ({ name })),
-        dateRanges: [{ startDate: query.startDate, endDate: query.endDate }],
-        limit: String(query.limit || 10000),
-      },
-    } as any);
+    let data: any;
+    try {
+      ({ data } = await analyticsData.properties.runReport({
+        property: propertyId,
+        requestBody: {
+          dimensions: query.dimensions.map((name) => ({ name })),
+          metrics: query.metrics.map((name) => ({ name })),
+          dateRanges: [{ startDate: query.startDate, endDate: query.endDate }],
+          limit: String(query.limit || 10000),
+        },
+      } as any));
+    } catch (err: any) {
+      const msg = err?.cause?.message || err?.message || 'GA4 API error';
+      throw new BadRequestException(msg);
+    }
 
     const result = {
       dimensionHeaders: (data.dimensionHeaders || []).map((h) => h.name),
