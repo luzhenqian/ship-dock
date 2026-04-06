@@ -99,36 +99,6 @@ export function useCreateGa4Stream() {
   });
 }
 
-// === Clarity Admin ===
-
-export function useClarityProjects(connectionId: string | null) {
-  return useQuery({
-    queryKey: ['analytics', 'clarity', 'projects', connectionId],
-    queryFn: () =>
-      api(`/analytics/clarity/projects?connectionId=${connectionId}`),
-    enabled: !!connectionId,
-  });
-}
-
-export function useCreateClarityProject() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (data: {
-      connectionId: string;
-      name: string;
-      siteUrl: string;
-    }) =>
-      api('/analytics/clarity/projects', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-    onSuccess: (_, variables) =>
-      qc.invalidateQueries({
-        queryKey: ['analytics', 'clarity', 'projects', variables.connectionId],
-      }),
-  });
-}
-
 // === Integrations ===
 
 export function useProjectIntegrations(projectId: string) {
@@ -146,7 +116,7 @@ export function useCreateIntegration() {
       ...data
     }: {
       projectId: string;
-      connectionId: string;
+      connectionId?: string;
       provider: string;
       ga4PropertyId?: string;
       ga4StreamId?: string;

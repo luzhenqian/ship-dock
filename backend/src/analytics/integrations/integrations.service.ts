@@ -8,7 +8,7 @@ import { AnalyticsProvider } from '@prisma/client';
 
 export interface CreateIntegrationInput {
   projectId: string;
-  connectionId: string;
+  connectionId?: string;
   provider: AnalyticsProvider;
   ga4PropertyId?: string;
   ga4StreamId?: string;

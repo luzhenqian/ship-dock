@@ -17,11 +17,9 @@ import {
   useGa4Accounts,
   useGa4Properties,
   useGa4Streams,
-  useClarityProjects,
   useCreateIntegration,
   useCreateGa4Property,
   useCreateGa4Stream,
-  useCreateClarityProject,
 } from '@/hooks/use-analytics';
 
 type Step = 'provider' | 'connection' | 'resource' | 'confirm';
@@ -37,7 +35,10 @@ export default function AnalyticsSetupPage({
   const searchParams = useSearchParams();
   const initialProvider = searchParams.get('provider') as Provider | null;
 
-  const [step, setStep] = useState<Step>(initialProvider ? 'connection' : 'provider');
+  const [step, setStep] = useState<Step>(
+    initialProvider === 'MICROSOFT_CLARITY' ? 'resource' :
+    initialProvider ? 'connection' : 'provider'
+  );
   const [provider, setProvider] = useState<Provider | null>(initialProvider);
   const [connectionId, setConnectionId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
@@ -45,15 +46,11 @@ export default function AnalyticsSetupPage({
   const [streamId, setStreamId] = useState<string | null>(null);
   const [measurementId, setMeasurementId] = useState<string | null>(null);
   const [clarityProjectId, setClarityProjectId] = useState<string | null>(null);
-  const [clarityTrackingCode, setClarityTrackingCode] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   const [newPropertyName, setNewPropertyName] = useState('');
   const [newStreamName, setNewStreamName] = useState('');
   const [newStreamUri, setNewStreamUri] = useState('');
-  const [newClarityName, setNewClarityName] = useState('');
-  const [newClarityUrl, setNewClarityUrl] = useState('');
-
   const { data: connections } = useAnalyticsConnections();
   const { data: accounts } = useGa4Accounts(
     provider === 'GOOGLE_GA4' ? connectionId : null,
@@ -66,14 +63,10 @@ export default function AnalyticsSetupPage({
     provider === 'GOOGLE_GA4' ? connectionId : null,
     propertyId,
   );
-  const { data: clarityProjects } = useClarityProjects(
-    provider === 'MICROSOFT_CLARITY' ? connectionId : null,
-  );
 
   const createIntegration = useCreateIntegration();
   const createGa4Property = useCreateGa4Property();
   const createGa4Stream = useCreateGa4Stream();
-  const createClarityProject = useCreateClarityProject();
 
   const filteredConnections = connections?.filter(
     (c: any) => c.provider === provider,
@@ -93,10 +86,9 @@ export default function AnalyticsSetupPage({
       } else {
         await createIntegration.mutateAsync({
           projectId,
-          connectionId: connectionId!,
+          connectionId: connectionId || undefined,
           provider: 'MICROSOFT_CLARITY',
           clarityProjectId: clarityProjectId!,
-          clarityTrackingCode: clarityTrackingCode || undefined,
         });
       }
       toast.success('Integration created');
@@ -145,25 +137,6 @@ export default function AnalyticsSetupPage({
     setCreating(false);
   }
 
-  async function handleCreateClarityProject() {
-    if (!newClarityName || !newClarityUrl || !connectionId) return;
-    setCreating(true);
-    try {
-      const result = await createClarityProject.mutateAsync({
-        connectionId: connectionId!,
-        name: newClarityName,
-        siteUrl: newClarityUrl,
-      });
-      setClarityProjectId(result.id);
-      setClarityTrackingCode(result.trackingCode);
-      setNewClarityName('');
-      setNewClarityUrl('');
-      toast.success('Clarity project created');
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-    setCreating(false);
-  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -191,7 +164,7 @@ export default function AnalyticsSetupPage({
             variant={provider === 'MICROSOFT_CLARITY' ? 'default' : 'outline'}
             onClick={() => {
               setProvider('MICROSOFT_CLARITY');
-              setStep('connection');
+              setStep('resource');
               setConnectionId(null);
               setClarityProjectId(null);
             }}
@@ -201,8 +174,8 @@ export default function AnalyticsSetupPage({
         </CardContent>
       </Card>
 
-      {/* Step 2: Choose Connection */}
-      {provider && step !== 'provider' && (
+      {/* Step 2: Choose Connection (GA4 only) */}
+      {provider === 'GOOGLE_GA4' && step !== 'provider' && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">2. Choose Account</CardTitle>
@@ -345,58 +318,51 @@ export default function AnalyticsSetupPage({
         </Card>
       )}
 
-      {/* Step 3: Choose or Create Resource - Clarity */}
-      {connectionId && step === 'resource' && provider === 'MICROSOFT_CLARITY' && (
+      {/* Step 2: Enter Clarity Project ID (manual — no API available) */}
+      {step === 'resource' && provider === 'MICROSOFT_CLARITY' && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">3. Choose Clarity Project</CardTitle>
+            <CardTitle className="text-base">2. Enter Clarity Project ID</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {clarityProjects?.map((proj: any) => (
-                <Button
-                  key={proj.id}
-                  variant={clarityProjectId === proj.id ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setClarityProjectId(proj.id);
-                    setClarityTrackingCode(proj.trackingCode);
-                    setStep('confirm');
-                  }}
-                >
-                  {proj.name}
-                </Button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Project name"
-                value={newClarityName}
-                onChange={(e) => setNewClarityName(e.target.value)}
-              />
-              <Input
-                placeholder="https://example.com"
-                value={newClarityUrl}
-                onChange={(e) => setNewClarityUrl(e.target.value)}
-              />
+            <p className="text-sm text-muted-foreground">
+              Find your Project ID in{' '}
+              <a
+                href="https://clarity.microsoft.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                Clarity Dashboard
+              </a>{' '}
+              → Settings → Overview.
+            </p>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Project ID</Label>
+                <Input
+                  placeholder="e.g. abc123xyz"
+                  value={clarityProjectId || ''}
+                  onChange={(e) => setClarityProjectId(e.target.value || null)}
+                />
+              </div>
               <Button
                 size="sm"
-                variant="outline"
-                disabled={!newClarityName || !newClarityUrl || creating}
-                onClick={handleCreateClarityProject}
+                disabled={!clarityProjectId}
+                onClick={() => setStep('confirm')}
               >
-                Create
+                Continue
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Step 4: Confirm */}
+      {/* Confirm */}
       {step === 'confirm' && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">4. Confirm</CardTitle>
+            <CardTitle className="text-base">{provider === 'MICROSOFT_CLARITY' ? '3' : '4'}. Confirm</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="text-sm space-y-1">

@@ -2,8 +2,8 @@ import { IsEnum, IsOptional, IsString, IsBoolean } from 'class-validator';
 import { AnalyticsProvider } from '@prisma/client';
 
 export class CreateIntegrationDto {
-  @IsString()
-  connectionId: string;
+  @IsString() @IsOptional()
+  connectionId?: string;
 
   @IsEnum(AnalyticsProvider)
   provider: AnalyticsProvider;

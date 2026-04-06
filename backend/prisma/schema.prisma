@@ -336,8 +336,8 @@ model AnalyticsIntegration {
   id                  String              @id @default(uuid())
   projectId           String
   project             Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  connectionId        String
-  connection          AnalyticsConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  connectionId        String?
+  connection          AnalyticsConnection? @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   provider            AnalyticsProvider
   ga4PropertyId       String?
   ga4StreamId         String?
