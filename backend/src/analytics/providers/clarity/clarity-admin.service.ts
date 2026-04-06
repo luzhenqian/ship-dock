@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { ConnectionsService } from '../../connections/connections.service';
 
 const CLARITY_API_BASE = 'https://www.clarity.ms/api/v1';
@@ -13,12 +13,22 @@ export class ClarityAdminService {
     return accessToken;
   }
 
+  private async ensureOk(res: Response) {
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new HttpException(
+        { message: `Clarity API error: ${res.status}`, detail: body },
+        res.status,
+      );
+    }
+  }
+
   async listProjects(connectionId: string) {
     const token = await this.getAccessToken(connectionId);
     const res = await fetch(`${CLARITY_API_BASE}/projects`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) throw new Error(`Clarity API error: ${res.status}`);
+    await this.ensureOk(res);
     return res.json();
   }
 
@@ -32,7 +42,7 @@ export class ClarityAdminService {
       },
       body: JSON.stringify({ name, url: siteUrl }),
     });
-    if (!res.ok) throw new Error(`Clarity API error: ${res.status}`);
+    await this.ensureOk(res);
     return res.json();
   }
 }

@@ -84,7 +84,7 @@ export default function ProjectAnalyticsPage({
               <p className="text-sm text-muted-foreground">
                 Not configured.{' '}
                 <Link
-                  href={`/projects/${projectId}/analytics/setup`}
+                  href={`/projects/${projectId}/analytics/setup?provider=GOOGLE_GA4`}
                   className="underline"
                 >
                   Set up GA4
@@ -135,7 +135,7 @@ export default function ProjectAnalyticsPage({
               <p className="text-sm text-muted-foreground">
                 Not configured.{' '}
                 <Link
-                  href={`/projects/${projectId}/analytics/setup`}
+                  href={`/projects/${projectId}/analytics/setup?provider=MICROSOFT_CLARITY`}
                   className="underline"
                 >
                   Set up Clarity

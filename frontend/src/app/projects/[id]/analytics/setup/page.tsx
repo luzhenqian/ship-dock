@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -34,9 +34,11 @@ export default function AnalyticsSetupPage({
 }) {
   const { id: projectId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialProvider = searchParams.get('provider') as Provider | null;
 
-  const [step, setStep] = useState<Step>('provider');
-  const [provider, setProvider] = useState<Provider | null>(null);
+  const [step, setStep] = useState<Step>(initialProvider ? 'connection' : 'provider');
+  const [provider, setProvider] = useState<Provider | null>(initialProvider);
   const [connectionId, setConnectionId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [propertyId, setPropertyId] = useState<string | null>(null);
