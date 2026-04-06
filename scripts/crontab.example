@@ -1,9 +1,9 @@
-# YiOne Database Backup Crontab
+# Ship Dock Database Backup Crontab
 # Install with: crontab scripts/crontab.example
 # Requires DATABASE_URL in environment
 
 # Daily backup at 2:00 AM
-0 2 * * * DATABASE_URL="postgresql://user:pass@localhost:5432/yione" /opt/yione/scripts/db-backup.sh daily >> /var/log/yione-backup.log 2>&1
+0 2 * * * DATABASE_URL="postgresql://user:pass@localhost:5432/shipdock" /opt/ship-dock/scripts/db-backup.sh daily >> /var/log/ship-dock-backup.log 2>&1
 
 # Weekly full backup on Sunday at 3:00 AM
-0 3 * * 0 DATABASE_URL="postgresql://user:pass@localhost:5432/yione" /opt/yione/scripts/db-backup.sh weekly >> /var/log/yione-backup.log 2>&1
+0 3 * * 0 DATABASE_URL="postgresql://user:pass@localhost:5432/shipdock" /opt/ship-dock/scripts/db-backup.sh weekly >> /var/log/ship-dock-backup.log 2>&1

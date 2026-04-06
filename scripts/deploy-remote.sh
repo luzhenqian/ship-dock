@@ -53,9 +53,9 @@ cd "$PROJECT_DIR"
 # ── 6. Sync nginx config ──
 echo ""
 echo ">> Syncing nginx config ..."
-if [[ -f nginx/yione.conf ]]; then
-  sudo cp nginx/yione.conf /etc/nginx/sites-available/yione.conf
-  sudo ln -sf /etc/nginx/sites-available/yione.conf /etc/nginx/sites-enabled/yione.conf
+if [[ -f nginx/ship-dock.conf ]]; then
+  sudo cp nginx/ship-dock.conf /etc/nginx/sites-available/ship-dock.conf
+  sudo ln -sf /etc/nginx/sites-available/ship-dock.conf /etc/nginx/sites-enabled/ship-dock.conf
   sudo rm -f /etc/nginx/sites-enabled/default
   if sudo nginx -t 2>/dev/null; then
     sudo systemctl reload nginx

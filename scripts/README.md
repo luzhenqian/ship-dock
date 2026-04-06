@@ -1,4 +1,4 @@
-# YiOne 部署指南
+# Ship Dock 部署指南
 
 ## 目录结构
 
@@ -25,12 +25,12 @@ cp scripts/deploy.config.example.sh scripts/deploy.config.sh
 | -------------------- | ---------------- | ------------------ |
 | `SERVER_HOST`        | 服务器 IP 或域名 | `1.2.3.4`          |
 | `SSH_USER`           | SSH 登录用户名   | `root`             |
-| `PEM_PATH`           | SSH 私钥路径     | `~/.ssh/yione.pem` |
+| `PEM_PATH`           | SSH 私钥路径     | `~/.ssh/ship-dock.pem` |
 | `SSH_PORT`           | SSH 端口         | `22`               |
-| `PROJECT_DIR`        | 服务器上项目路径 | `/opt/yione`       |
+| `PROJECT_DIR`        | 服务器上项目路径 | `/opt/ship-dock`       |
 | `GIT_BRANCH`         | 部署分支         | `main`             |
-| `DB_NAME`            | 数据库名称       | `yione`            |
-| `DB_USER`            | 数据库用户名     | `yione`            |
+| `DB_NAME`            | 数据库名称       | `shipdock`         |
+| `DB_USER`            | 数据库用户名     | `shipdock`         |
 | `DB_PASSWORD`        | 数据库密码       | 自行设置强密码     |
 | `JWT_SECRET`         | JWT 签名密钥     | 自行设置           |
 | `JWT_REFRESH_SECRET` | JWT 刷新密钥     | 自行设置           |
@@ -61,7 +61,7 @@ cp scripts/deploy.config.example.sh scripts/deploy.config.sh
 服务器环境就绪后，SSH 登录服务器完成以下操作：
 
 ```bash
-ssh -i ~/.ssh/yione.pem root@你的服务器IP
+ssh -i ~/.ssh/ship-dock.pem root@你的服务器IP
 ```
 
 > **注意：** 首次运行 `./scripts/deploy.sh` 时，脚本会自动检测服务器上是否有源代码。如果没有，会通过 rsync 将本地代码上传到服务器（排除 node_modules、dist 等）。无需手动克隆。
@@ -70,7 +70,7 @@ ssh -i ~/.ssh/yione.pem root@你的服务器IP
 
 ```bash
 cat > apps/server/.env << 'EOF'
-DATABASE_URL="postgresql://yione:你的数据库密码@localhost:5432/yione"
+DATABASE_URL="postgresql://shipdock:你的数据库密码@localhost:5432/shipdock"
 REDIS_URL="redis://localhost:6379"
 JWT_SECRET="你的JWT密钥"
 JWT_REFRESH_SECRET="你的JWT刷新密钥"
@@ -86,8 +86,8 @@ EOF
 ```bash
 mkdir -p /etc/nginx/ssl
 # 将你的证书文件复制到以下位置：
-# /etc/nginx/ssl/yione.pem
-# /etc/nginx/ssl/yione.key
+# /etc/nginx/ssl/ship-dock.pem
+# /etc/nginx/ssl/ship-dock.key
 ```
 
 ### 4. 执行首次部署
@@ -116,7 +116,7 @@ mkdir -p /etc/nginx/ssl
 | `SERVER_USER`     | SSH 用户名                          |
 | `SSH_PRIVATE_KEY` | SSH 私钥完整内容（不是路径）        |
 | `SSH_PORT`        | SSH 端口（可选，默认 22）           |
-| `DEPLOY_DIR`      | 项目路径（可选，默认 `/opt/yione`） |
+| `DEPLOY_DIR`      | 项目路径（可选，默认 `/opt/ship-dock`） |
 
 也支持在 GitHub Actions 页面手动触发（workflow_dispatch）。
 
@@ -140,7 +140,7 @@ mkdir -p /etc/nginx/ssl
 pm2 status
 
 # 查看实时日志
-pm2 logs yione-api
+pm2 logs ship-dock-api
 
 # 手动重启
 pm2 reload ecosystem.config.js --env production
@@ -162,7 +162,7 @@ systemctl status redis-server
 
 | 问题           | 排查方式                                      |
 | -------------- | --------------------------------------------- |
-| 服务启动失败   | `pm2 logs yione-api --lines 50`               |
+| 服务启动失败   | `pm2 logs ship-dock-api --lines 50`               |
 | 数据库连接失败 | 检查 `apps/server/.env` 中的 `DATABASE_URL`   |
 | Nginx 502      | 确认 PM2 服务是否在运行：`pm2 status`         |
 | 健康检查失败   | `curl http://localhost:4000/health`           |

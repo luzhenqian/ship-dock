@@ -1,5 +1,5 @@
 #!/bin/bash
-# YiOne Server Environment Setup
+# Ship Dock Server Environment Setup
 # Run from local machine: ./scripts/server-setup.sh
 # Connects via SSH and installs all required dependencies on Ubuntu server.
 set -euo pipefail
@@ -37,7 +37,7 @@ inst() { echo "  [INSTALLING] $1 ..."; }
 
 echo ""
 echo "=============================="
-echo "  YiOne Server Environment Setup"
+echo "  Ship Dock Server Environment Setup"
 echo "=============================="
 echo ""
 
@@ -196,7 +196,7 @@ echo "  Git:         $(git --version | awk '{print $3}')"
 echo ""
 echo "Next steps:"
 echo "  1. Clone your repo to $PROJECT_DIR"
-echo "  2. Copy nginx/yione.conf to /etc/nginx/sites-enabled/"
+echo "  2. Copy nginx/ship-dock.conf to /etc/nginx/sites-enabled/"
 echo "  3. Set up SSL certificates"
 echo "  4. Create .env file in $PROJECT_DIR/apps/server/"
 echo "  5. Run deploy script"

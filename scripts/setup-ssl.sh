@@ -1,5 +1,5 @@
 #!/bin/bash
-# YiOne SSL Certificate Setup
+# Ship Dock SSL Certificate Setup
 # Uses Let's Encrypt (certbot) to obtain SSL certificates for the API domain.
 # Run from local machine: ./scripts/setup-ssl.sh
 set -euo pipefail
@@ -14,7 +14,7 @@ fi
 
 source "$CONFIG_FILE"
 
-DOMAIN="${API_DOMAIN:-api.yione.online}"
+DOMAIN="${API_DOMAIN:-api.ship-dock.web3noah.com}"
 
 SSH_OPTS="-o StrictHostKeyChecking=accept-new"
 [[ -n "${PEM_PATH:-}" ]] && SSH_OPTS="$SSH_OPTS -i $PEM_PATH"
@@ -53,7 +53,7 @@ echo ""
 echo ">> Preparing Nginx for certificate verification ..."
 
 # Create a minimal HTTP-only config for certbot verification
-sudo tee /etc/nginx/sites-available/yione-temp.conf > /dev/null << NGINX
+sudo tee /etc/nginx/sites-available/ship-dock-temp.conf > /dev/null << NGINX
 server {
     listen 80;
     server_name ${DOMAIN};
@@ -66,9 +66,9 @@ server {
 }
 NGINX
 
-sudo ln -sf /etc/nginx/sites-available/yione-temp.conf /etc/nginx/sites-enabled/yione-temp.conf
+sudo ln -sf /etc/nginx/sites-available/ship-dock-temp.conf /etc/nginx/sites-enabled/ship-dock-temp.conf
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo rm -f /etc/nginx/sites-enabled/yione.conf
+sudo rm -f /etc/nginx/sites-enabled/ship-dock.conf
 sudo nginx -t && sudo systemctl reload nginx
 echo "  Temporary HTTP config active"
 
@@ -89,12 +89,12 @@ echo ""
 echo ">> Configuring Nginx with SSL ..."
 
 # Remove temporary config
-sudo rm -f /etc/nginx/sites-enabled/yione-temp.conf
-sudo rm -f /etc/nginx/sites-available/yione-temp.conf
+sudo rm -f /etc/nginx/sites-enabled/ship-dock-temp.conf
+sudo rm -f /etc/nginx/sites-available/ship-dock-temp.conf
 
 # Create production SSL config
-sudo tee /etc/nginx/sites-available/yione.conf > /dev/null << 'NGINX'
-upstream yione_api {
+sudo tee /etc/nginx/sites-available/ship-dock.conf > /dev/null << 'NGINX'
+upstream ship_dock_api {
     server 127.0.0.1:4000;
 }
 
@@ -117,7 +117,7 @@ server {
 
     # API proxy
     location / {
-        proxy_pass http://yione_api;
+        proxy_pass http://ship_dock_api;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -131,7 +131,7 @@ server {
 
     # SSE streaming — disable buffering
     location ~ /conversations/.*/stream {
-        proxy_pass http://yione_api;
+        proxy_pass http://ship_dock_api;
         proxy_http_version 1.1;
         proxy_set_header Connection '';
         proxy_set_header Host $host;
@@ -150,17 +150,17 @@ server {
 
     # Health check
     location /api/health {
-        proxy_pass http://yione_api;
+        proxy_pass http://ship_dock_api;
         access_log off;
     }
 }
 NGINX
 
 # Replace placeholders
-sudo sed -i "s|DOMAIN_PLACEHOLDER|${DOMAIN}|g" /etc/nginx/sites-available/yione.conf
-sudo sed -i "s|PROJECT_DIR_PLACEHOLDER|${PROJECT_DIR}|g" /etc/nginx/sites-available/yione.conf
+sudo sed -i "s|DOMAIN_PLACEHOLDER|${DOMAIN}|g" /etc/nginx/sites-available/ship-dock.conf
+sudo sed -i "s|PROJECT_DIR_PLACEHOLDER|${PROJECT_DIR}|g" /etc/nginx/sites-available/ship-dock.conf
 
-sudo ln -sf /etc/nginx/sites-available/yione.conf /etc/nginx/sites-enabled/yione.conf
+sudo ln -sf /etc/nginx/sites-available/ship-dock.conf /etc/nginx/sites-enabled/ship-dock.conf
 
 if sudo nginx -t; then
   sudo systemctl reload nginx

@@ -1,12 +1,12 @@
 #!/bin/bash
-# YiOne Database Backup Script
+# Ship Dock Database Backup Script
 # Usage: ./scripts/db-backup.sh [daily|weekly|manual]
 # Requires: pg_dump, DATABASE_URL environment variable
 set -euo pipefail
 
 BACKUP_TYPE="${1:-manual}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="${BACKUP_DIR:-/opt/yione/backups}"
+BACKUP_DIR="${BACKUP_DIR:-/opt/ship-dock/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 
 # Extract DB connection from DATABASE_URL
@@ -15,7 +15,7 @@ DB_URL="${DATABASE_URL:?DATABASE_URL environment variable is required}"
 # Create backup directory
 mkdir -p "${BACKUP_DIR}/${BACKUP_TYPE}"
 
-BACKUP_FILE="${BACKUP_DIR}/${BACKUP_TYPE}/yione_${BACKUP_TYPE}_${TIMESTAMP}.sql.gz"
+BACKUP_FILE="${BACKUP_DIR}/${BACKUP_TYPE}/ship_dock_${BACKUP_TYPE}_${TIMESTAMP}.sql.gz"
 
 echo "[$(date)] Starting ${BACKUP_TYPE} backup..."
 

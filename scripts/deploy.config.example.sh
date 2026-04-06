@@ -1,5 +1,5 @@
 #!/bin/bash
-# YiOne Deployment Configuration
+# Ship Dock Deployment Configuration
 # Copy this file to deploy.config.sh and fill in your values:
 #   cp scripts/deploy.config.example.sh scripts/deploy.config.sh
 #
@@ -12,12 +12,12 @@ PEM_PATH="~/.ssh/your-key.pem"
 SSH_PORT="22"
 
 # ── Project Paths ──
-PROJECT_DIR="/opt/yione"
+PROJECT_DIR="/opt/ship-dock"
 GIT_BRANCH="main"
 
 # ── PostgreSQL ──
-DB_NAME="yione"
-DB_USER="yione"
+DB_NAME="shipdock"
+DB_USER="shipdock"
 DB_PASSWORD="change_me_in_production"
 
 # ── Application ──

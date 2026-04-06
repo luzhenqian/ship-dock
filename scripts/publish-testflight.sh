@@ -1,5 +1,5 @@
 #!/bin/bash
-# YiOne Test Build Publishing Script
+# Ship Dock Test Build Publishing Script
 # Usage:
 #   ./scripts/publish-testflight.sh          # Build both iOS + Android
 #   ./scripts/publish-testflight.sh ios      # iOS only (TestFlight)
@@ -12,7 +12,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo ""
 echo "=============================="
-echo "  YiOne Test Build Publish"
+echo "  Ship Dock Test Build Publish"
 echo "  Platform: ${PLATFORM}"
 echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo "=============================="
@@ -21,7 +21,7 @@ echo "=============================="
 echo ""
 echo ">> Building workspace packages ..."
 cd "$ROOT_DIR"
-pnpm turbo build --filter=@yione/types --filter=@yione/utils --filter=@yione/api-client
+pnpm turbo build --filter=@ship-dock/types --filter=@ship-dock/utils --filter=@ship-dock/api-client
 
 # ── 2. Update dist files in git ──
 echo ""
