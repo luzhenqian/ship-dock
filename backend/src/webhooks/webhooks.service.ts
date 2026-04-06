@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
@@ -17,7 +17,7 @@ export class WebhooksService {
     private prisma: PrismaService,
     private encryption: EncryptionService,
     private filter: WebhooksFilterService,
-    private deployService: DeployService,
+    @Inject(forwardRef(() => DeployService)) private deployService: DeployService,
     private config: ConfigService,
   ) {}
 

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../common/prisma.service';
@@ -8,7 +8,7 @@ import { ProjectsService } from '../projects/projects.service';
 export class DeployService {
   constructor(
     private prisma: PrismaService,
-    private projectsService: ProjectsService,
+    @Inject(forwardRef(() => ProjectsService)) private projectsService: ProjectsService,
     @InjectQueue('deploy') private deployQueue: Queue,
   ) {}
 

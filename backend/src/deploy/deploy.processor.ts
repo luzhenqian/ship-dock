@@ -1,3 +1,4 @@
+import { Inject, forwardRef } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { PrismaService } from '../common/prisma.service';
@@ -24,7 +25,7 @@ export class DeployProcessor extends WorkerHost {
   private commandStage = new CommandStage();
 
   constructor(
-    private prisma: PrismaService, private projectsService: ProjectsService,
+    private prisma: PrismaService, @Inject(forwardRef(() => ProjectsService)) private projectsService: ProjectsService,
     private encryption: EncryptionService, private config: ConfigService,
     private gateway: DeployGateway, private domainsService: DomainsService,
     private dbProvisioner: DatabaseProvisionerService,

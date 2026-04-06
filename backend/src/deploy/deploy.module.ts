@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { JwtModule } from '@nestjs/jwt';
 import { DeployService } from './deploy.service';
@@ -9,7 +9,7 @@ import { ProjectsModule } from '../projects/projects.module';
 import { DomainsModule } from '../domains/domains.module';
 
 @Module({
-  imports: [BullModule.registerQueue({ name: 'deploy' }), JwtModule.register({}), ProjectsModule, DomainsModule],
+  imports: [BullModule.registerQueue({ name: 'deploy' }), JwtModule.register({}), forwardRef(() => ProjectsModule), DomainsModule],
   controllers: [DeployController],
   providers: [DeployService, DeployProcessor, DeployGateway],
   exports: [DeployService, DeployGateway],
