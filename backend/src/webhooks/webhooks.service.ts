@@ -252,7 +252,6 @@ export class WebhooksService {
     const project = await this.prisma.project.findFirst({
       where: {
         OR: [{ repoUrl }, { repoUrl: `${repoUrl}.git` }],
-        githubInstallationId: { not: null },
       },
     });
     if (!project) return;

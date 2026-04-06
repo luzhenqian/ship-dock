@@ -152,7 +152,6 @@ export class GitHubAppService {
     return this.prisma.project.findFirst({
       where: {
         OR: [{ repoUrl }, { repoUrl: `${repoUrl}.git` }],
-        githubInstallationId: { not: null },
       },
     });
   }

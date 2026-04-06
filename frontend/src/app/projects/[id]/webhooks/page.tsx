@@ -14,6 +14,7 @@ import {
   useRegenerateSecret, useWebhookEvents, useReplayWebhookEvent,
 } from '@/hooks/use-webhooks';
 import { useProject } from '@/hooks/use-projects';
+import { useGitHubInstallations } from '@/hooks/use-github-app';
 import { GitBranch } from 'lucide-react';
 
 const EVENT_OPTIONS = ['push', 'pull_request', 'release', 'create', 'delete'];
@@ -40,7 +41,8 @@ function timeAgo(date: string): string {
 export default function WebhooksPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
   const { data: project } = useProject(projectId);
-  const isAppConnected = !!(project as any)?.githubInstallationId;
+  const { data: githubInstallations } = useGitHubInstallations();
+  const isAppConnected = !!(project as any)?.githubInstallationId || ((githubInstallations?.length ?? 0) > 0 && !!(project as any)?.repoUrl);
   const { data: config, isLoading, error } = useWebhookConfig(projectId);
   const createWebhook = useCreateWebhook(projectId);
   const updateWebhook = useUpdateWebhook(projectId);
