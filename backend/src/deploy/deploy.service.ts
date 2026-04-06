@@ -46,11 +46,32 @@ export class DeployService {
     return this.trigger(projectId, userId);
   }
 
-  async getHistory(projectId: string) {
-    return this.prisma.deployment.findMany({
-      where: { projectId }, orderBy: { version: 'desc' },
+  async getHistory(projectId: string, cursor?: string, limit = 20) {
+    const where: any = { projectId };
+    if (cursor) {
+      const cursorDeployment = await this.prisma.deployment.findUnique({ where: { id: cursor }, select: { createdAt: true } });
+      if (cursorDeployment) {
+        where.createdAt = { lt: cursorDeployment.createdAt };
+      }
+    }
+    const items = await this.prisma.deployment.findMany({
+      where,
+      orderBy: { version: 'desc' },
+      take: limit + 1,
       include: { triggeredBy: { select: { id: true, name: true } } },
+      omit: { stages: true },
     });
+    const hasMore = items.length > limit;
+    if (hasMore) items.pop();
+    return {
+      items: items.map((d) => ({
+        ...d,
+        duration: d.startedAt && d.finishedAt
+          ? Math.round((d.finishedAt.getTime() - d.startedAt.getTime()) / 1000)
+          : null,
+      })),
+      nextCursor: hasMore ? items[items.length - 1].id : null,
+    };
   }
 
   async getOne(deploymentId: string) {

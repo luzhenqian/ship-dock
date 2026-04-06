@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { MinRole } from '../common/decorators/roles.decorator';
@@ -13,7 +13,13 @@ export class DeployController {
   trigger(@Param('projectId') projectId: string, @Req() req: any) { return this.deployService.trigger(projectId, req.user.id); }
 
   @Get() @MinRole('VIEWER')
-  getHistory(@Param('projectId') projectId: string) { return this.deployService.getHistory(projectId); }
+  getHistory(
+    @Param('projectId') projectId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.deployService.getHistory(projectId, cursor, limit ? parseInt(limit) : undefined);
+  }
 
   @Get(':id') @MinRole('VIEWER')
   getOne(@Param('id') id: string) { return this.deployService.getOne(id); }
