@@ -15,6 +15,8 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import { RepoSelector } from '@/components/repo-selector';
+import { ExternalLink } from 'lucide-react';
 
 export default function ProjectSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
@@ -44,6 +46,12 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [showDbDeleteConfirm, setShowDbDeleteConfirm] = useState(false);
   const [dbDeleting, setDbDeleting] = useState(false);
   const [dbExporting, setDbExporting] = useState(false);
+  const [showRepoConnect, setShowRepoConnect] = useState(false);
+  const [repoMode, setRepoMode] = useState<'select' | 'manual'>('select');
+  const [repoUrl, setRepoUrl] = useState('');
+  const [repoBranch, setRepoBranch] = useState('main');
+  const [repoConnecting, setRepoConnecting] = useState(false);
+  const [showRepoDisconnect, setShowRepoDisconnect] = useState(false);
 
   const { data: services, refetch: refetchServices } = useServices(projectId);
   const createService = useCreateService(projectId);
@@ -129,6 +137,60 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
             <Label>Domain</Label>
             <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="app.example.com" />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Repository</CardTitle></CardHeader>
+        <CardContent>
+          {project.sourceType === 'GITHUB' && project.repoUrl ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="h-5 w-5" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                <a
+                  href={project.repoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium hover:underline inline-flex items-center gap-1"
+                >
+                  {project.repoUrl.replace('https://github.com/', '')}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+                {project.branch && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground font-mono">
+                    {project.branch}
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950"
+                onClick={() => setShowRepoDisconnect(true)}
+              >
+                Disconnect
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Connect a GitHub repository to enable git-based deployments.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setRepoMode('select');
+                  setRepoUrl('');
+                  setRepoBranch('main');
+                  setShowRepoConnect(true);
+                }}
+              >
+                <svg className="h-4 w-4 mr-1.5" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                Connect Repository
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -446,6 +508,97 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           <Button variant="destructive" onClick={handleDelete}>Delete Project</Button>
         </CardContent>
       </Card>
+
+      <Dialog open={showRepoConnect} onOpenChange={setShowRepoConnect}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connect Repository</DialogTitle>
+          </DialogHeader>
+          {repoMode === 'select' && !repoUrl ? (
+            <RepoSelector
+              onSelect={(url, defaultBranch) => {
+                setRepoUrl(url);
+                setRepoBranch(defaultBranch);
+              }}
+              onSwitchToManual={() => setRepoMode('manual')}
+            />
+          ) : repoMode === 'manual' && !repoUrl ? (
+            <div className="space-y-3">
+              <div>
+                <Label>Repository URL</Label>
+                <Input
+                  placeholder="https://github.com/owner/repo"
+                  value={repoUrl}
+                  onChange={(e) => setRepoUrl(e.target.value)}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <Label>Repository</Label>
+                <Input value={repoUrl} disabled className="font-mono" />
+              </div>
+              <div>
+                <Label>Branch</Label>
+                <Input
+                  value={repoBranch}
+                  onChange={(e) => setRepoBranch(e.target.value)}
+                  placeholder="main"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRepoConnect(false)}>Cancel</Button>
+            {(repoMode === 'manual' && !repoUrl) ? (
+              <Button disabled>Connect</Button>
+            ) : repoUrl ? (
+              <Button
+                disabled={!repoUrl || repoConnecting}
+                onClick={async () => {
+                  setRepoConnecting(true);
+                  try {
+                    await api(`/projects/${projectId}`, {
+                      method: 'PATCH',
+                      body: JSON.stringify({ repoUrl, branch: repoBranch || 'main' }),
+                    });
+                    toast.success('Repository connected');
+                    setShowRepoConnect(false);
+                    refetch();
+                  } catch (err: any) {
+                    toast.error(`Failed: ${err.message}`);
+                  } finally {
+                    setRepoConnecting(false);
+                  }
+                }}
+              >
+                {repoConnecting ? 'Connecting...' : 'Connect'}
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={showRepoDisconnect}
+        onOpenChange={setShowRepoDisconnect}
+        title="Disconnect repository"
+        description="This will disconnect the GitHub repository from this project. You can reconnect it later."
+        onConfirm={async () => {
+          try {
+            await api(`/projects/${projectId}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ repoUrl: '' }),
+            });
+            toast.success('Repository disconnected');
+            refetch();
+          } catch (err: any) {
+            toast.error(`Failed: ${err.message}`);
+          }
+        }}
+        destructive
+      />
 
       <ConfirmDialog
         open={showDbDeleteConfirm}
