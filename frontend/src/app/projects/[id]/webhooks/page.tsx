@@ -13,6 +13,8 @@ import {
   useWebhookConfig, useCreateWebhook, useUpdateWebhook, useDeleteWebhook,
   useRegenerateSecret, useWebhookEvents, useReplayWebhookEvent,
 } from '@/hooks/use-webhooks';
+import { useProject } from '@/hooks/use-projects';
+import { GitBranch } from 'lucide-react';
 
 const EVENT_OPTIONS = ['push', 'pull_request', 'release', 'create', 'delete'];
 
@@ -37,6 +39,8 @@ function timeAgo(date: string): string {
 
 export default function WebhooksPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
+  const { data: project } = useProject(projectId);
+  const isAppConnected = !!(project as any)?.githubInstallationId;
   const { data: config, isLoading, error } = useWebhookConfig(projectId);
   const createWebhook = useCreateWebhook(projectId);
   const updateWebhook = useUpdateWebhook(projectId);
@@ -125,15 +129,29 @@ export default function WebhooksPage({ params }: { params: Promise<{ id: string 
     <div className="space-y-6">
       {/* Configuration */}
       {!hasConfig ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-foreground-secondary mb-4">No webhook configured for this project.</p>
-            <p className="text-sm text-muted-foreground mb-6">
-              Configure a GitHub webhook to automatically deploy when you push code.
-            </p>
-            <Button onClick={() => setShowSetup(true)}>Configure Webhook</Button>
-          </CardContent>
-        </Card>
+        isAppConnected ? (
+          <Card>
+            <CardContent className="flex items-center gap-3 py-6">
+              <GitBranch className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="font-medium">Webhooks automatically configured via GitHub App</p>
+                <p className="text-sm text-muted-foreground">
+                  Push events from your repository will automatically trigger deployments.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <p className="text-foreground-secondary mb-4">No webhook configured for this project.</p>
+              <p className="text-sm text-muted-foreground mb-6">
+                Configure a GitHub webhook to automatically deploy when you push code.
+              </p>
+              <Button onClick={() => setShowSetup(true)}>Configure Webhook</Button>
+            </CardContent>
+          </Card>
+        )
       ) : (
         <Card>
           <CardHeader>

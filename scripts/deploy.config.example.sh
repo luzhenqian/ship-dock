@@ -27,3 +27,11 @@ JWT_SECRET="change_me_jwt_secret"
 JWT_REFRESH_SECRET="change_me_jwt_refresh_secret"
 NODE_ENV="production"
 PORT="4000"
+
+# ── GitHub App (optional — for OAuth-based repo connection) ──
+GITHUB_APP_ID=""
+GITHUB_APP_PRIVATE_KEY=""          # Base64-encoded PEM private key
+GITHUB_APP_WEBHOOK_SECRET=""
+GITHUB_APP_CLIENT_ID=""
+GITHUB_APP_CLIENT_SECRET=""
+GITHUB_APP_SLUG=""

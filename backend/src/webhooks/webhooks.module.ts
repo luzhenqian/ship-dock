@@ -11,5 +11,6 @@ import { WebhookSignatureGuard } from './guards/webhook-signature.guard';
   imports: [DeployModule, ThrottlerModule.forRoot([{ ttl: 60000, limit: 30 }])],
   controllers: [WebhooksController, WebhooksReceiverController],
   providers: [WebhooksService, WebhooksFilterService, WebhookSignatureGuard],
+  exports: [WebhooksService],
 })
 export class WebhooksModule {}
