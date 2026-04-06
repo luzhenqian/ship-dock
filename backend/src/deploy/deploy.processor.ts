@@ -58,11 +58,12 @@ export class DeployProcessor extends WorkerHost {
       await this.updateStageStatus(deploymentId, i, 'RUNNING');
 
       // Collect logs in memory, persist once when stage finishes
-      const stageLogs: string[] = [];
+      const stageLogs: Array<{ t: number; m: string }> = [];
       const onLog = (line: string) => {
         const stageName = stage.name;
-        this.gateway.emitToDeployment(deploymentId, 'log', { index: i, stage: stageName, line });
-        stageLogs.push(line);
+        const entry = { t: Date.now(), m: line };
+        this.gateway.emitToDeployment(deploymentId, 'log', { index: i, stage: stageName, line, t: entry.t });
+        stageLogs.push(entry);
       };
 
       // Write .env file after clone stage
