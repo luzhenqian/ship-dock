@@ -51,6 +51,34 @@ function getDateRange(preset: string): { startDate: string; endDate: string } {
   };
 }
 
+const REPORT_PRESETS = [
+  {
+    label: 'Traffic Overview',
+    dimensions: ['date'],
+    metrics: ['activeUsers', 'sessions', 'screenPageViews', 'bounceRate'],
+  },
+  {
+    label: 'Audience',
+    dimensions: ['country', 'deviceCategory'],
+    metrics: ['activeUsers', 'sessions', 'newUsers'],
+  },
+  {
+    label: 'Acquisition',
+    dimensions: ['sessionSource', 'sessionMedium'],
+    metrics: ['sessions', 'newUsers', 'engagementRate', 'conversions'],
+  },
+  {
+    label: 'Content',
+    dimensions: ['pagePath', 'pageTitle'],
+    metrics: ['screenPageViews', 'averageSessionDuration', 'bounceRate', 'engagementRate'],
+  },
+  {
+    label: 'Engagement',
+    dimensions: ['date'],
+    metrics: ['engagementRate', 'engagedSessions', 'averageSessionDuration', 'screenPageViewsPerSession'],
+  },
+];
+
 function inferChartType(dimensions: string[]): 'line' | 'bar' | 'pie' {
   if (dimensions.includes('date')) return 'line';
   if (dimensions.length === 1) return 'pie';
@@ -129,6 +157,33 @@ export default function Ga4ReportsPage({
           <CardTitle className="text-base">Report Builder</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Presets */}
+          <div className="space-y-2">
+            <Label>Quick Presets</Label>
+            <div className="flex flex-wrap gap-1">
+              {REPORT_PRESETS.map((preset) => {
+                const active =
+                  preset.dimensions.length === selectedDimensions.length &&
+                  preset.dimensions.every((d) => selectedDimensions.includes(d)) &&
+                  preset.metrics.length === selectedMetrics.length &&
+                  preset.metrics.every((m) => selectedMetrics.includes(m));
+                return (
+                  <Button
+                    key={preset.label}
+                    size="sm"
+                    variant={active ? 'default' : 'outline'}
+                    onClick={() => {
+                      setSelectedDimensions(preset.dimensions);
+                      setSelectedMetrics(preset.metrics);
+                    }}
+                  >
+                    {preset.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Date Range */}
           <div className="space-y-2">
             <Label>Date Range</Label>
