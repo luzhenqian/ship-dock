@@ -147,7 +147,7 @@ export class ProjectsService {
         // Connect: switch to GITHUB
         data.sourceType = 'GITHUB';
         data.repoUrl = dto.repoUrl;
-        data.branch = dto.branch || data.branch || 'main';
+        data.branch = dto.branch || 'main';
       } else {
         // Disconnect: switch to UPLOAD
         data.sourceType = 'UPLOAD';
