@@ -604,7 +604,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           try {
             await api(`/projects/${projectId}`, {
               method: 'PATCH',
-              body: JSON.stringify({ repoUrl: null }),
+              body: JSON.stringify({ repoUrl: '' }),
             });
             toast.success('Repository disconnected');
             refetch();

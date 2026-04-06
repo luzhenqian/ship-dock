@@ -4,7 +4,7 @@ import { CreateProjectDto } from './create-project.dto';
 
 export class UpdateProjectDto extends PartialType(CreateProjectDto) {
   @IsOptional()
-  @ValidateIf((o) => o.repoUrl !== null)
+  @ValidateIf((o) => o.repoUrl !== '')
   @IsUrl()
-  repoUrl?: string | null;
+  repoUrl?: string;
 }
