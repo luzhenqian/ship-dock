@@ -32,8 +32,10 @@ import {
 } from 'recharts';
 
 const COLORS = [
-  '#000000', '#666666', '#999999', '#333333',
-  '#444444', '#777777', '#aaaaaa', '#555555',
+  'hsl(var(--foreground))',
+  'hsl(var(--muted-foreground))',
+  '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
+  '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
 ];
 
 function getDateRange(preset: string): { startDate: string; endDate: string } {
@@ -75,6 +77,7 @@ export default function Ga4ReportsPage({
   const reportData = runReport.data;
 
   const MAX_DIMENSIONS = 9;
+  const MAX_METRICS = 10;
 
   function toggleItem(list: string[], item: string, setter: (v: string[]) => void, max?: number) {
     if (list.includes(item)) {
@@ -183,22 +186,25 @@ export default function Ga4ReportsPage({
 
           {/* Metrics */}
           <div className="space-y-2">
-            <Label>Metrics</Label>
+            <Label>Metrics ({selectedMetrics.length}/{MAX_METRICS})</Label>
             <div className="flex flex-wrap gap-1">
-              {availableMetrics?.map((m: any) => (
-                <Button
-                  key={m.name}
-                  size="sm"
-                  variant={
-                    selectedMetrics.includes(m.name) ? 'default' : 'outline'
-                  }
-                  onClick={() =>
-                    toggleItem(selectedMetrics, m.name, setSelectedMetrics)
-                  }
-                >
-                  {m.description}
-                </Button>
-              ))}
+              {availableMetrics?.map((m: any) => {
+                const selected = selectedMetrics.includes(m.name);
+                const atLimit = selectedMetrics.length >= MAX_METRICS;
+                return (
+                  <Button
+                    key={m.name}
+                    size="sm"
+                    variant={selected ? 'default' : 'outline'}
+                    disabled={!selected && atLimit}
+                    onClick={() =>
+                      toggleItem(selectedMetrics, m.name, setSelectedMetrics, MAX_METRICS)
+                    }
+                  >
+                    {m.description}
+                  </Button>
+                );
+              })}
             </div>
           </div>
 
@@ -238,11 +244,11 @@ export default function Ga4ReportsPage({
                 <ResponsiveContainer width="100%" height="100%">
                   {chartType === 'line' ? (
                     <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey={reportData.dimensionHeaders[0]} />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey={reportData.dimensionHeaders[0]} tick={{ fill: 'currentColor' }} className="text-muted-foreground text-xs" />
+                      <YAxis tick={{ fill: 'currentColor' }} className="text-muted-foreground text-xs" />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }} />
+                      <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
                       {reportData.metricHeaders.map((m: any, i: number) => (
                         <Line
                           key={m.name}
@@ -254,8 +260,8 @@ export default function Ga4ReportsPage({
                     </LineChart>
                   ) : chartType === 'pie' ? (
                     <PieChart>
-                      <Tooltip />
-                      <Legend />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }} />
+                      <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
                       <Pie
                         data={chartData}
                         dataKey={reportData.metricHeaders[0]?.name}
@@ -274,11 +280,11 @@ export default function Ga4ReportsPage({
                     </PieChart>
                   ) : (
                     <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey={reportData.dimensionHeaders[0]} />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey={reportData.dimensionHeaders[0]} tick={{ fill: 'currentColor' }} className="text-muted-foreground text-xs" />
+                      <YAxis tick={{ fill: 'currentColor' }} className="text-muted-foreground text-xs" />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }} />
+                      <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
                       {reportData.metricHeaders.map((m: any, i: number) => (
                         <Bar
                           key={m.name}
