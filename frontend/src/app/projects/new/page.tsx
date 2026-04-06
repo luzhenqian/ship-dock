@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { EnvVarEditor } from '@/components/env-var-editor';
 import { MigrationWizard } from '@/components/migration-wizard';
 import { GitBranch, Upload, ChevronRight, Loader2, Check, Database, Globe, Terminal, File, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { RepoSelector } from '@/components/repo-selector';
+import { useGitHubInstallations } from '@/hooks/use-github-app';
 
 type Step = 'source' | 'basic' | 'env' | 'confirm' | 'import';
 const STEPS: { key: Step; label: string }[] = [
@@ -78,6 +80,10 @@ export default function NewProjectPage() {
   const [uploadFile, setUploadFile] = useState<globalThis.File | null>(null);
   const [uploadFileError, setUploadFileError] = useState('');
   const [uploading, setUploading] = useState(false);
+
+  const { data: githubInstallations } = useGitHubInstallations();
+  const hasGitHubConnection = (githubInstallations?.length ?? 0) > 0;
+  const [manualRepoInput, setManualRepoInput] = useState(false);
 
   // Port check state
   const [portStatus, setPortStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
@@ -404,53 +410,77 @@ export default function NewProjectPage() {
 
           {form.sourceType === 'GITHUB' && (
             <div className="space-y-4 rounded-xl border p-4">
-              <div className="space-y-2">
-                <Label className="text-[13px] text-foreground-secondary">Repository URL</Label>
-                <Input
-                  placeholder="https://github.com/user/repo"
-                  value={form.repoUrl}
-                  onChange={(e) => update({ repoUrl: e.target.value })}
-                  autoFocus
+              {hasGitHubConnection && !manualRepoInput ? (
+                <RepoSelector
+                  onSelect={(url, defaultBranch) => {
+                    update({ repoUrl: url, branch: defaultBranch });
+                    // Auto-fill name and slug from repo
+                    const repoName = repoNameFromUrl(url);
+                    if (repoName && !form.name) {
+                      update({ name: repoName, slug: autoSlug(repoName) });
+                    }
+                  }}
+                  onSwitchToManual={() => setManualRepoInput(true)}
                 />
-                <FieldError msg={form.repoUrl ? sourceErrors.repoUrl : undefined} />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[13px] text-foreground-secondary">Branch</Label>
-                <div className="relative" ref={branchRef}>
-                  <Input
-                    value={branchDropdownOpen ? branchFilter : form.branch}
-                    onChange={(e) => {
-                      setBranchFilter(e.target.value);
-                      update({ branch: e.target.value });
-                      if (!branchDropdownOpen) setBranchDropdownOpen(true);
-                    }}
-                    onFocus={() => { setBranchDropdownOpen(true); setBranchFilter(form.branch); }}
-                    placeholder={branchesLoading ? 'Loading branches...' : 'Select or type a branch'}
-                    className="font-mono text-[13px]"
-                  />
-                  {branchDropdownOpen && filteredBranches.length > 0 && (
-                    <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border bg-popover shadow-lg">
-                      <div className="max-h-48 overflow-auto py-1">
-                        {filteredBranches.map((b) => (
-                          <button
-                            key={b}
-                            className={`flex w-full items-center px-3 py-1.5 text-left font-mono text-[13px] transition-colors hover:bg-accent ${b === form.branch ? 'bg-accent text-foreground font-medium' : 'text-foreground-secondary'}`}
-                            onClick={() => { update({ branch: b }); setBranchDropdownOpen(false); }}
-                          >
-                            {b === form.branch && <Check className="mr-2 size-3" />}
-                            {b}
-                          </button>
-                        ))}
-                      </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-[13px] text-foreground-secondary">Repository URL</Label>
+                    <Input
+                      placeholder="https://github.com/user/repo"
+                      value={form.repoUrl}
+                      onChange={(e) => update({ repoUrl: e.target.value })}
+                      autoFocus
+                    />
+                    <FieldError msg={form.repoUrl ? sourceErrors.repoUrl : undefined} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[13px] text-foreground-secondary">Branch</Label>
+                    <div className="relative" ref={branchRef}>
+                      <Input
+                        value={branchDropdownOpen ? branchFilter : form.branch}
+                        onChange={(e) => {
+                          setBranchFilter(e.target.value);
+                          update({ branch: e.target.value });
+                          if (!branchDropdownOpen) setBranchDropdownOpen(true);
+                        }}
+                        onFocus={() => { setBranchDropdownOpen(true); setBranchFilter(form.branch); }}
+                        placeholder={branchesLoading ? 'Loading branches...' : 'Select or type a branch'}
+                        className="font-mono text-[13px]"
+                      />
+                      {branchDropdownOpen && filteredBranches.length > 0 && (
+                        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border bg-popover shadow-lg">
+                          <div className="max-h-48 overflow-auto py-1">
+                            {filteredBranches.map((b) => (
+                              <button
+                                key={b}
+                                className={`flex w-full items-center px-3 py-1.5 text-left font-mono text-[13px] transition-colors hover:bg-accent ${b === form.branch ? 'bg-accent text-foreground font-medium' : 'text-foreground-secondary'}`}
+                                onClick={() => { update({ branch: b }); setBranchDropdownOpen(false); }}
+                              >
+                                {b === form.branch && <Check className="mr-2 size-3" />}
+                                {b}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {branchesLoading && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <Loader2 className="size-3.5 animate-spin text-foreground-muted" />
+                        </div>
+                      )}
                     </div>
+                  </div>
+                  {hasGitHubConnection && (
+                    <button
+                      className="text-xs text-muted-foreground hover:text-foreground underline"
+                      onClick={() => { setManualRepoInput(false); update({ repoUrl: '', branch: '' }); }}
+                    >
+                      Select from connected GitHub repositories instead
+                    </button>
                   )}
-                  {branchesLoading && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2 className="size-3.5 animate-spin text-foreground-muted" />
-                    </div>
-                  )}
-                </div>
-              </div>
+                </>
+              )}
             </div>
           )}
 
