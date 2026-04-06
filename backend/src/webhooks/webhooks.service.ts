@@ -240,4 +240,90 @@ export class WebhooksService {
     if (!event) throw new NotFoundException('Webhook event not found');
     return event;
   }
+
+  async processAppWebhookEvent(args: {
+    repoFullName: string;
+    deliveryId: string;
+    event: string;
+    headers: Record<string, string>;
+    payload: any;
+  }) {
+    const repoUrl = `https://github.com/${args.repoFullName}`;
+    const project = await this.prisma.project.findFirst({
+      where: {
+        OR: [{ repoUrl }, { repoUrl: `${repoUrl}.git` }],
+        githubInstallationId: { not: null },
+      },
+    });
+    if (!project) return;
+
+    const existing = await this.prisma.webhookEvent.findUnique({ where: { deliveryId: args.deliveryId } });
+    if (existing) return;
+
+    const parsed = this.githubProvider.parsePayload(args.event, args.payload);
+    const webhookEvent = await this.prisma.webhookEvent.create({
+      data: {
+        projectId: project.id,
+        provider: 'GITHUB',
+        deliveryId: args.deliveryId,
+        event: args.event,
+        action: args.payload.action || null,
+        headers: args.headers,
+        payload: args.payload,
+        status: 'RECEIVED',
+      },
+    });
+
+    const enabledEvents = ['push', 'pull_request', 'release', 'create', 'delete'];
+    const eventCheck = this.filter.matchEvent(
+      args.event, args.payload.action || null, enabledEvents,
+      args.event === 'pull_request' ? args.payload.pull_request?.merged : undefined,
+    );
+    if (!eventCheck.pass) {
+      await this.prisma.webhookEvent.update({
+        where: { id: webhookEvent.id },
+        data: { status: 'FILTERED', filterReason: eventCheck.reason, processedAt: new Date() },
+      });
+      return;
+    }
+
+    const config = await this.prisma.webhookConfig.findUnique({ where: { projectId: project.id } });
+    const branchFilters = config ? (config.branchFilters as string[]) : [];
+    const pathFilters = config ? (config.pathFilters as string[]) : [];
+
+    if (branchFilters.length > 0) {
+      const branchCheck = this.filter.matchBranch(parsed.branch, branchFilters);
+      if (!branchCheck.pass) {
+        await this.prisma.webhookEvent.update({
+          where: { id: webhookEvent.id },
+          data: { status: 'FILTERED', filterReason: branchCheck.reason, processedAt: new Date() },
+        });
+        return;
+      }
+    }
+
+    if (pathFilters.length > 0) {
+      const pathCheck = this.filter.matchPaths(parsed.changedFiles, pathFilters);
+      if (!pathCheck.pass) {
+        await this.prisma.webhookEvent.update({
+          where: { id: webhookEvent.id },
+          data: { status: 'FILTERED', filterReason: pathCheck.reason, processedAt: new Date() },
+        });
+        return;
+      }
+    }
+
+    try {
+      const deployment = await this.deployService.trigger(project.id, project.createdById);
+      await this.prisma.webhookEvent.update({
+        where: { id: webhookEvent.id },
+        data: { status: 'TRIGGERED', deploymentId: deployment.id, processedAt: new Date() },
+      });
+    } catch (err: any) {
+      await this.prisma.webhookEvent.update({
+        where: { id: webhookEvent.id },
+        data: { status: 'FAILED', error: err.message, processedAt: new Date() },
+      });
+    }
+  }
 }
