@@ -41,10 +41,14 @@ export class DatabaseBrowserService {
   async getTables(projectId: string) {
     const pool = await this.getPool(projectId);
     const result = await pool.query(`
-      SELECT table_name, table_type
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-      ORDER BY table_name
+      SELECT t.table_name, t.table_type,
+        COALESCE(json_agg(c.column_name ORDER BY c.ordinal_position) FILTER (WHERE c.column_name IS NOT NULL), '[]') AS columns
+      FROM information_schema.tables t
+      LEFT JOIN information_schema.columns c
+        ON c.table_schema = t.table_schema AND c.table_name = t.table_name
+      WHERE t.table_schema = 'public'
+      GROUP BY t.table_name, t.table_type
+      ORDER BY t.table_name
     `);
     return result.rows;
   }

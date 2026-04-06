@@ -542,7 +542,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
               </div>
             )}
 
-            {subView === 'query' && <SqlQueryPanel projectId={id} tables={tables?.map((t: any) => t.table_name)} />}
+            {subView === 'query' && <SqlQueryPanel projectId={id} schema={tables?.reduce((acc: Record<string, string[]>, t: any) => { acc[t.table_name] = t.columns || []; return acc; }, {})} />}
           </>
         )}
       </div>

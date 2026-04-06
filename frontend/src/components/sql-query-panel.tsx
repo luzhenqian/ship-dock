@@ -9,10 +9,10 @@ import { useExecuteQuery } from '@/hooks/use-database';
 
 interface SqlQueryPanelProps {
   projectId: string;
-  tables?: string[];
+  schema?: Record<string, string[]>;
 }
 
-export function SqlQueryPanel({ projectId, tables }: SqlQueryPanelProps) {
+export function SqlQueryPanel({ projectId, schema }: SqlQueryPanelProps) {
   const [sql, setSql] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [jsonPreview, setJsonPreview] = useState<{ column: string; value: any } | null>(null);
@@ -36,7 +36,7 @@ export function SqlQueryPanel({ projectId, tables }: SqlQueryPanelProps) {
           value={sql}
           onChange={setSql}
           onExecute={handleExecute}
-          tables={tables}
+          schema={schema}
         />
       </div>
       <div className="flex items-center gap-2 mb-4">

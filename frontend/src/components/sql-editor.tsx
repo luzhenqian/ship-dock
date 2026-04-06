@@ -11,15 +11,11 @@ interface SqlEditorProps {
   value: string;
   onChange: (value: string) => void;
   onExecute: () => void;
-  tables?: string[];
+  schema?: Record<string, string[]>;
 }
 
-export function SqlEditor({ value, onChange, onExecute, tables }: SqlEditorProps) {
+export function SqlEditor({ value, onChange, onExecute, schema }: SqlEditorProps) {
   const { resolvedTheme } = useTheme();
-
-  const schema = tables
-    ? Object.fromEntries(tables.map((t) => [t, []]))
-    : undefined;
 
   const executeKeymap = keymap.of([
     {
