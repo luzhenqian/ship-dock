@@ -137,13 +137,13 @@ export class DeployProcessor extends WorkerHost {
       case 'pm2': {
         let envVars: Record<string, string> = {};
         if (project.envVars) { try { envVars = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {} }
-        // Determine start script: user-specified > package.json start > dist/main.js
-        let script = project.startCommand || 'dist/main.js';
-        if (!project.startCommand) {
+        const pm2Config = await this.prisma.pm2Config.findUnique({ where: { projectId: project.id } });
+        // Determine start script: pm2Config.script > user-specified > package.json start > dist/main.js
+        let script = pm2Config?.script || project.startCommand || 'dist/main.js';
+        if (!pm2Config?.script && !project.startCommand) {
           try {
             const pkg = JSON.parse(require('fs').readFileSync(join(projectDir, 'package.json'), 'utf8'));
             if (pkg.scripts?.start) {
-              // Use npm start via pm2
               script = 'npm';
             } else if (pkg.main) {
               script = pkg.main;
@@ -152,7 +152,12 @@ export class DeployProcessor extends WorkerHost {
         }
         const isNpmStart = script === 'npm';
         return this.pm2Stage.execute(
-          { name: project.pm2Name, script, cwd: projectDir, port: project.port, envVars },
+          {
+            name: project.pm2Name, script, cwd: projectDir, port: project.port, envVars,
+            instances: pm2Config?.instances,
+            execMode: pm2Config?.execMode,
+            maxMemoryRestart: pm2Config?.maxMemoryRestart ?? undefined,
+          },
           isFirstDeploy, ctx, isNpmStart,
         );
       }

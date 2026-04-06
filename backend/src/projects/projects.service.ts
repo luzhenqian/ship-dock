@@ -291,7 +291,7 @@ export class ProjectsService {
     const project = await this.prisma.project.findUnique({ where: { id } });
     if (!project) throw new NotFoundException('Project not found');
 
-    // Regenerate ecosystem.config.js with latest ENV before restarting
+    // Regenerate ecosystem.config.js with latest ENV and PM2 config before restarting
     let envVars: Record<string, string> = {};
     if (project.envVars) {
       try { envVars = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
@@ -301,19 +301,27 @@ export class ProjectsService {
     const repoDir = join(projectsDir, project.directory || project.slug);
     const projectDir = project.workDir ? join(repoDir, project.workDir) : repoDir;
 
-    let script = project.startCommand || 'dist/main.js';
+    const pm2Config = await this.prisma.pm2Config.findUnique({ where: { projectId: id } });
+
+    let script = pm2Config?.script || project.startCommand || 'dist/main.js';
     let isNpmStart = false;
-    if (!project.startCommand) {
+    if (!pm2Config?.script && !project.startCommand) {
       try {
         const pkg = JSON.parse(require('fs').readFileSync(join(projectDir, 'package.json'), 'utf8'));
         if (pkg.scripts?.start) { script = 'npm'; isNpmStart = true; }
         else if (pkg.main) { script = pkg.main; }
       } catch {}
     }
+    if (script === 'npm') isNpmStart = true;
 
     const pm2Stage = new Pm2Stage();
     const ecosystemContent = pm2Stage.buildEcosystemConfig(
-      { name: project.pm2Name, script, cwd: projectDir, port: project.port, envVars },
+      {
+        name: project.pm2Name, script, cwd: projectDir, port: project.port, envVars,
+        instances: pm2Config?.instances,
+        execMode: pm2Config?.execMode,
+        maxMemoryRestart: pm2Config?.maxMemoryRestart ?? undefined,
+      },
       isNpmStart,
     );
     writeFileSync(join(projectDir, 'ecosystem.config.js'), ecosystemContent);
