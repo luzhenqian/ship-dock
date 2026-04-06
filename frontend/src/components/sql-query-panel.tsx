@@ -4,21 +4,25 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { JsonPreviewDialog } from '@/components/json-preview-dialog';
+import { SqlEditor } from '@/components/sql-editor';
 import { useExecuteQuery } from '@/hooks/use-database';
 
 interface SqlQueryPanelProps {
   projectId: string;
+  tables?: string[];
 }
 
-export function SqlQueryPanel({ projectId }: SqlQueryPanelProps) {
+export function SqlQueryPanel({ projectId, tables }: SqlQueryPanelProps) {
   const [sql, setSql] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [jsonPreview, setJsonPreview] = useState<{ column: string; value: any } | null>(null);
   const { mutate, data, isPending, error } = useExecuteQuery(projectId);
 
   const handleExecute = () => {
-    const trimmed = sql.trim().toUpperCase();
-    if (trimmed.startsWith('DELETE') || trimmed.startsWith('UPDATE')) {
+    const trimmed = sql.trim();
+    if (!trimmed) return;
+    const upper = trimmed.toUpperCase();
+    if (upper.startsWith('DELETE') || upper.startsWith('UPDATE')) {
       setShowConfirm(true);
     } else {
       mutate(sql);
@@ -28,14 +32,11 @@ export function SqlQueryPanel({ projectId }: SqlQueryPanelProps) {
   return (
     <div>
       <div className="mb-3">
-        <textarea
+        <SqlEditor
           value={sql}
-          onChange={(e) => setSql(e.target.value)}
-          placeholder="SELECT * FROM users LIMIT 10;"
-          className="w-full h-32 p-3 font-mono text-sm border rounded-md bg-background resize-y"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleExecute();
-          }}
+          onChange={setSql}
+          onExecute={handleExecute}
+          tables={tables}
         />
       </div>
       <div className="flex items-center gap-2 mb-4">

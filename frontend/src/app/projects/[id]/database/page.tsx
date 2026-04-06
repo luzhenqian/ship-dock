@@ -542,7 +542,7 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
               </div>
             )}
 
-            {subView === 'query' && <SqlQueryPanel projectId={id} />}
+            {subView === 'query' && <SqlQueryPanel projectId={id} tables={tables?.map((t: any) => t.table_name)} />}
           </>
         )}
       </div>

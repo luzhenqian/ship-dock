@@ -18,6 +18,8 @@ function throwPgError(err: any): never {
       '22003': `Numeric value out of range${detail}`,
       '22001': `Value too long for column${detail}`,
       '42703': `Column not found${detail}`,
+      '42601': `SQL syntax error${detail ? detail : err.message ? `: ${err.message}` : ''}`,
+      '42501': `Permission denied${detail}`,
     };
     throw new BadRequestException(messages[err.code] || `Database error (${err.code})${detail}`);
   }
