@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { execFile } from 'child_process';
 import { existsSync, writeFileSync } from 'fs';
@@ -10,6 +10,7 @@ import { DatabaseProvisionerService } from '../common/database-provisioner.servi
 import { PortAllocationService } from './port-allocation.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { Pm2Stage } from '../deploy/stages/pm2.stage';
 
 const execFileAsync = promisify(execFile);
@@ -34,6 +35,8 @@ export class ProjectsService {
     private portAllocation: PortAllocationService,
     private config: ConfigService,
     private dbProvisioner: DatabaseProvisionerService,
+    @Inject(forwardRef(() => WebhooksService))
+    private webhooksService: WebhooksService,
   ) {}
 
   private validateDirectory(dir: string): string {
@@ -137,6 +140,30 @@ export class ProjectsService {
 
   async update(id: string, dto: UpdateProjectDto) {
     const data: any = { ...dto };
+
+    // Handle repo connect/disconnect
+    if ('repoUrl' in dto) {
+      if (dto.repoUrl) {
+        // Connect: switch to GITHUB
+        data.sourceType = 'GITHUB';
+        data.repoUrl = dto.repoUrl;
+        data.branch = dto.branch || data.branch || 'main';
+      } else {
+        // Disconnect: switch to UPLOAD
+        data.sourceType = 'UPLOAD';
+        data.repoUrl = null;
+        data.branch = 'main';
+        data.githubInstallationId = null;
+
+        // Clean up webhook if exists
+        try {
+          await this.webhooksService.deleteConfig(id);
+        } catch {
+          // No webhook configured — that's fine
+        }
+      }
+    }
+
     if (data.envVars) {
       // Sync .env file on server if project directory exists
       this.syncEnvFile(id, data.envVars);
