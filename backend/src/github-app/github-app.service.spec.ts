@@ -35,8 +35,6 @@ describe('GitHubAppService', () => {
                 GITHUB_APP_ID: '12345',
                 GITHUB_APP_PRIVATE_KEY: TEST_PRIVATE_KEY_B64,
                 GITHUB_APP_WEBHOOK_SECRET: 'webhook-secret',
-                GITHUB_APP_CLIENT_ID: 'client-id',
-                GITHUB_APP_CLIENT_SECRET: 'client-secret',
                 GITHUB_APP_SLUG: 'ship-dock',
               };
               return values[key];
@@ -248,6 +246,92 @@ describe('GitHubAppService', () => {
       const result = await service.getInstallationAccessToken(99);
       expect(result).toBe('cached-token');
       expect(mockRedisGet).toHaveBeenCalledWith('github:iat:99');
+    });
+
+    it('should fetch token from GitHub API on cache miss and store in Redis', async () => {
+      mockRedisGet.mockResolvedValue(null);
+      mockRedisSet.mockResolvedValue('OK');
+
+      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => ({ token: 'new-token' }),
+      } as Response);
+
+      const result = await service.getInstallationAccessToken(99);
+
+      expect(result).toBe('new-token');
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://api.github.com/app/installations/99/access_tokens',
+        expect.objectContaining({ method: 'POST' }),
+      );
+      expect(mockRedisSet).toHaveBeenCalledWith(
+        'github:iat:99',
+        'new-token',
+        'EX',
+        3300,
+      );
+
+      fetchSpy.mockRestore();
+    });
+  });
+
+  describe('listRepositories', () => {
+    it('should return correctly mapped repos for a single page', async () => {
+      jest
+        .spyOn(service, 'getInstallationAccessToken')
+        .mockResolvedValue('test-token');
+
+      const mockRepos = [
+        {
+          id: 1,
+          full_name: 'octocat/hello-world',
+          name: 'hello-world',
+          private: false,
+          default_branch: 'main',
+          extra_field: 'should be stripped',
+        },
+        {
+          id: 2,
+          full_name: 'octocat/spoon-knife',
+          name: 'spoon-knife',
+          private: true,
+          default_branch: 'master',
+        },
+      ];
+
+      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => ({ repositories: mockRepos }),
+      } as Response);
+
+      const result = await service.listRepositories(99);
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://api.github.com/installation/repositories?per_page=100&page=1',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+        }),
+      );
+      expect(result).toEqual([
+        {
+          id: 1,
+          full_name: 'octocat/hello-world',
+          name: 'hello-world',
+          private: false,
+          default_branch: 'main',
+        },
+        {
+          id: 2,
+          full_name: 'octocat/spoon-knife',
+          name: 'spoon-knife',
+          private: true,
+          default_branch: 'master',
+        },
+      ]);
+
+      fetchSpy.mockRestore();
     });
   });
 });
