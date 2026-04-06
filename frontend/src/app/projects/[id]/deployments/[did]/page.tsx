@@ -33,11 +33,16 @@ export default function DeploymentDetailPage({ params }: { params: Promise<{ id:
 
   const persistedLogs = useMemo(() => {
     if (!deployment?.stages) return [];
-    const logs: Array<{ stage: string; line: string }> = [];
+    const logs: Array<{ stage: string; line: string; t?: number }> = [];
     for (const stage of deployment.stages as any[]) {
       if (stage.logs && Array.isArray(stage.logs)) {
-        for (const line of stage.logs) {
-          logs.push({ stage: stage.name, line });
+        for (const entry of stage.logs) {
+          // Support both old format (string) and new format ({ t, m })
+          if (typeof entry === 'string') {
+            logs.push({ stage: stage.name, line: entry });
+          } else {
+            logs.push({ stage: stage.name, line: entry.m, t: entry.t });
+          }
         }
       }
     }

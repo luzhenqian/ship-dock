@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { connectSocket } from '@/lib/socket';
 
 export function useDeployLogs(deploymentId: string) {
-  const [logs, setLogs] = useState<Array<{ stage: string; line: string }>>([]);
+  const [logs, setLogs] = useState<Array<{ stage: string; line: string; t?: number }>>([]);
   const [stageStatuses, setStageStatuses] = useState<Record<number, string>>({});
   const [status, setStatus] = useState<string>('');
   const socketRef = useRef(connectSocket());
@@ -24,8 +24,8 @@ export function useDeployLogs(deploymentId: string) {
     joinRoom();
     socket.on('connect', joinRoom);
 
-    socket.on('log', (data: { index?: number; stage?: string; line: string }) => {
-      setLogs((prev) => [...prev, { stage: data.stage || `stage-${data.index}`, line: data.line }]);
+    socket.on('log', (data: { index?: number; stage?: string; line: string; t?: number }) => {
+      setLogs((prev) => [...prev, { stage: data.stage || `stage-${data.index}`, line: data.line, t: data.t }]);
     });
     socket.on('stage-start', (data: { index: number }) => {
       setStageStatuses((prev) => ({ ...prev, [data.index]: 'RUNNING' }));
