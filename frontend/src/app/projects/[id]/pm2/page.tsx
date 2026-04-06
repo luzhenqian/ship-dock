@@ -50,6 +50,9 @@ export default function Pm2ConfigPage({ params }: { params: Promise<{ id: string
     });
   }
 
+  const preview = data?.preview || '';
+  const highlightedPreview = useHighlightedCode(preview, 'javascript');
+
   async function handleSave() {
     try {
       await updateConfig.mutateAsync(form);
@@ -70,9 +73,6 @@ export default function Pm2ConfigPage({ params }: { params: Promise<{ id: string
       </div>
     );
   }
-
-  const preview = data?.preview || '';
-  const highlightedPreview = useHighlightedCode(preview, 'javascript');
 
   return (
     <div className="space-y-6">
