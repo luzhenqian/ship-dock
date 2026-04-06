@@ -75,7 +75,7 @@ if pm2 describe ship-dock-api &>/dev/null; then
   pm2 reload ship-dock-api
   echo "  PM2 reloaded (zero-downtime)"
 else
-  pm2 start dist/main.js --name ship-dock-api -i max --env production
+  pm2 start dist/main.js --name ship-dock-api -i 1 --env production
   pm2 save
   echo "  PM2 started fresh"
 fi
