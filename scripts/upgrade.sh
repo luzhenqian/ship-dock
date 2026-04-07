@@ -1,6 +1,6 @@
 #!/bin/bash
 # Ship Dock — Self-upgrade script
-# Usage: ship-dock upgrade [--edge] [--check] [--rollback]
+# Usage: ship-dock upgrade [--edge] [--check] [--rollback] [--force]
 set -euo pipefail
 
 # ---------- Colors & helpers ----------
@@ -35,12 +35,14 @@ log_to_file() {
 # ---------- Parse arguments ----------
 MODE="stable"
 ACTION="upgrade"
+FORCE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --edge)     MODE="edge"; shift ;;
     --check)    ACTION="check"; shift ;;
     --rollback) ACTION="rollback"; shift ;;
+    --force)    FORCE=true; shift ;;
     *) fail "Unknown option: $1"; exit 1 ;;
   esac
 done
@@ -247,13 +249,17 @@ if [[ "$MODE" == "stable" ]]; then
   get_latest_stable
   log "Latest stable: ${LATEST_VERSION}"
 
-  if [[ "$CURRENT_VERSION" == "$LATEST_VERSION" ]]; then
-    log "Already up to date!"
+  if [[ "$CURRENT_VERSION" == "$LATEST_VERSION" && "$FORCE" == "false" ]]; then
+    log "Already up to date! (use --force to rebuild anyway)"
     exit 0
   fi
 
   if [[ "$ACTION" == "check" ]]; then
-    warn "Update available: ${CURRENT_VERSION} -> ${LATEST_VERSION}"
+    if [[ "$CURRENT_VERSION" == "$LATEST_VERSION" ]]; then
+      log "Already up to date!"
+    else
+      warn "Update available: ${CURRENT_VERSION} -> ${LATEST_VERSION}"
+    fi
     exit 0
   fi
 else
@@ -261,13 +267,17 @@ else
   LOCAL_COMMIT=$(git -C "$INSTALL_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
   log "Latest edge commit: ${LATEST_COMMIT}"
 
-  if [[ "$LOCAL_COMMIT" == "$LATEST_COMMIT" ]]; then
-    log "Already up to date!"
+  if [[ "$LOCAL_COMMIT" == "$LATEST_COMMIT" && "$FORCE" == "false" ]]; then
+    log "Already up to date! (use --force to rebuild anyway)"
     exit 0
   fi
 
   if [[ "$ACTION" == "check" ]]; then
-    warn "Update available: ${LOCAL_COMMIT} -> ${LATEST_COMMIT}"
+    if [[ "$LOCAL_COMMIT" == "$LATEST_COMMIT" ]]; then
+      log "Already up to date!"
+    else
+      warn "Update available: ${LOCAL_COMMIT} -> ${LATEST_COMMIT}"
+    fi
     exit 0
   fi
 fi

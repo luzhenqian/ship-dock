@@ -28,6 +28,7 @@ case "${1:-help}" in
     echo "    --edge             Upgrade to latest main branch code"
     echo "    --check            Check for updates without upgrading"
     echo "    --rollback         Rollback to previous version"
+    echo "    --force            Force rebuild even if already up to date"
     echo "  version              Show current version"
     echo "  help                 Show this help message"
     echo ""
