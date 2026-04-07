@@ -128,10 +128,11 @@ model Project {
 }
 
 model Deployment {
-  id         String           @id @default(uuid())
-  version    Int
-  commitHash String?
-  status     DeploymentStatus @default(QUEUED)
+  id            String           @id @default(uuid())
+  version       Int
+  commitHash    String?
+  commitMessage String?
+  status        DeploymentStatus @default(QUEUED)
   stages     Json             @default("[]")
   startedAt  DateTime?
   finishedAt DateTime?

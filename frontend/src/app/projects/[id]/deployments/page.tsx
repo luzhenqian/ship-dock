@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useDeployments, useTriggerDeploy } from '@/hooks/use-deployments';
 import { useProject, useStopProject, useRestartProject } from '@/hooks/use-projects';
 import { Button } from '@/components/ui/button';
-import { GitBranch, GitCommit, MoreHorizontal } from 'lucide-react';
+import { GitBranch, GitCommit, MoreHorizontal, Webhook, User } from 'lucide-react';
 
 const statusConfig: Record<string, { dot: string; label: string }> = {
   SUCCESS: { dot: 'bg-status-ready shadow-[0_0_6px_rgba(80,227,194,0.4)]', label: 'Ready' },
@@ -179,8 +179,19 @@ export default function DeploymentsPage({ params }: { params: Promise<{ id: stri
                       <span className="text-xs text-foreground-muted font-mono">{formatDuration(d.duration)}</span>
                     )}
                   </div>
-                  {/* Row 2: branch + commit */}
+                  {/* Row 2: trigger source + branch + commit */}
                   <div className="flex items-center gap-3 text-xs text-foreground-muted">
+                    {d.webhookEvent ? (
+                      <span className="inline-flex items-center gap-1" title={`Triggered by ${d.webhookEvent.provider} webhook`}>
+                        <Webhook className="h-3 w-3" />
+                        {d.webhookEvent.provider.toLowerCase()}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1" title="Manual deployment">
+                        <User className="h-3 w-3" />
+                        manual
+                      </span>
+                    )}
                     <span className="inline-flex items-center gap-1">
                       <GitBranch className="h-3 w-3" />
                       main
@@ -189,6 +200,9 @@ export default function DeploymentsPage({ params }: { params: Promise<{ id: stri
                       <span className="inline-flex items-center gap-1">
                         <GitCommit className="h-3 w-3" />
                         {d.commitHash.slice(0, 7)}
+                        {d.commitMessage && (
+                          <span className="text-foreground-secondary ml-0.5 truncate max-w-[300px]">{d.commitMessage}</span>
+                        )}
                       </span>
                     )}
                   </div>

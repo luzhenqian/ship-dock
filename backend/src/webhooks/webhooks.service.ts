@@ -188,7 +188,10 @@ export class WebhooksService {
 
     try {
       const project = await this.prisma.project.findUnique({ where: { id: args.projectId }, select: { createdById: true } });
-      const deployment = await this.deployService.trigger(args.projectId, project!.createdById);
+      const deployment = await this.deployService.trigger(args.projectId, project!.createdById, undefined, {
+        hash: parsed.commitHash,
+        message: parsed.message,
+      });
       await this.prisma.webhookEvent.update({
         where: { id: webhookEvent.id },
         data: { status: args.isReplay ? 'REPLAYED' : 'TRIGGERED', deploymentId: deployment.id, processedAt: new Date() },
@@ -313,7 +316,10 @@ export class WebhooksService {
     }
 
     try {
-      const deployment = await this.deployService.trigger(project.id, project.createdById);
+      const deployment = await this.deployService.trigger(project.id, project.createdById, undefined, {
+        hash: parsed.commitHash,
+        message: parsed.message,
+      });
       await this.prisma.webhookEvent.update({
         where: { id: webhookEvent.id },
         data: { status: 'TRIGGERED', deploymentId: deployment.id, processedAt: new Date() },

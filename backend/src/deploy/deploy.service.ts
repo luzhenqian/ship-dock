@@ -12,12 +12,16 @@ export class DeployService {
     @InjectQueue('deploy') private deployQueue: Queue,
   ) {}
 
-  async trigger(projectId: string, userId: string, resumeFromStage?: number) {
+  async trigger(projectId: string, userId: string, resumeFromStage?: number, commit?: { hash?: string | null; message?: string | null }) {
     const project = await this.projectsService.findOne(projectId);
     const version = (await this.prisma.deployment.count({ where: { projectId } })) + 1;
     const stages = (project.pipeline as any).stages.map((s: any) => ({ ...s, status: 'PENDING', logs: [] }));
     const deployment = await this.prisma.deployment.create({
-      data: { projectId, triggeredById: userId, version, status: 'QUEUED', stages },
+      data: {
+        projectId, triggeredById: userId, version, status: 'QUEUED', stages,
+        commitHash: commit?.hash || null,
+        commitMessage: commit?.message || null,
+      },
     });
     await this.deployQueue.add('deploy', { deploymentId: deployment.id, projectId, resumeFromStage });
     return deployment;
@@ -58,7 +62,10 @@ export class DeployService {
       where,
       orderBy: { version: 'desc' },
       take: limit + 1,
-      include: { triggeredBy: { select: { id: true, name: true } } },
+      include: {
+        triggeredBy: { select: { id: true, name: true } },
+        webhookEvent: { select: { id: true, provider: true } },
+      },
       omit: { stages: true },
     });
     const hasMore = items.length > limit;

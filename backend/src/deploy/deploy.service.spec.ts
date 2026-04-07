@@ -57,7 +57,7 @@ describe('DeployService', () => {
     it('returns deployments for a project', async () => {
       prisma.deployment.findMany.mockResolvedValue([{ id: 'dep-1', version: 1 }, { id: 'dep-2', version: 2 }]);
       const result = await service.getHistory('proj-1');
-      expect(result).toHaveLength(2);
+      expect(result.items).toHaveLength(2);
     });
   });
 });
