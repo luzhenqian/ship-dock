@@ -10,7 +10,7 @@ import { SqlQueryPanel } from '@/components/sql-query-panel';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { MigrationWizard } from '@/components/migration-wizard';
 import { JsonPreviewDialog } from '@/components/json-preview-dialog';
-import { Upload } from 'lucide-react';
+import { Upload, RefreshCw } from 'lucide-react';
 
 type SubView = 'data' | 'structure' | 'query';
 type EditingCell = { rowIndex: number; column: string } | null;
@@ -351,6 +351,10 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
                       </Button>
                     </>
                   )}
+                  <div className="flex-1" />
+                  <Button size="sm" variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ['tableData', id, selectedTable] })}>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
                 <div className="border rounded-xl overflow-auto max-h-[calc(100vh-340px)]">
                   <table className="w-full text-sm">
