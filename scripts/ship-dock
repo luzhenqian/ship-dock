@@ -1,0 +1,40 @@
+#!/bin/bash
+# Ship Dock CLI
+set -euo pipefail
+
+INSTALL_DIR="${INSTALL_DIR:-/opt/shipdock}"
+SCRIPTS_DIR="$INSTALL_DIR/scripts"
+
+case "${1:-help}" in
+  upgrade)
+    shift
+    bash "$SCRIPTS_DIR/upgrade.sh" "$@"
+    ;;
+  version)
+    if [[ -f "$INSTALL_DIR/.shipdock-version" ]]; then
+      cat "$INSTALL_DIR/.shipdock-version" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Ship Dock v{d[\"version\"]} ({d[\"commit\"]})')" 2>/dev/null || echo "Ship Dock (version unknown)"
+    else
+      echo "Ship Dock v$(node -e "console.log(require('$INSTALL_DIR/backend/package.json').version)" 2>/dev/null || echo 'unknown')"
+    fi
+    ;;
+  help|--help|-h)
+    echo ""
+    echo "Ship Dock CLI"
+    echo ""
+    echo "Usage: ship-dock <command> [options]"
+    echo ""
+    echo "Commands:"
+    echo "  upgrade              Upgrade to the latest stable version"
+    echo "    --edge             Upgrade to latest main branch code"
+    echo "    --check            Check for updates without upgrading"
+    echo "    --rollback         Rollback to previous version"
+    echo "  version              Show current version"
+    echo "  help                 Show this help message"
+    echo ""
+    ;;
+  *)
+    echo "Unknown command: $1"
+    echo "Run 'ship-dock help' for usage."
+    exit 1
+    ;;
+esac
