@@ -47,7 +47,7 @@ export function generateFrontendEnv(creds: Credentials): void {
 }
 
 function locationBlocks(): string {
-  return `    client_max_body_size 20M;
+  return `    client_max_body_size 2048M;
 
     # API proxy
     location /api/ {
