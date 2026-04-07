@@ -4,18 +4,26 @@ import { google } from 'googleapis';
 
 @Injectable()
 export class Ga4OAuthService {
-  private oauth2Client;
+  private oauth2Client: InstanceType<typeof google.auth.OAuth2> | null = null;
 
   constructor(private config: ConfigService) {
-    this.oauth2Client = new google.auth.OAuth2(
-      this.config.getOrThrow('GOOGLE_CLIENT_ID'),
-      this.config.getOrThrow('GOOGLE_CLIENT_SECRET'),
-      this.config.getOrThrow('GOOGLE_REDIRECT_URI'),
-    );
+    const clientId = this.config.get('GOOGLE_CLIENT_ID');
+    const clientSecret = this.config.get('GOOGLE_CLIENT_SECRET');
+    const redirectUri = this.config.get('GOOGLE_REDIRECT_URI');
+    if (clientId && clientSecret && redirectUri) {
+      this.oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+    }
+  }
+
+  private ensureClient() {
+    if (!this.oauth2Client) {
+      throw new Error('Google Analytics is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI.');
+    }
+    return this.oauth2Client;
   }
 
   getAuthUrl(state: string): string {
-    return this.oauth2Client.generateAuthUrl({
+    return this.ensureClient().generateAuthUrl({
       access_type: 'offline',
       prompt: 'consent',
       scope: [
@@ -28,10 +36,11 @@ export class Ga4OAuthService {
   }
 
   async exchangeCode(code: string) {
-    const { tokens } = await this.oauth2Client.getToken(code);
-    this.oauth2Client.setCredentials(tokens);
+    const client = this.ensureClient();
+    const { tokens } = await client.getToken(code);
+    client.setCredentials(tokens);
 
-    const oauth2 = google.oauth2({ version: 'v2', auth: this.oauth2Client });
+    const oauth2 = google.oauth2({ version: 'v2', auth: client });
     const { data: userInfo } = await oauth2.userinfo.get();
 
     return {
@@ -44,8 +53,9 @@ export class Ga4OAuthService {
   }
 
   async refreshAccessToken(refreshToken: string) {
-    this.oauth2Client.setCredentials({ refresh_token: refreshToken });
-    const { credentials } = await this.oauth2Client.refreshAccessToken();
+    const client = this.ensureClient();
+    client.setCredentials({ refresh_token: refreshToken });
+    const { credentials } = await client.refreshAccessToken();
 
     return {
       accessToken: credentials.access_token!,
@@ -56,8 +66,8 @@ export class Ga4OAuthService {
 
   getAuthClient(accessToken: string) {
     const client = new google.auth.OAuth2(
-      this.config.getOrThrow('GOOGLE_CLIENT_ID'),
-      this.config.getOrThrow('GOOGLE_CLIENT_SECRET'),
+      this.config.get('GOOGLE_CLIENT_ID'),
+      this.config.get('GOOGLE_CLIENT_SECRET'),
     );
     client.setCredentials({ access_token: accessToken });
     return client;

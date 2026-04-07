@@ -11,29 +11,42 @@ export class GitHubAppService {
   private readonly webhookSecret: string;
   private readonly slug: string;
 
+  private configured: boolean;
+
   constructor(
     private config: ConfigService,
     private prisma: PrismaService,
     @Inject('REDIS_CLIENT') private redis: Redis,
   ) {
-    this.appId = this.config.getOrThrow('GITHUB_APP_ID');
-    this.privateKey = Buffer.from(
-      this.config.getOrThrow('GITHUB_APP_PRIVATE_KEY'),
-      'base64',
-    ).toString('utf8');
-    this.webhookSecret = this.config.getOrThrow('GITHUB_APP_WEBHOOK_SECRET');
-    this.slug = this.config.getOrThrow('GITHUB_APP_SLUG');
+    const appId = this.config.get('GITHUB_APP_ID');
+    const privateKey = this.config.get('GITHUB_APP_PRIVATE_KEY');
+    const webhookSecret = this.config.get('GITHUB_APP_WEBHOOK_SECRET');
+    const slug = this.config.get('GITHUB_APP_SLUG');
+    this.configured = !!(appId && privateKey && webhookSecret && slug);
+    this.appId = appId || '';
+    this.privateKey = privateKey ? Buffer.from(privateKey, 'base64').toString('utf8') : '';
+    this.webhookSecret = webhookSecret || '';
+    this.slug = slug || '';
+  }
+
+  private ensureConfigured() {
+    if (!this.configured) {
+      throw new Error('GitHub App is not configured. Set GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_APP_WEBHOOK_SECRET, and GITHUB_APP_SLUG.');
+    }
   }
 
   getInstallationUrl(): string {
+    this.ensureConfigured();
     return `https://github.com/apps/${this.slug}/installations/new`;
   }
 
   getWebhookSecret(): string {
+    this.ensureConfigured();
     return this.webhookSecret;
   }
 
   generateAppJwt(): string {
+    this.ensureConfigured();
     const now = Math.floor(Date.now() / 1000);
     return jwt.sign(
       { iat: now - 60, exp: now + 600, iss: this.appId },
