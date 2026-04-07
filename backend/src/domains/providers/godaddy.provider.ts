@@ -25,13 +25,28 @@ export class GodaddyProvider implements DnsProviderInterface {
   }
 
   async addRecord(domain: string, record: DnsRecord): Promise<void> {
-    await fetch(`${this.baseUrl}/domains/${domain}/records`, {
+    const payload = [{ name: record.name, type: record.type, data: record.value, ttl: record.ttl || 600 }];
+    const url = `${this.baseUrl}/domains/${domain}/records`;
+    console.log(`[GoDaddy] PATCH ${url}`, JSON.stringify(payload));
+    const res = await fetch(url, {
       method: 'PATCH', headers: this.headers,
-      body: JSON.stringify([{ name: record.name, type: record.type, data: record.value, ttl: record.ttl || 600 }]),
+      body: JSON.stringify(payload),
     });
+    const body = await res.text();
+    console.log(`[GoDaddy] Response ${res.status}: ${body}`);
+    if (!res.ok) {
+      throw new Error(`GoDaddy API error (${res.status}): ${body}`);
+    }
   }
 
   async deleteRecord(domain: string, target: { name: string; type: string }): Promise<void> {
-    await fetch(`${this.baseUrl}/domains/${domain}/records/${target.type}/${target.name}`, { method: 'DELETE', headers: this.headers });
+    const url = `${this.baseUrl}/domains/${domain}/records/${target.type}/${target.name}`;
+    console.log(`[GoDaddy] DELETE ${url}`);
+    const res = await fetch(url, { method: 'DELETE', headers: this.headers });
+    const body = await res.text();
+    console.log(`[GoDaddy] Response ${res.status}: ${body}`);
+    if (!res.ok) {
+      throw new Error(`GoDaddy API error (${res.status}): ${body}`);
+    }
   }
 }

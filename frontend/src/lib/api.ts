@@ -34,7 +34,8 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
       headers.Authorization = `Bearer ${data.accessToken}`;
       const retryRes = await fetch(`${API_URL}${path}`, { ...options, headers, credentials: 'include' });
       if (!retryRes.ok) throw new Error(`API error: ${retryRes.status}`);
-      return retryRes.json();
+      const retryText = await retryRes.text();
+      return retryText ? JSON.parse(retryText) : null;
     }
     setAccessToken(null);
     if (typeof window !== 'undefined') window.location.href = '/login';
@@ -46,7 +47,8 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
     throw new Error(error.message || `API error: ${res.status}`);
   }
 
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 export async function apiRaw(path: string, options: RequestInit = {}): Promise<Response> {

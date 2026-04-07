@@ -74,13 +74,13 @@ export default function DomainsPage() {
   const addRecord = useMutation({
     mutationFn: (data: any) => api(`/domains/providers/${expandedProvider}/domains/${selectedDomain}/records`, { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['dns-records', expandedProvider, selectedDomain] }); setRecordForm({ name: '', type: 'A', value: '', ttl: '600' }); toast.success('Record added'); },
-    onError: () => toast.error('Failed to add record'),
+    onError: (e: Error) => toast.error(e.message || 'Failed to add record'),
   });
 
   const deleteRecord = useMutation({
     mutationFn: ({ type, name }: { type: string; name: string }) => api(`/domains/providers/${expandedProvider}/domains/${selectedDomain}/records/${type}/${name}`, { method: 'DELETE' }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['dns-records', expandedProvider, selectedDomain] }); toast.success('Record deleted'); },
-    onError: () => toast.error('Failed to delete record'),
+    onError: (e: Error) => toast.error(e.message || 'Failed to delete record'),
   });
 
   const updateRecord = useMutation({
@@ -89,7 +89,7 @@ export default function DomainsPage() {
       await api(`/domains/providers/${expandedProvider}/domains/${selectedDomain}/records`, { method: 'POST', body: JSON.stringify(updated) });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['dns-records', expandedProvider, selectedDomain] }); setEditingRecord(null); toast.success('Record updated'); },
-    onError: () => toast.error('Failed to update record'),
+    onError: (e: Error) => toast.error(e.message || 'Failed to update record'),
   });
 
   // Reset selected domain when provider changes
