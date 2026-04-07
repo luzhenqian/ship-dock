@@ -16,6 +16,7 @@ import { StorageBrowserModule } from './storage-browser/storage-browser.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { GitHubAppModule } from './github-app/github-app.module';
 import { DataMigrationModule } from './data-migration/data-migration.module';
+import { ImportModule } from './import/import.module';
 import { NginxConfigModule } from './nginx-config/nginx-config.module';
 import { Pm2ConfigModule } from './pm2-config/pm2-config.module';
 import { AnalyticsModule } from './analytics/analytics.module';
@@ -40,6 +41,7 @@ import { AppController } from './app.controller';
     WebhooksModule,
     GitHubAppModule,
     DataMigrationModule,
+    ImportModule,
     NginxConfigModule,
     Pm2ConfigModule,
     AnalyticsModule,
