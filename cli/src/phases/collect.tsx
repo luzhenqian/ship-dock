@@ -72,7 +72,7 @@ export function CollectPhase({ onComplete }: Props) {
   const visibleFields = getVisibleFields(values);
   const currentField = visibleFields[currentIndex];
 
-  const requiredFields = new Set(['domain']);
+  const requiredFields = new Set<string>();
 
   const handleSubmit = (key: string, value: string, autoGenerate?: boolean) => {
     // Reject empty required fields — stay on same prompt
@@ -88,9 +88,9 @@ export function CollectPhase({ onComplete }: Props) {
       const creds: Credentials = {
         adminEmail: v.adminEmail,
         adminPassword: v.adminPassword,
-        domain: v.domain,
+        domain: v.domain || '',
         port: v.port || '4000',
-        ssl: v.ssl === 'true',
+        ssl: v.domain ? v.ssl === 'true' : false,
         useExistingDb: v.useExistingDb === 'true',
         dbHost: v.dbHost || 'localhost',
         dbPort: v.dbPort || '5432',

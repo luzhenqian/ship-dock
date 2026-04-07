@@ -54,6 +54,7 @@ function proxyBlock(port: string): string {
 }
 
 export function generateNginxConfig(creds: Credentials): string {
+  const serverName = creds.domain || '_';
   const lines: string[] = [
     `upstream ship_dock_api {`,
     `    server 127.0.0.1:${creds.port};`,
@@ -61,12 +62,12 @@ export function generateNginxConfig(creds: Credentials): string {
     ``,
   ];
 
-  if (creds.ssl) {
+  if (creds.ssl && creds.domain) {
     // HTTP → redirect to HTTPS
     lines.push(
       `server {`,
       `    listen 80;`,
-      `    server_name ${creds.domain};`,
+      `    server_name ${serverName};`,
       `    return 301 https://$host$request_uri;`,
       `}`,
       ``,
@@ -75,7 +76,7 @@ export function generateNginxConfig(creds: Credentials): string {
     lines.push(
       `server {`,
       `    listen 443 ssl http2;`,
-      `    server_name ${creds.domain};`,
+      `    server_name ${serverName};`,
       ``,
       `    ssl_certificate /etc/letsencrypt/live/${creds.domain}/fullchain.pem;`,
       `    ssl_certificate_key /etc/letsencrypt/live/${creds.domain}/privkey.pem;`,
@@ -90,7 +91,7 @@ export function generateNginxConfig(creds: Credentials): string {
     lines.push(
       `server {`,
       `    listen 80;`,
-      `    server_name ${creds.domain};`,
+      `    server_name ${serverName};`,
       ``,
       proxyBlock(creds.port),
       `}`,
