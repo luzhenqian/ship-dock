@@ -58,6 +58,17 @@ export function InitializePhase({ config, onComplete }: Props) {
           await runShell(`sudo -u postgres psql -c "CREATE USER ${config.dbUser} WITH PASSWORD '${config.dbPassword}';" 2>/dev/null || true`);
           await runShell(`sudo -u postgres psql -c "CREATE DATABASE ${config.dbName} OWNER ${config.dbUser};" 2>/dev/null || true`);
           await runShell(`sudo -u postgres psql -d ${config.dbName} -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>/dev/null || true`);
+          // Enable password authentication in pg_hba.conf
+          const pgHba = (await runShell("sudo find /etc/postgresql -name pg_hba.conf 2>/dev/null | head -1")).stdout;
+          if (pgHba) {
+            // Add scram-sha-256 auth for the user before the default peer/ident lines
+            const check = await runShell(`sudo grep -q "^host.*${config.dbName}.*${config.dbUser}" ${pgHba}`);
+            if (check.exitCode !== 0) {
+              await runShell(`sudo sed -i '/^# IPv4 local connections/a host    ${config.dbName}    ${config.dbUser}    127.0.0.1/32    scram-sha-256' ${pgHba}`);
+              await runShell(`sudo sed -i '/^# IPv6 local connections/a host    ${config.dbName}    ${config.dbUser}    ::1/128         scram-sha-256' ${pgHba}`);
+              await runShell('sudo systemctl reload postgresql');
+            }
+          }
         },
       }] : []),
       {
