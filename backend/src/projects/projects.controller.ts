@@ -84,6 +84,18 @@ export class ProjectsController {
   @Delete(':id/provision-database') @MinRole('ADMIN')
   deprovisionDatabase(@Param('id') id: string) { return this.projectsService.deprovisionDatabase(id); }
 
+  @Post(':id/provision-redis') @MinRole('ADMIN')
+  provisionRedis(@Param('id') id: string) { return this.projectsService.provisionRedis(id); }
+
+  @Delete(':id/provision-redis') @MinRole('ADMIN')
+  deprovisionRedis(@Param('id') id: string) { return this.projectsService.deprovisionRedis(id); }
+
+  @Post(':id/provision-minio') @MinRole('ADMIN')
+  provisionMinio(@Param('id') id: string) { return this.projectsService.provisionMinio(id); }
+
+  @Delete(':id/provision-minio') @MinRole('ADMIN')
+  deprovisionMinio(@Param('id') id: string) { return this.projectsService.deprovisionMinio(id); }
+
   @Get(':id/export-database')
   @MinRole('ADMIN')
   async exportDatabase(@Param('id') id: string, @Res() res: Response) {
