@@ -14,6 +14,7 @@ import { DeployGateway } from './deploy.gateway';
 import { DomainsService } from '../domains/domains.service';
 import { DatabaseProvisionerService } from '../common/database-provisioner.service';
 import { existsSync, writeFileSync, mkdirSync } from 'fs';
+import { execSync } from 'child_process';
 import { join, dirname } from 'path';
 
 @Processor('deploy')
@@ -110,6 +111,15 @@ export class DeployProcessor extends WorkerHost {
         await this.updateStageStatus(deploymentId, i, 'SKIPPED', result.error, stageLogs);
         this.gateway.emitToDeployment(deploymentId, 'stage-end', { index: i, success: true });
         continue;
+      }
+
+      // After clone succeeds, capture latest git commit info
+      if (stage.name === 'clone' && result.success) {
+        try {
+          const hash = execSync('git rev-parse HEAD', { cwd: repoDir, encoding: 'utf8' }).trim();
+          const message = execSync('git log -1 --pretty=%s', { cwd: repoDir, encoding: 'utf8' }).trim();
+          await this.prisma.deployment.update({ where: { id: deploymentId }, data: { commitHash: hash, commitMessage: message } });
+        } catch {}
       }
 
       // Persist logs + status in one atomic write
