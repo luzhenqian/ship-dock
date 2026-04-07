@@ -51,12 +51,27 @@ export class DomainsService {
 
   async listDomains(providerId: string) { return (await this.getProviderClient(providerId)).listDomains(); }
   async getRecords(providerId: string, domain: string) { return (await this.getProviderClient(providerId)).getRecords(domain); }
+
   async addRecord(providerId: string, domain: string, record: DnsRecord) {
-    try { return await (await this.getProviderClient(providerId)).addRecord(domain, record); }
-    catch (e) { throw new BadRequestException(e.message); }
+    try {
+      await (await this.getProviderClient(providerId)).addRecord(domain, record);
+      return { success: true };
+    } catch (e) { throw new BadRequestException(e.message); }
   }
+
+  async updateRecord(providerId: string, domain: string, original: { name: string; type: string }, updated: DnsRecord) {
+    const client = await this.getProviderClient(providerId);
+    try {
+      await client.deleteRecord(domain, original);
+      await client.addRecord(domain, updated);
+      return { success: true };
+    } catch (e) { throw new BadRequestException(e.message); }
+  }
+
   async deleteRecord(providerId: string, domain: string, record: { name: string; type: string }) {
-    try { return await (await this.getProviderClient(providerId)).deleteRecord(domain, record); }
-    catch (e) { throw new BadRequestException(e.message); }
+    try {
+      await (await this.getProviderClient(providerId)).deleteRecord(domain, record);
+      return { success: true };
+    } catch (e) { throw new BadRequestException(e.message); }
   }
 }

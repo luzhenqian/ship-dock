@@ -1,11 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { MinRole } from '../common/decorators/roles.decorator';
 import { DomainsService } from './domains.service';
 import { CreateProviderDto } from './dto/create-provider.dto';
 import { UpdateProviderDto } from './dto/update-provider.dto';
-import { CreateDnsRecordDto } from './dto/dns-record.dto';
+import { CreateDnsRecordDto, UpdateDnsRecordDto } from './dto/dns-record.dto';
 
 @Controller('domains')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,8 +34,17 @@ export class DomainsController {
   getRecords(@Param('id') providerId: string, @Param('domain') domain: string) { return this.domainsService.getRecords(providerId, domain); }
 
   @Post('providers/:id/domains/:domain/records') @MinRole('ADMIN')
-  addRecord(@Param('id') providerId: string, @Param('domain') domain: string, @Body() dto: CreateDnsRecordDto) { return this.domainsService.addRecord(providerId, domain, { ...dto, ttl: dto.ttl || 600 }); }
+  addRecord(@Param('id') providerId: string, @Param('domain') domain: string, @Body() dto: CreateDnsRecordDto) {
+    return this.domainsService.addRecord(providerId, domain, { ...dto, ttl: dto.ttl || 600 });
+  }
+
+  @Put('providers/:id/domains/:domain/records') @MinRole('ADMIN')
+  updateRecord(@Param('id') providerId: string, @Param('domain') domain: string, @Body() dto: UpdateDnsRecordDto) {
+    return this.domainsService.updateRecord(providerId, domain, { name: dto.original.name, type: dto.original.type }, { ...dto.updated, ttl: dto.updated.ttl || 600 });
+  }
 
   @Delete('providers/:id/domains/:domain/records/:type/:name') @MinRole('ADMIN')
-  deleteRecord(@Param('id') providerId: string, @Param('domain') domain: string, @Param('type') type: string, @Param('name') name: string) { return this.domainsService.deleteRecord(providerId, domain, { name, type }); }
+  deleteRecord(@Param('id') providerId: string, @Param('domain') domain: string, @Param('type') type: string, @Param('name') name: string) {
+    return this.domainsService.deleteRecord(providerId, domain, { name, type });
+  }
 }

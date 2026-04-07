@@ -84,10 +84,8 @@ export default function DomainsPage() {
   });
 
   const updateRecord = useMutation({
-    mutationFn: async ({ original, updated }: { original: DnsRecord; updated: DnsRecord }) => {
-      await api(`/domains/providers/${expandedProvider}/domains/${selectedDomain}/records/${original.type}/${original.name}`, { method: 'DELETE' });
-      await api(`/domains/providers/${expandedProvider}/domains/${selectedDomain}/records`, { method: 'POST', body: JSON.stringify(updated) });
-    },
+    mutationFn: ({ original, updated }: { original: DnsRecord; updated: DnsRecord }) =>
+      api(`/domains/providers/${expandedProvider}/domains/${selectedDomain}/records`, { method: 'PUT', body: JSON.stringify({ original, updated }) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['dns-records', expandedProvider, selectedDomain] }); setEditingRecord(null); toast.success('Record updated'); },
     onError: (e: Error) => toast.error(e.message || 'Failed to update record'),
   });
