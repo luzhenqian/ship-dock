@@ -34,9 +34,10 @@ export function generateBackendEnv(creds: Credentials): void {
 
 export function generateFrontendEnv(creds: Credentials): void {
   const proto = creds.ssl ? 'https' : 'http';
+  // Use relative /api path so it works with any IP/domain via Nginx
   const apiUrl = creds.domain
     ? `${proto}://${creds.domain}/api`
-    : `http://localhost:${creds.port}/api`;
+    : '/api';
 
   const lines = [
     `NEXT_PUBLIC_API_URL=${apiUrl}`,
