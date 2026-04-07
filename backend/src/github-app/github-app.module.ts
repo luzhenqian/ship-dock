@@ -18,8 +18,11 @@ import { GitHubAppWebhookGuard } from './github-app-webhook.guard';
       provide: 'REDIS_CLIENT',
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const url = config.get('REDIS_URL', 'redis://localhost:6379');
-        return new Redis(url);
+        return new Redis({
+          host: config.get('REDIS_HOST', 'localhost'),
+          port: config.get('REDIS_PORT', 6379),
+          password: config.get('REDIS_PASSWORD'),
+        });
       },
     },
   ],
