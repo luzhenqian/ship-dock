@@ -188,8 +188,17 @@ export function InitializePhase({ config, onComplete }: Props) {
           }
           if (!ready) throw new Error('API failed to start — check pm2 logs ship-dock-api');
 
-          const result = await runShell(`curl -sf -X POST http://localhost:${config.port}/api/auth/setup -H "Content-Type: application/json" -d '${JSON.stringify({ email: config.adminEmail, password: config.adminPassword, name: 'Admin' })}'`);
-          if (result.exitCode !== 0) throw new Error('Failed to create admin account');
+          const payload = JSON.stringify({ email: config.adminEmail, password: config.adminPassword, name: 'Admin' });
+          const result = await runShell(`curl -s -X POST http://localhost:${config.port}/api/auth/setup -H "Content-Type: application/json" -d '${payload}'`);
+          if (result.stdout.includes('Setup already completed')) {
+            // Update existing admin password via database
+            const bcryptHash = await runShell(`cd ${PROJECT_DIR}/backend && node -e "require('bcrypt').hash('${config.adminPassword}',10).then(h=>console.log(h))"`);
+            if (bcryptHash.exitCode !== 0) throw new Error('Failed to hash password');
+            const update = await runShell(`cd ${PROJECT_DIR}/backend && node -e "const{PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.user.updateMany({where:{role:'OWNER'},data:{email:'${config.adminEmail}',password:'${bcryptHash.stdout}'}}).then(r=>console.log(JSON.stringify(r))).finally(()=>p.\\\\\\$disconnect())"`);
+            if (update.exitCode !== 0) throw new Error('Failed to update admin account');
+          } else if (result.exitCode !== 0 || result.stdout.includes('error')) {
+            throw new Error(result.stdout || 'Failed to create admin account');
+          }
         },
       },
       {
