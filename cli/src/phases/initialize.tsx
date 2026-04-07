@@ -55,19 +55,33 @@ export function InitializePhase({ config, onComplete }: Props) {
         name: 'Set up PostgreSQL database',
         status: 'pending' as TaskStatus,
         run: async () => {
-          await runShell(`sudo -u postgres psql -c "CREATE USER ${config.dbUser} WITH PASSWORD '${config.dbPassword}';" 2>/dev/null || sudo -u postgres psql -c "ALTER USER ${config.dbUser} WITH PASSWORD '${config.dbPassword}';" 2>/dev/null`);
-          await runShell(`sudo -u postgres psql -c "CREATE DATABASE ${config.dbName} OWNER ${config.dbUser};" 2>/dev/null || true`);
-          await runShell(`sudo -u postgres psql -d ${config.dbName} -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>/dev/null || true`);
+          // Create or update user
+          const createUser = await runShell(`sudo -u postgres psql -c "CREATE USER ${config.dbUser} WITH PASSWORD '${config.dbPassword};"`);
+          if (createUser.exitCode !== 0) {
+            if (createUser.stderr.includes('already exists')) {
+              const alter = await runShell(`sudo -u postgres psql -c "ALTER USER ${config.dbUser} WITH PASSWORD '${config.dbPassword};"`);
+              if (alter.exitCode !== 0) throw new Error(alter.stderr);
+            } else {
+              throw new Error(createUser.stderr);
+            }
+          }
+          // Create database
+          const createDb = await runShell(`sudo -u postgres psql -c "CREATE DATABASE ${config.dbName} OWNER ${config.dbUser};"`);
+          if (createDb.exitCode !== 0 && !createDb.stderr.includes('already exists')) {
+            throw new Error(createDb.stderr);
+          }
+          // Enable pgvector
+          const ext = await runShell(`sudo -u postgres psql -d ${config.dbName} -c "CREATE EXTENSION IF NOT EXISTS vector;"`);
+          if (ext.exitCode !== 0) throw new Error(ext.stderr);
           // Enable password authentication in pg_hba.conf
           const pgHba = (await runShell("sudo find /etc/postgresql -name pg_hba.conf 2>/dev/null | head -1")).stdout;
           if (pgHba) {
-            // Add scram-sha-256 auth for the user before the default peer/ident lines
             const check = await runShell(`sudo grep -q "^host.*${config.dbName}.*${config.dbUser}" ${pgHba}`);
             if (check.exitCode !== 0) {
               await runShell(`sudo sed -i '/^# IPv4 local connections/a host    ${config.dbName}    ${config.dbUser}    127.0.0.1/32    scram-sha-256' ${pgHba}`);
               await runShell(`sudo sed -i '/^# IPv6 local connections/a host    ${config.dbName}    ${config.dbUser}    ::1/128         scram-sha-256' ${pgHba}`);
-              await runShell('sudo systemctl reload postgresql');
             }
+            await runShell('sudo systemctl reload postgresql');
           }
         },
       }] : []),
