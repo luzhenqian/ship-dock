@@ -29,7 +29,10 @@ export default function CliConnectPage({ params }: { params: Promise<{ id: strin
     }
   }, [uploadComplete, importData, id, router]);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+  const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+  const apiUrl = typeof window !== 'undefined' && rawApiUrl.startsWith('/')
+    ? `${window.location.origin}${rawApiUrl}`
+    : rawApiUrl;
   const cliCommand = token
     ? `npx ship-dock-migrate --server ${apiUrl} --token ${token}`
     : 'Generating token...';
