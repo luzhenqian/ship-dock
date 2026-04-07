@@ -7,6 +7,8 @@ import { promisify } from 'util';
 import { PrismaService } from '../common/prisma.service';
 import { EncryptionService } from '../common/encryption.service';
 import { DatabaseProvisionerService } from '../common/database-provisioner.service';
+import { RedisProvisionerService } from '../common/redis-provisioner.service';
+import { MinioProvisionerService } from '../common/minio-provisioner.service';
 import { PortAllocationService } from './port-allocation.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -35,6 +37,8 @@ export class ProjectsService {
     private portAllocation: PortAllocationService,
     private config: ConfigService,
     private dbProvisioner: DatabaseProvisionerService,
+    private redisProvisioner: RedisProvisionerService,
+    private minioProvisioner: MinioProvisionerService,
     @Inject(forwardRef(() => WebhooksService))
     private webhooksService: WebhooksService,
   ) {}
@@ -76,6 +80,27 @@ export class ProjectsService {
       envVarsObj.DATABASE_URL = db.databaseUrl;
     }
 
+    // Auto-provision Redis if requested
+    let redisDbIndex: number | undefined;
+    if (dto.useLocalRedis) {
+      redisDbIndex = await this.redisProvisioner.allocateDbIndex();
+      const redis = await this.redisProvisioner.provision(redisDbIndex);
+      envVarsObj.REDIS_URL = redis.redisUrl;
+    }
+
+    // Auto-provision MinIO if requested
+    let minioBucket: string | undefined;
+    if (dto.useLocalMinio) {
+      minioBucket = this.minioProvisioner.generateBucketName(dto.slug);
+      const minio = await this.minioProvisioner.provision(minioBucket);
+      envVarsObj.MINIO_ENDPOINT = minio.endpoint;
+      envVarsObj.MINIO_PORT = String(minio.port);
+      envVarsObj.MINIO_ACCESS_KEY = minio.accessKey;
+      envVarsObj.MINIO_SECRET_KEY = minio.secretKey;
+      envVarsObj.MINIO_BUCKET = minio.bucketName;
+      envVarsObj.MINIO_USE_SSL = String(minio.useSSL);
+    }
+
     const envVars = Object.keys(envVarsObj).length > 0 ? this.encryption.encrypt(JSON.stringify(envVarsObj)) : '';
     const directory = dto.directory ? this.validateDirectory(dto.directory) : dto.slug;
 
@@ -88,6 +113,8 @@ export class ProjectsService {
         port: 0, envVars, pipeline: dto.pipeline || DEFAULT_PIPELINE,
         pm2Name: dto.slug, directory, createdById: userId,
         useLocalDb: dto.useLocalDb || false, dbName,
+        useLocalRedis: dto.useLocalRedis || false, redisDbIndex,
+        useLocalMinio: dto.useLocalMinio || false, minioBucket,
       },
     });
 
@@ -105,6 +132,45 @@ export class ProjectsService {
             database: dbName,
             user: dbUrl.username,
             password: dbUrl.password,
+          })),
+          autoDetected: true,
+        },
+      });
+    }
+
+    // Auto-create service connection for platform Redis
+    if (dto.useLocalRedis && redisDbIndex !== undefined) {
+      const redisUrl = new URL(envVarsObj.REDIS_URL);
+      await this.prisma.serviceConnection.create({
+        data: {
+          projectId: project.id,
+          type: 'REDIS',
+          name: 'Platform Redis',
+          config: this.encryption.encrypt(JSON.stringify({
+            host: redisUrl.hostname,
+            port: parseInt(redisUrl.port || '6379'),
+            password: redisUrl.password || undefined,
+            db: redisDbIndex,
+          })),
+          autoDetected: true,
+        },
+      });
+    }
+
+    // Auto-create service connection for platform MinIO
+    if (dto.useLocalMinio && minioBucket) {
+      await this.prisma.serviceConnection.create({
+        data: {
+          projectId: project.id,
+          type: 'MINIO',
+          name: 'Platform Storage',
+          config: this.encryption.encrypt(JSON.stringify({
+            endPoint: envVarsObj.MINIO_ENDPOINT,
+            port: parseInt(envVarsObj.MINIO_PORT),
+            accessKey: envVarsObj.MINIO_ACCESS_KEY,
+            secretKey: envVarsObj.MINIO_SECRET_KEY,
+            useSSL: envVarsObj.MINIO_USE_SSL === 'true',
+            bucket: minioBucket,
           })),
           autoDetected: true,
         },
