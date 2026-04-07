@@ -51,7 +51,7 @@ export class MinioProvisionerService {
     const objectsList = await new Promise<string[]>((resolve, reject) => {
       const objects: string[] = [];
       const stream = client.listObjects(bucketName, '', true);
-      stream.on('data', (obj) => objects.push(obj.name));
+      stream.on('data', (obj) => { if (obj.name) objects.push(obj.name); });
       stream.on('end', () => resolve(objects));
       stream.on('error', reject);
     });
