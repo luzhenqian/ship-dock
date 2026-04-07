@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useState, useEffect } from 'react';
+import { useCopyToClipboard } from 'usehooks-ts';
 import { useRouter } from 'next/navigation';
 import { useImport, useGenerateImportToken } from '@/hooks/use-imports';
 import { useImportProgress } from '@/hooks/use-import-progress';
@@ -15,6 +16,7 @@ export default function CliConnectPage({ params }: { params: Promise<{ id: strin
   const generateToken = useGenerateImportToken();
   const { uploadComplete } = useImportProgress(id);
   const [token, setToken] = useState<string | null>(null);
+  const [, copy] = useCopyToClipboard();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -34,18 +36,7 @@ export default function CliConnectPage({ params }: { params: Promise<{ id: strin
     : 'Generating token...';
 
   function handleCopy() {
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(cliCommand);
-    } else {
-      const textarea = document.createElement('textarea');
-      textarea.value = cliCommand;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-    }
+    copy(cliCommand);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
