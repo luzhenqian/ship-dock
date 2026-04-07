@@ -73,6 +73,12 @@ export class ImportController {
     return this.importService.deleteImport(id);
   }
 
+  @Post(':id/progress')
+  @MinRole('ADMIN')
+  reportProgress(@Param('id') id: string, @Body() body: { stage: string; message?: string; percent?: number }) {
+    return this.importService.reportProgress(id, body);
+  }
+
   @Post('test-connection')
   @MinRole('ADMIN')
   testConnection(@Body() dto: TestConnectionDto) {

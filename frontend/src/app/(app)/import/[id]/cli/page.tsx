@@ -14,7 +14,7 @@ export default function CliConnectPage({ params }: { params: Promise<{ id: strin
   const { id } = use(params);
   const router = useRouter();
   const { data: importData } = useImport(id);
-  const { uploadComplete } = useImportProgress(id);
+  const { uploadComplete, logs, progress } = useImportProgress(id);
   const [token, setToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -34,7 +34,7 @@ export default function CliConnectPage({ params }: { params: Promise<{ id: strin
     ? `${window.location.origin}${rawApiUrl}`
     : rawApiUrl;
   const cliCommand = token
-    ? `npx ship-dock-migrate --server ${apiUrl} --token ${token}`
+    ? `npx ship-dock-migrate --server ${apiUrl} --token ${token} --import-id ${id}`
     : 'Generating token...';
 
   function handleCopy() {
@@ -78,14 +78,44 @@ export default function CliConnectPage({ params }: { params: Promise<{ id: strin
             </Button>
           </div>
 
-          <div className="flex items-center gap-3 rounded-lg border p-4">
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium">Waiting for upload...</p>
-              <p className="text-xs text-muted-foreground">
-                This page will automatically continue once the CLI finishes uploading.
-              </p>
-            </div>
+          <div className="rounded-lg border p-4 space-y-3">
+            {logs.length === 0 ? (
+              <div className="flex items-center gap-3">
+                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Waiting for CLI...</p>
+                  <p className="text-xs text-muted-foreground">
+                    Run the command above on your source server. Progress will appear here.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {(progress.get('cli') || []).map((p) => (
+                  <div key={p.stage} className="flex items-center gap-3">
+                    {p.status === 'RUNNING' ? (
+                      <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    ) : (
+                      <Check className="size-4 text-green-500" />
+                    )}
+                    <div className="flex-1">
+                      <p className="text-sm font-medium capitalize">{p.stage}</p>
+                      {p.progress != null && p.progress > 0 && p.progress < 100 && (
+                        <div className="mt-1 h-1.5 w-full rounded-full bg-muted">
+                          <div
+                            className="h-1.5 rounded-full bg-foreground transition-all"
+                            style={{ width: `${p.progress}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {logs.length > 0 && (
+                  <p className="text-xs text-muted-foreground">{logs[logs.length - 1].message}</p>
+                )}
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

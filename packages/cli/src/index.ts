@@ -18,13 +18,90 @@ program
   .option('-s, --server <url>', 'Ship Dock server URL')
   .option('-t, --token <token>', 'Ship Dock API token')
   .option('--scan-only', 'Only scan and display projects, do not package or upload')
-  .action(async (options: { server?: string; token?: string; scanOnly?: boolean }) => {
+  .option('--import-id <id>', 'Import ID for progress reporting')
+  .action(async (options: { server?: string; token?: string; scanOnly?: boolean; importId?: string }) => {
     console.log('');
     console.log(chalk.bold('  Ship Dock Migration CLI'));
     console.log(chalk.gray('  Scan, collect, and upload projects to Ship Dock'));
     console.log('');
 
-    // Step 1: Scan
+    // Step 1: Get server URL and token
+    let serverUrl = options.server;
+    let token = options.token;
+
+    if (!options.scanOnly) {
+      if (!serverUrl) {
+        const { url } = await inquirer.prompt<{ url: string }>([
+          {
+            type: 'input',
+            name: 'url',
+            message: 'Ship Dock server URL:',
+            validate: (input: string) => {
+              try {
+                new URL(input);
+                return true;
+              } catch {
+                return 'Please enter a valid URL (e.g., https://shipdock.example.com)';
+              }
+            },
+          },
+        ]);
+        serverUrl = url;
+      }
+
+      if (!token) {
+        const { apiToken } = await inquirer.prompt<{ apiToken: string }>([
+          {
+            type: 'password',
+            name: 'apiToken',
+            message: 'Ship Dock API token:',
+            mask: '*',
+            validate: (input: string) =>
+              input.length > 0 || 'API token is required.',
+          },
+        ]);
+        token = apiToken;
+      }
+
+      // Step 2: Verify token before doing any work
+      const verifySpinner = ora('Verifying connection to Ship Dock...').start();
+      try {
+        const verifyUrl = `${serverUrl.replace(/\/+$/, '')}/imports/token`;
+        const res = await fetch(verifyUrl, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        });
+        if (res.status === 401 || res.status === 403) {
+          verifySpinner.fail('Authentication failed — token is invalid or expired');
+          console.log(chalk.gray('\n  Get a new token from the Ship Dock import page.\n'));
+          process.exit(1);
+        }
+        if (!res.ok && res.status !== 404) {
+          verifySpinner.fail(`Server returned ${res.status}`);
+          process.exit(1);
+        }
+        verifySpinner.succeed('Connected to Ship Dock');
+      } catch (err: any) {
+        verifySpinner.fail(`Cannot reach Ship Dock server: ${err.message}`);
+        process.exit(1);
+      }
+    }
+
+    // Helper: report progress to Ship Dock server
+    const reportProgress = async (stage: string, message?: string, percent?: number) => {
+      if (!options.importId || !serverUrl || !token) return;
+      try {
+        const url = `${serverUrl.replace(/\/+$/, '')}/imports/${options.importId}/progress`;
+        await fetch(url, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stage, message, percent }),
+        });
+      } catch { /* ignore progress reporting errors */ }
+    };
+
+    // Step 3: Scan
+    await reportProgress('scanning', 'Scanning server for running projects...');
     const spinner = ora('Scanning server for running projects...').start();
     let projects: DetectedProject[];
     try {
@@ -42,7 +119,7 @@ program
       process.exit(0);
     }
 
-    // Step 2: Display projects
+    // Step 4: Display projects
     console.log('');
     for (const p of projects) {
       const detectors = chalk.gray(`[${p.detectedBy}]`);
@@ -63,7 +140,7 @@ program
       process.exit(0);
     }
 
-    // Step 3: Select projects
+    // Step 5: Select projects
     const { selectedProjects } = await inquirer.prompt<{
       selectedProjects: DetectedProject[];
     }>([
@@ -81,51 +158,16 @@ program
       },
     ]);
 
-    // Step 4: Get server URL and token
-    let serverUrl = options.server;
-    let token = options.token;
-
-    if (!serverUrl) {
-      const { url } = await inquirer.prompt<{ url: string }>([
-        {
-          type: 'input',
-          name: 'url',
-          message: 'Ship Dock server URL:',
-          validate: (input: string) => {
-            try {
-              new URL(input);
-              return true;
-            } catch {
-              return 'Please enter a valid URL (e.g., https://shipdock.example.com)';
-            }
-          },
-        },
-      ]);
-      serverUrl = url;
-    }
-
-    if (!token) {
-      const { apiToken } = await inquirer.prompt<{ apiToken: string }>([
-        {
-          type: 'password',
-          name: 'apiToken',
-          message: 'Ship Dock API token:',
-          mask: '*',
-          validate: (input: string) =>
-            input.length > 0 || 'API token is required.',
-        },
-      ]);
-      token = apiToken;
-    }
-
-    // Step 5: Collect and package
+    // Step 6: Collect and package
     console.log('');
+    await reportProgress('packaging', `Packaging ${selectedProjects.length} project(s)...`);
     const packageSpinner = ora('Packaging projects...').start();
 
     let packageResult;
     try {
-      packageResult = await packageProjects(selectedProjects, (progress) => {
+      packageResult = await packageProjects(selectedProjects, async (progress) => {
         packageSpinner.text = `[${progress.current}/${progress.total}] ${progress.project}: ${progress.step}`;
+        await reportProgress('packaging', `[${progress.current}/${progress.total}] ${progress.project}: ${progress.step}`, Math.round((progress.current / progress.total) * 100));
       });
       packageSpinner.succeed(
         `Package created (${formatBytes(packageResult.sizeBytes)}, ${packageResult.projectCount} projects)`,
@@ -136,20 +178,25 @@ program
       process.exit(1);
     }
 
-    // Step 6: Upload
+    // Step 7: Upload
+    await reportProgress('uploading', 'Starting upload...', 0);
     const uploadSpinner = ora('Uploading to Ship Dock...').start();
 
     try {
       const result = await uploadPackage(
         packageResult.packagePath,
-        serverUrl,
-        token,
-        (progress) => {
+        serverUrl!,
+        token!,
+        async (progress) => {
           uploadSpinner.text = `Uploading... ${progress.percent}%`;
+          if (progress.percent % 10 === 0) {
+            await reportProgress('uploading', `Uploading... ${progress.percent}%`, progress.percent);
+          }
         },
       );
 
       if (result.success) {
+        await reportProgress('done', 'Upload complete!', 100);
         uploadSpinner.succeed('Upload complete!');
         console.log('');
         if (result.importId) {

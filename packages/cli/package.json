@@ -1,6 +1,6 @@
 {
   "name": "ship-dock-migrate",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Migration CLI for Ship Dock",
   "bin": { "ship-dock-migrate": "./dist/index.js" },
   "scripts": { "build": "tsc", "dev": "ts-node src/index.ts" },

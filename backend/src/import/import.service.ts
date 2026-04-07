@@ -17,6 +17,7 @@ import { ManifestParser } from './parsers/manifest-parser';
 import { CreateImportDto } from './dto/create-import.dto';
 import { SubmitImportConfigDto } from './dto/import-config.dto';
 import { TestConnectionDto } from './dto/test-connection.dto';
+import { ImportGateway } from './import.gateway';
 
 @Injectable()
 export class ImportService {
@@ -28,6 +29,7 @@ export class ImportService {
     private config: ConfigService,
     private manifestParser: ManifestParser,
     private jwt: JwtService,
+    private gateway: ImportGateway,
     @InjectQueue('import') private importQueue: Queue,
   ) {}
 
@@ -38,6 +40,23 @@ export class ImportService {
       { secret, expiresIn: '2h' },
     );
     return { token };
+  }
+
+  async reportProgress(importId: string, data: { stage: string; message?: string; percent?: number }) {
+    this.gateway.emitProgress(importId, {
+      itemId: 'cli',
+      stage: data.stage,
+      status: 'RUNNING',
+      progress: data.percent,
+    });
+    if (data.message) {
+      this.gateway.emitLog(importId, {
+        itemId: 'cli',
+        stage: data.stage,
+        message: data.message,
+      });
+    }
+    return { ok: true };
   }
 
   async handleUpload(file: Express.Multer.File): Promise<any> {

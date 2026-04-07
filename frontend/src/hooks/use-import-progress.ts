@@ -16,6 +16,7 @@ interface ImportProgressData {
   stage: string;
   status: string;
   error?: string;
+  progress?: number;
 }
 
 interface ImportStatusData {
