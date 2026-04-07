@@ -103,9 +103,13 @@ model Project {
   workDir      String?
   startCommand String?
   pm2Name      String
-  useLocalDb   Boolean       @default(false)
-  dbName       String?
-  status       ProjectStatus @default(ACTIVE)
+  useLocalDb    Boolean       @default(false)
+  dbName        String?
+  useLocalRedis Boolean       @default(false)
+  redisDbIndex  Int?
+  useLocalMinio Boolean       @default(false)
+  minioBucket   String?
+  status        ProjectStatus @default(ACTIVE)
 
   createdBy   User   @relation(fields: [createdById], references: [id])
   createdById String
