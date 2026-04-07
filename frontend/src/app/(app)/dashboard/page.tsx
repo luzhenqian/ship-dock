@@ -11,9 +11,14 @@ export default function DashboardPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-medium tracking-tight">Projects</h1>
-        <Link href="/projects/new">
-          <Button>New Project</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/import">
+            <Button variant="outline">Import Projects</Button>
+          </Link>
+          <Link href="/projects/new">
+            <Button>New Project</Button>
+          </Link>
+        </div>
       </div>
       {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
