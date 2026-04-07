@@ -9,7 +9,7 @@ GRAY='\033[0;90m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-REPO_URL="https://github.com/<owner>/ship-dock.git"
+REPO_URL="https://github.com/web3noah/ship-dock.git"
 INSTALL_DIR="/opt/shipdock"
 
 echo ""

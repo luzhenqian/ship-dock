@@ -63,7 +63,7 @@ export function InitializePhase({ config, onComplete }: Props) {
         name: 'Run database migrations',
         status: 'pending',
         run: async () => {
-          const result = await runShell(`cd ${PROJECT_DIR}/backend && npx prisma db push --accept-data-loss`);
+          const result = await runShell(`cd ${PROJECT_DIR}/backend && npx prisma migrate deploy`);
           if (result.exitCode !== 0) throw new Error(result.stderr);
         },
       },

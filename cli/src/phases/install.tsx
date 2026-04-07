@@ -106,7 +106,7 @@ export function InstallPhase({ onComplete }: Props) {
         ))}
         {missing.map((d) => (
           <Box key={d.name}>
-            <Text color="yellow">  ◆ </Text>
+            <Text color="red">  ✗ </Text>
             <Text>{d.name}</Text>
             <Text color="gray"> (will install)</Text>
           </Box>

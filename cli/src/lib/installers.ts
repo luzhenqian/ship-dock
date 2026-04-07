@@ -41,7 +41,7 @@ const installPostgres: Installer = async (pm) => {
   }
   // yum/dnf
   await runShell('sudo yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-$(rpm -E %{rhel})-x86_64/pgdg-redhat-repo-latest.noarch.rpm');
-  const result = await tryInstall(`sudo ${pm} install -y postgresql16-server postgresql16`);
+  const result = await tryInstall(`sudo ${pm} install -y postgresql16-server postgresql16 pgvector_16`);
   if (!result.success) return result;
   await runShell('sudo /usr/pgsql-16/bin/postgresql-16-setup initdb');
   await runShell('sudo systemctl enable postgresql-16 && sudo systemctl start postgresql-16');

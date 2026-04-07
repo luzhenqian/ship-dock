@@ -9,10 +9,13 @@ interface Props {
 
 export function CompletedField({ label, value, masked }: Props) {
   return (
-    <Box>
-      <Text color="green">✓</Text>
-      <Text> {label} </Text>
-      <Text color="gray">{masked ? '•'.repeat(value.length) : value}</Text>
+    <Box flexDirection="column">
+      <Box>
+        <Text color="green">✓</Text>
+        <Text> {label} </Text>
+        <Text color="gray">{masked ? '•'.repeat(value.length) : value}</Text>
+      </Box>
+      <Text color="gray">│</Text>
     </Box>
   );
 }
