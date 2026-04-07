@@ -4,6 +4,7 @@ import { TaskLine, TaskStatus } from '../components/task-line.js';
 import { Credentials, saveCredentials } from '../lib/credentials.js';
 import { writeAllConfigs, generateMinioSystemd } from '../lib/config.js';
 import { runShell } from '../lib/shell.js';
+import { ensureAdmin } from '../lib/admin.js';
 import { homedir } from 'os';
 import { writeFileSync } from 'fs';
 
@@ -180,25 +181,7 @@ export function InitializePhase({ config, onComplete }: Props) {
         name: 'Create admin account',
         status: 'pending',
         run: async () => {
-          let ready = false;
-          for (let i = 0; i < 15; i++) {
-            const health = await runShell(`curl -sf http://localhost:${config.port}/api/health`);
-            if (health.exitCode === 0) { ready = true; break; }
-            await new Promise((r) => setTimeout(r, 2000));
-          }
-          if (!ready) throw new Error('API failed to start — check pm2 logs ship-dock-api');
-
-          const payload = JSON.stringify({ email: config.adminEmail, password: config.adminPassword, name: 'Admin' });
-          const result = await runShell(`curl -s -X POST http://localhost:${config.port}/api/auth/setup -H "Content-Type: application/json" -d '${payload}'`);
-          if (result.stdout.includes('Setup already completed')) {
-            // Update existing admin password via database
-            const bcryptHash = await runShell(`cd ${PROJECT_DIR}/backend && node -e "require('bcrypt').hash('${config.adminPassword}',10).then(h=>console.log(h))"`);
-            if (bcryptHash.exitCode !== 0) throw new Error('Failed to hash password');
-            const update = await runShell(`cd ${PROJECT_DIR}/backend && node -e "const{PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.user.updateMany({where:{role:'OWNER'},data:{email:'${config.adminEmail}',password:'${bcryptHash.stdout}'}}).then(r=>console.log(JSON.stringify(r))).finally(()=>p.\\\\\\$disconnect())"`);
-            if (update.exitCode !== 0) throw new Error('Failed to update admin account');
-          } else if (result.exitCode !== 0 || result.stdout.includes('error')) {
-            throw new Error(result.stdout || 'Failed to create admin account');
-          }
+          await ensureAdmin(config.adminEmail, config.adminPassword, config.port);
         },
       },
       {
