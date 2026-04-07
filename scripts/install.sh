@@ -91,6 +91,13 @@ cd "$INSTALL_DIR/cli"
 npm install --silent
 echo -e "${GREEN}✓${NC} CLI ready"
 
+# ── Install ship-dock CLI ──
+echo "  Installing ship-dock command..."
+chmod +x "$INSTALL_DIR/scripts/ship-dock"
+chmod +x "$INSTALL_DIR/scripts/upgrade.sh"
+ln -sf "$INSTALL_DIR/scripts/ship-dock" /usr/local/bin/ship-dock
+echo -e "${GREEN}✓${NC} ship-dock command installed"
+
 # ── Launch interactive setup ──
 echo ""
 exec </dev/tty npx tsx src/index.tsx init
