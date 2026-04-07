@@ -30,70 +30,74 @@ export function generateEnvFile(creds: Credentials): void {
   writeFileSync(`${PROJECT_DIR}/backend/.env`, lines.join('\n') + '\n');
 }
 
-export function generateNginxConfig(creds: Credentials): string {
-  const config = `upstream ship_dock_api {
-    server 127.0.0.1:${creds.port};
+function proxyBlock(port: string): string {
+  return `    client_max_body_size 20M;
+
+    location / {
+        proxy_pass http://ship_dock_api;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300s;
+    }
+
+    location /uploads/ {
+        alias ${PROJECT_DIR}/uploads/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }`;
 }
 
-server {
-    listen 80;
-    server_name ${creds.domain};
-${creds.ssl ? '    return 301 https://$host$request_uri;\n' : `
-    client_max_body_size 20M;
+export function generateNginxConfig(creds: Credentials): string {
+  const lines: string[] = [
+    `upstream ship_dock_api {`,
+    `    server 127.0.0.1:${creds.port};`,
+    `}`,
+    ``,
+  ];
 
-    location / {
-        proxy_pass http://ship_dock_api;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 300s;
-    }
+  if (creds.ssl) {
+    // HTTP → redirect to HTTPS
+    lines.push(
+      `server {`,
+      `    listen 80;`,
+      `    server_name ${creds.domain};`,
+      `    return 301 https://$host$request_uri;`,
+      `}`,
+      ``,
+    );
+    // HTTPS
+    lines.push(
+      `server {`,
+      `    listen 443 ssl http2;`,
+      `    server_name ${creds.domain};`,
+      ``,
+      `    ssl_certificate /etc/letsencrypt/live/${creds.domain}/fullchain.pem;`,
+      `    ssl_certificate_key /etc/letsencrypt/live/${creds.domain}/privkey.pem;`,
+      `    ssl_protocols TLSv1.2 TLSv1.3;`,
+      `    ssl_ciphers HIGH:!aNULL:!MD5;`,
+      ``,
+      proxyBlock(creds.port),
+      `}`,
+    );
+  } else {
+    // HTTP only
+    lines.push(
+      `server {`,
+      `    listen 80;`,
+      `    server_name ${creds.domain};`,
+      ``,
+      proxyBlock(creds.port),
+      `}`,
+    );
+  }
 
-    location /uploads/ {
-        alias ${PROJECT_DIR}/uploads/;
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
-`}}
-${creds.ssl ? `}
-
-server {
-    listen 443 ssl http2;
-    server_name ${creds.domain};
-
-    ssl_certificate /etc/letsencrypt/live/${creds.domain}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${creds.domain}/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-
-    client_max_body_size 20M;
-
-    location / {
-        proxy_pass http://ship_dock_api;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 300s;
-    }
-
-    location /uploads/ {
-        alias ${PROJECT_DIR}/uploads/;
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
-}` : '}'}`;
-
-  return config;
+  return lines.join('\n');
 }
 
 export function generatePm2Ecosystem(): string {

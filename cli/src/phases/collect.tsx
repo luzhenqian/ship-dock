@@ -72,7 +72,11 @@ export function CollectPhase({ onComplete }: Props) {
   const visibleFields = getVisibleFields(values);
   const currentField = visibleFields[currentIndex];
 
+  const requiredFields = new Set(['adminEmail', 'adminPassword', 'domain']);
+
   const handleSubmit = (key: string, value: string, autoGenerate?: boolean) => {
+    // Reject empty required fields — stay on same prompt
+    if (value === '' && requiredFields.has(key)) return;
     const finalValue = (value === '' && autoGenerate) ? generateSecret() : value;
     const newValues = { ...values, [key]: finalValue };
     setValues(newValues);
