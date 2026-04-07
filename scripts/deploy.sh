@@ -92,6 +92,37 @@ ENVEOF"
 echo "   .env ready"
 echo ""
 
+# ── Check server environment ──
+echo ">> Checking server environment ..."
+ENV_OK=true
+ENV_OUTPUT=$(ssh $SSH_OPTS "${SSH_USER}@${SERVER_HOST}" \
+  "bash ${PROJECT_DIR}/scripts/env-check.sh '${DB_NAME}'" 2>&1) || ENV_OK=false
+
+while IFS='|' read -r status name detail; do
+  [[ -z "$status" ]] && continue
+  case "$status" in
+    OK)            echo "  ✓ $name — $detail" ;;
+    MISSING)       echo "  ✗ $name — $detail" ;;
+    STOPPED)       echo "  ! $name — $detail" ;;
+    WRONG_VERSION) echo "  ⚠ $name — $detail" ;;
+  esac
+done <<< "$ENV_OUTPUT"
+
+if [[ "$ENV_OK" == "false" ]]; then
+  echo ""
+  read -rp "Some dependencies are missing. Install them now? [Y/n] " REPLY
+  if [[ "${REPLY:-Y}" =~ ^[Yy]$ ]]; then
+    echo ""
+    ssh $SSH_OPTS "${SSH_USER}@${SERVER_HOST}" \
+      "bash ${PROJECT_DIR}/scripts/env-setup.sh '${DB_NAME}' '${DB_USER}' '${DB_PASSWORD}' '${PROJECT_DIR}' '${MINIO_ACCESS_KEY}' '${MINIO_SECRET_KEY}'"
+    echo ""
+  else
+    echo ""
+    echo "  Skipping setup. Deployment may fail if dependencies are missing."
+    echo ""
+  fi
+fi
+
 # ── Run deploy-remote.sh on server ──
 ssh $SSH_OPTS "${SSH_USER}@${SERVER_HOST}" \
   "export PROJECT_DIR='${PROJECT_DIR}' GIT_BRANCH='${GIT_BRANCH}' && bash ${PROJECT_DIR}/scripts/deploy-remote.sh"
