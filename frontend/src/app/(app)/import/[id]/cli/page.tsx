@@ -3,8 +3,9 @@
 import { use, useState, useEffect } from 'react';
 import copyToClipboard from 'copy-to-clipboard';
 import { useRouter } from 'next/navigation';
-import { useImport, useGenerateImportToken } from '@/hooks/use-imports';
+import { useImport } from '@/hooks/use-imports';
 import { useImportProgress } from '@/hooks/use-import-progress';
+import { getAccessToken } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Copy, Check, Loader2, Terminal } from 'lucide-react';
@@ -13,13 +14,12 @@ export default function CliConnectPage({ params }: { params: Promise<{ id: strin
   const { id } = use(params);
   const router = useRouter();
   const { data: importData } = useImport(id);
-  const generateToken = useGenerateImportToken();
   const { uploadComplete } = useImportProgress(id);
   const [token, setToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    generateToken.mutateAsync().then((res) => setToken(res.token));
+    setToken(getAccessToken());
   }, []);
 
   // Redirect when upload complete or import already has items
