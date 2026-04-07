@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EnvVarEditor } from '@/components/env-var-editor';
 import { MigrationWizard } from '@/components/migration-wizard';
-import { GitBranch, Upload, ChevronRight, Loader2, Check, Database, Globe, Terminal, File, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { GitBranch, Upload, ChevronRight, Loader2, Check, Database, Globe, Terminal, File, X, AlertCircle, CheckCircle2, Server, HardDrive } from 'lucide-react';
 import { RepoSelector } from '@/components/repo-selector';
 import { useGitHubInstallations } from '@/hooks/use-github-app';
 
@@ -98,6 +98,8 @@ export default function NewProjectPage() {
     domain: '',
     port: '',
     useLocalDb: false,
+    useLocalRedis: false,
+    useLocalMinio: false,
     envVars: {} as Record<string, string>,
   });
 
@@ -283,6 +285,8 @@ export default function NewProjectPage() {
         domain: form.domain || undefined,
         port: form.port ? parseInt(form.port) : undefined,
         useLocalDb: form.useLocalDb || undefined,
+        useLocalRedis: form.useLocalRedis || undefined,
+        useLocalMinio: form.useLocalMinio || undefined,
         envVars: Object.keys(form.envVars).length > 0 ? form.envVars : undefined,
       });
 
@@ -642,6 +646,52 @@ export default function NewProjectPage() {
             </div>
           </div>
 
+          <div className="rounded-xl border p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${form.useLocalRedis ? 'bg-foreground text-background' : 'bg-muted text-foreground-muted'}`}>
+                  <Server className="size-3.5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Platform Redis</p>
+                  <p className="text-xs text-foreground-muted">Auto-create Redis database and inject REDIS_URL</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.useLocalRedis}
+                onClick={() => update({ useLocalRedis: !form.useLocalRedis })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ${form.useLocalRedis ? 'bg-foreground' : 'bg-border'}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform mt-0.5 ${form.useLocalRedis ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${form.useLocalMinio ? 'bg-foreground text-background' : 'bg-muted text-foreground-muted'}`}>
+                  <HardDrive className="size-3.5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Platform Storage</p>
+                  <p className="text-xs text-foreground-muted">Auto-create MinIO bucket and inject storage env vars</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.useLocalMinio}
+                onClick={() => update({ useLocalMinio: !form.useLocalMinio })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ${form.useLocalMinio ? 'bg-foreground' : 'bg-border'}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform mt-0.5 ${form.useLocalMinio ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+          </div>
+
           <div className="flex justify-between">
             <Button variant="ghost" onClick={() => setStep('source')} className="h-9 text-foreground-secondary">
               Back
@@ -717,6 +767,18 @@ export default function NewProjectPage() {
               <div className="flex items-center justify-between px-4 py-3">
                 <span className="text-[13px] text-foreground-muted">Database</span>
                 <span className="text-[13px]">PostgreSQL <span className="text-foreground-muted">(auto-provisioned)</span></span>
+              </div>
+            )}
+            {form.useLocalRedis && (
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-[13px] text-foreground-muted">Redis</span>
+                <span className="text-[13px]">Redis <span className="text-foreground-muted">(auto-provisioned)</span></span>
+              </div>
+            )}
+            {form.useLocalMinio && (
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-[13px] text-foreground-muted">Storage</span>
+                <span className="text-[13px]">MinIO <span className="text-foreground-muted">(auto-provisioned)</span></span>
               </div>
             )}
             {Object.keys(form.envVars).length > 0 && (
