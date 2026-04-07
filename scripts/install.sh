@@ -1,6 +1,6 @@
 #!/bin/bash
 # Ship Dock Installer
-# Usage: curl -fsSL https://beta.shipdock.web3noah.com/install | sh
+# Usage: curl -fsSL https://beta.shipdock.web3noah.com/install | bash
 set -euo pipefail
 
 RED='\033[0;31m'
@@ -9,7 +9,7 @@ GRAY='\033[0;90m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-REPO_URL="https://github.com/web3noah/ship-dock.git"
+REPO_URL="https://github.com/luzhenqian/ship-dock.git"
 INSTALL_DIR="/opt/shipdock"
 
 echo ""
@@ -53,14 +53,14 @@ fi
 if command -v node &>/dev/null && node -v | grep -q "^v2[0-9]"; then
   echo -e "${GREEN}✓${NC} Node.js $(node -v) already installed"
 else
-  echo -e "  Installing Node.js 20..."
+  echo -e "  Installing Node.js 22..."
   if [[ "$PM" == "apt" ]]; then
     apt-get update -qq
     apt-get install -y -qq ca-certificates curl gnupg
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
     apt-get install -y -qq nodejs
   else
-    curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+    curl -fsSL https://rpm.nodesource.com/setup_22.x | bash -
     $PM install -y nodejs
   fi
   echo -e "${GREEN}✓${NC} Node.js $(node -v) installed"
@@ -93,4 +93,4 @@ echo -e "${GREEN}✓${NC} CLI ready"
 
 # ── Launch interactive setup ──
 echo ""
-exec npx tsx src/index.tsx init
+exec </dev/tty npx tsx src/index.tsx init
