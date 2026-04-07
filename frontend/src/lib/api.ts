@@ -35,7 +35,7 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
       const retryRes = await fetch(`${API_URL}${path}`, { ...options, headers, credentials: 'include' });
       if (!retryRes.ok) throw new Error(`API error: ${retryRes.status}`);
       const retryText = await retryRes.text();
-      return retryText ? JSON.parse(retryText) : null;
+      return (retryText ? JSON.parse(retryText) : null) as T;
     }
     setAccessToken(null);
     if (typeof window !== 'undefined') window.location.href = '/login';
@@ -48,7 +48,7 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
   }
 
   const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  return (text ? JSON.parse(text) : null) as T;
 }
 
 export async function apiRaw(path: string, options: RequestInit = {}): Promise<Response> {

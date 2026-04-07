@@ -112,6 +112,22 @@ export function InitializePhase({ config, onComplete }: Props) {
         },
       },
       {
+        name: 'Install frontend dependencies',
+        status: 'pending',
+        run: async () => {
+          const result = await runShell(`cd ${PROJECT_DIR}/frontend && npm ci`);
+          if (result.exitCode !== 0) throw new Error(result.stderr);
+        },
+      },
+      {
+        name: 'Build frontend',
+        status: 'pending',
+        run: async () => {
+          const result = await runShell(`cd ${PROJECT_DIR}/frontend && npm run build`);
+          if (result.exitCode !== 0) throw new Error(result.stderr);
+        },
+      },
+      {
         name: 'Configure Nginx',
         status: 'pending',
         run: async () => {
@@ -150,12 +166,12 @@ export function InitializePhase({ config, onComplete }: Props) {
         name: 'Start services via PM2',
         status: 'pending',
         run: async () => {
-          const check = await runShell('pm2 describe ship-dock-api 2>/dev/null');
-          if (check.exitCode === 0) {
-            await runShell(`cd ${PROJECT_DIR}/backend && pm2 reload ship-dock-api`);
-          } else {
-            await runShell(`cd ${PROJECT_DIR}/backend && pm2 start dist/main.js --name ship-dock-api -i 1 --env production`);
-          }
+          // Stop old processes if they exist
+          await runShell('pm2 delete ship-dock-api 2>/dev/null || true');
+          await runShell('pm2 delete ship-dock-web 2>/dev/null || true');
+          // Start both backend and frontend from ecosystem file
+          const result = await runShell(`cd ${PROJECT_DIR} && pm2 start ecosystem.config.json`);
+          if (result.exitCode !== 0) throw new Error(result.stderr);
           await runShell('pm2 save');
           await runShell(`sudo env PATH="$PATH" pm2 startup systemd -u $(whoami) --hp $HOME 2>/dev/null || true`);
         },

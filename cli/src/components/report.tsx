@@ -9,7 +9,7 @@ interface Props {
 
 export function Report({ config }: Props) {
   const proto = config.ssl ? 'https' : 'http';
-  const url = `${proto}://${config.domain}`;
+  const url = config.domain ? `${proto}://${config.domain}` : `http://<server-ip>`;
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -20,6 +20,7 @@ export function Report({ config }: Props) {
       <Box flexDirection="column" marginLeft={2}>
         <Text bold>Platform</Text>
         <Text>  URL:              {url}</Text>
+        <Text>  Frontend:         http://localhost:3000</Text>
         <Text>  API:              http://localhost:{config.port}</Text>
         <Newline />
         <Text bold>Admin</Text>
@@ -42,9 +43,10 @@ export function Report({ config }: Props) {
         <Text>  Secret Key:       {config.minioSecretKey}</Text>
         <Newline />
         <Text bold>Files</Text>
-        <Text>  Config:           /opt/shipdock/backend/.env</Text>
+        <Text>  Backend config:   /opt/shipdock/backend/.env</Text>
+        <Text>  Frontend config:  /opt/shipdock/frontend/.env</Text>
         <Text>  Credentials:      {homedir()}/.shipdock/credentials</Text>
-        <Text>  Logs:             pm2 logs ship-dock-api</Text>
+        <Text>  PM2 logs:         pm2 logs</Text>
       </Box>
       <Newline />
       <Text color="gray">─────────────────────────────────────────</Text>

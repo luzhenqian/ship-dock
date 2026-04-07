@@ -3,8 +3,10 @@ import { Credentials } from './credentials.js';
 
 const PROJECT_DIR = '/opt/shipdock';
 
-export function generateEnvFile(creds: Credentials): void {
+export function generateBackendEnv(creds: Credentials): void {
   const dbUrl = `postgresql://${creds.dbUser}:${creds.dbPassword}@${creds.dbHost}:${creds.dbPort}/${creds.dbName}`;
+  const proto = creds.ssl ? 'https' : 'http';
+  const frontendUrl = creds.domain ? `${proto}://${creds.domain}` : 'http://localhost:3000';
 
   const lines = [
     `DATABASE_URL="${dbUrl}"`,
@@ -24,16 +26,30 @@ export function generateEnvFile(creds: Credentials): void {
     `MINIO_SECRET_KEY=${creds.minioSecretKey}`,
     `MINIO_USE_SSL=false`,
     '',
-    `FRONTEND_URL=http${creds.ssl ? 's' : ''}://${creds.domain}`,
+    `FRONTEND_URL=${frontendUrl}`,
   ].filter(Boolean);
 
   writeFileSync(`${PROJECT_DIR}/backend/.env`, lines.join('\n') + '\n');
 }
 
-function proxyBlock(port: string): string {
+export function generateFrontendEnv(creds: Credentials): void {
+  const proto = creds.ssl ? 'https' : 'http';
+  const apiUrl = creds.domain
+    ? `${proto}://${creds.domain}/api`
+    : `http://localhost:${creds.port}/api`;
+
+  const lines = [
+    `NEXT_PUBLIC_API_URL=${apiUrl}`,
+  ];
+
+  writeFileSync(`${PROJECT_DIR}/frontend/.env`, lines.join('\n') + '\n');
+}
+
+function locationBlocks(): string {
   return `    client_max_body_size 20M;
 
-    location / {
+    # API proxy
+    location /api/ {
         proxy_pass http://ship_dock_api;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -46,10 +62,24 @@ function proxyBlock(port: string): string {
         proxy_read_timeout 300s;
     }
 
+    # Uploads static files
     location /uploads/ {
         alias ${PROJECT_DIR}/uploads/;
         expires 30d;
         add_header Cache-Control "public, immutable";
+    }
+
+    # Frontend proxy (everything else)
+    location / {
+        proxy_pass http://ship_dock_frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
     }`;
 }
 
@@ -60,10 +90,13 @@ export function generateNginxConfig(creds: Credentials): string {
     `    server 127.0.0.1:${creds.port};`,
     `}`,
     ``,
+    `upstream ship_dock_frontend {`,
+    `    server 127.0.0.1:3000;`,
+    `}`,
+    ``,
   ];
 
   if (creds.ssl && creds.domain) {
-    // HTTP → redirect to HTTPS
     lines.push(
       `server {`,
       `    listen 80;`,
@@ -71,9 +104,6 @@ export function generateNginxConfig(creds: Credentials): string {
       `    return 301 https://$host$request_uri;`,
       `}`,
       ``,
-    );
-    // HTTPS
-    lines.push(
       `server {`,
       `    listen 443 ssl http2;`,
       `    server_name ${serverName};`,
@@ -83,17 +113,16 @@ export function generateNginxConfig(creds: Credentials): string {
       `    ssl_protocols TLSv1.2 TLSv1.3;`,
       `    ssl_ciphers HIGH:!aNULL:!MD5;`,
       ``,
-      proxyBlock(creds.port),
+      locationBlocks(),
       `}`,
     );
   } else {
-    // HTTP only
     lines.push(
       `server {`,
       `    listen 80;`,
       `    server_name ${serverName};`,
       ``,
-      proxyBlock(creds.port),
+      locationBlocks(),
       `}`,
     );
   }
@@ -103,13 +132,23 @@ export function generateNginxConfig(creds: Credentials): string {
 
 export function generatePm2Ecosystem(): string {
   return JSON.stringify({
-    apps: [{
-      name: 'ship-dock-api',
-      script: 'dist/main.js',
-      cwd: `${PROJECT_DIR}/backend`,
-      instances: 1,
-      env: { NODE_ENV: 'production' },
-    }],
+    apps: [
+      {
+        name: 'ship-dock-api',
+        script: 'dist/main.js',
+        cwd: `${PROJECT_DIR}/backend`,
+        instances: 1,
+        env: { NODE_ENV: 'production' },
+      },
+      {
+        name: 'ship-dock-web',
+        script: 'node_modules/.bin/next',
+        args: 'start',
+        cwd: `${PROJECT_DIR}/frontend`,
+        instances: 1,
+        env: { NODE_ENV: 'production', PORT: '3000' },
+      },
+    ],
   }, null, 2);
 }
 
@@ -133,13 +172,11 @@ WantedBy=multi-user.target`;
 }
 
 export function writeAllConfigs(creds: Credentials): void {
-  // .env
-  generateEnvFile(creds);
+  generateBackendEnv(creds);
+  generateFrontendEnv(creds);
 
-  // Nginx
   mkdirSync(`${PROJECT_DIR}/nginx`, { recursive: true });
   writeFileSync(`${PROJECT_DIR}/nginx/ship-dock.conf`, generateNginxConfig(creds));
 
-  // PM2 ecosystem
-  writeFileSync(`${PROJECT_DIR}/backend/ecosystem.config.json`, generatePm2Ecosystem());
+  writeFileSync(`${PROJECT_DIR}/ecosystem.config.json`, generatePm2Ecosystem());
 }
