@@ -44,6 +44,14 @@ export class CreateProjectDto {
   @IsOptional()
   useLocalDb?: boolean;
 
+  @IsBoolean()
+  @IsOptional()
+  useLocalRedis?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  useLocalMinio?: boolean;
+
   @IsObject()
   @IsOptional()
   envVars?: Record<string, string>;
