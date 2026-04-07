@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Text, Newline } from 'ink';
 import { Credentials } from '../lib/credentials.js';
+import { runShell } from '../lib/shell.js';
 import { homedir } from 'os';
 
 interface Props {
@@ -8,8 +9,20 @@ interface Props {
 }
 
 export function Report({ config }: Props) {
+  const [publicIp, setPublicIp] = useState('');
   const proto = config.ssl ? 'https' : 'http';
-  const url = config.domain ? `${proto}://${config.domain}` : `http://<server-ip>`;
+
+  useEffect(() => {
+    if (!config.domain) {
+      runShell('curl -sf --max-time 3 https://api.ipify.org').then((r) => {
+        if (r.exitCode === 0 && r.stdout) setPublicIp(r.stdout);
+      });
+    }
+  }, []);
+
+  const url = config.domain
+    ? `${proto}://${config.domain}`
+    : publicIp ? `http://${publicIp}` : 'http://localhost';
 
   return (
     <Box flexDirection="column" marginTop={1}>

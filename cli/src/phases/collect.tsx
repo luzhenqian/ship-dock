@@ -48,7 +48,7 @@ const fields: FieldDef[] = [
   { key: 'useExistingRedis', label: 'Redis', type: 'select', items: existingOrNew },
   { key: 'redisHost', label: 'Redis host', type: 'text', defaultValue: 'localhost', placeholder: 'localhost', showWhen: (v) => v.useExistingRedis === 'true' },
   { key: 'redisPort', label: 'Redis port', type: 'text', defaultValue: '6379', placeholder: '6379', showWhen: (v) => v.useExistingRedis === 'true' },
-  { key: 'redisPassword', label: 'Redis password', type: 'password', placeholder: 'leave empty for no password', masked: true },
+  { key: 'redisPassword', label: 'Redis password', type: 'password', placeholder: 'leave empty to auto-generate', autoGenerate: true, masked: true },
 
   // ── MinIO ──
   { key: 'useExistingMinio', label: 'MinIO', type: 'select', items: existingOrNew },
