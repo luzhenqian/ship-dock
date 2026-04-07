@@ -55,7 +55,7 @@ export function InitializePhase({ config, onComplete }: Props) {
         name: 'Set up PostgreSQL database',
         status: 'pending' as TaskStatus,
         run: async () => {
-          await runShell(`sudo -u postgres psql -c "CREATE USER ${config.dbUser} WITH PASSWORD '${config.dbPassword}';" 2>/dev/null || true`);
+          await runShell(`sudo -u postgres psql -c "CREATE USER ${config.dbUser} WITH PASSWORD '${config.dbPassword}';" 2>/dev/null || sudo -u postgres psql -c "ALTER USER ${config.dbUser} WITH PASSWORD '${config.dbPassword}';" 2>/dev/null`);
           await runShell(`sudo -u postgres psql -c "CREATE DATABASE ${config.dbName} OWNER ${config.dbUser};" 2>/dev/null || true`);
           await runShell(`sudo -u postgres psql -d ${config.dbName} -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>/dev/null || true`);
           // Enable password authentication in pg_hba.conf
