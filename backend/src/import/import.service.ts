@@ -59,7 +59,7 @@ export class ImportService {
     return { ok: true };
   }
 
-  async handleUpload(file: Express.Multer.File): Promise<any> {
+  async handleUpload(file: Express.Multer.File, userId: string): Promise<any> {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
@@ -95,7 +95,7 @@ export class ImportService {
         manifestData: manifestRaw,
         packageKey: filePath,
         totalProjects: manifest.projects.length,
-        userId: '', // Will be updated when createImport is called; for upload flow use a placeholder
+        userId,
       },
     });
 
