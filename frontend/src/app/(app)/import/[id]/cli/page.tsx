@@ -34,7 +34,18 @@ export default function CliConnectPage({ params }: { params: Promise<{ id: strin
     : 'Generating token...';
 
   function handleCopy() {
-    navigator.clipboard.writeText(cliCommand);
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(cliCommand);
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = cliCommand;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
