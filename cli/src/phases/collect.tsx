@@ -30,7 +30,7 @@ const existingOrNew = [{ label: 'Set up new', value: 'false' }, { label: 'Use ex
 
 const fields: FieldDef[] = [
   // ── Basic ──
-  { key: 'adminEmail', label: 'Admin email', type: 'text', placeholder: 'admin@example.com' },
+  { key: 'adminEmail', label: 'Admin email', type: 'text', defaultValue: 'admin@shipdock.local', placeholder: 'admin@shipdock.local' },
   { key: 'adminPassword', label: 'Admin password', type: 'password', placeholder: 'leave empty to auto-generate', autoGenerate: true, masked: true },
   { key: 'domain', label: 'Domain', type: 'text', placeholder: 'deploy.example.com' },
   { key: 'port', label: 'API port', type: 'text', defaultValue: '4000', placeholder: '4000' },
@@ -72,7 +72,7 @@ export function CollectPhase({ onComplete }: Props) {
   const visibleFields = getVisibleFields(values);
   const currentField = visibleFields[currentIndex];
 
-  const requiredFields = new Set(['adminEmail', 'domain']);
+  const requiredFields = new Set(['domain']);
 
   const handleSubmit = (key: string, value: string, autoGenerate?: boolean) => {
     // Reject empty required fields — stay on same prompt
