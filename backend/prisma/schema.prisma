@@ -86,6 +86,7 @@ model User {
   dataMigrations       DataMigration[]
   analyticsConnections AnalyticsConnection[]
   githubInstallations  GitHubInstallation[]
+  imports              Import[]
 }
 
 model Project {
@@ -126,6 +127,7 @@ model Project {
   nginxConfig           NginxConfig?
   pm2Config             Pm2Config?
   analyticsIntegrations AnalyticsIntegration[]
+  importItems           ImportItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -387,4 +389,61 @@ model AnalyticsIntegration {
 
   @@unique([projectId, provider])
   @@index([connectionId])
+}
+
+enum ImportStatus {
+  PENDING
+  UPLOADED
+  CONFIGURING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ImportItemStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum ImportSource {
+  CLI_PACKAGE
+  REMOTE
+}
+
+model Import {
+  id            String       @id @default(uuid())
+  status        ImportStatus @default(PENDING)
+  sourceType    ImportSource
+  manifestData  Json?
+  packageKey    String?
+  totalProjects Int          @default(0)
+  errorMessage  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  items         ImportItem[]
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model ImportItem {
+  id           String           @id @default(uuid())
+  importId     String
+  import       Import           @relation(fields: [importId], references: [id], onDelete: Cascade)
+  sourceName   String
+  projectId    String?
+  project      Project?         @relation(fields: [projectId], references: [id])
+  status       ImportItemStatus @default(PENDING)
+  config       Json             @default("{}")
+  stages       Json             @default("[]")
+  errorMessage String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([importId])
 }
