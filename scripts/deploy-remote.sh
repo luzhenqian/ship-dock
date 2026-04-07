@@ -50,21 +50,15 @@ npm run build
 
 cd "$PROJECT_DIR"
 
-# ── 6. Sync nginx config ──
+# ── 6. Reload nginx ──
 echo ""
-echo ">> Syncing nginx config ..."
-if [[ -f nginx/ship-dock.conf ]]; then
-  sudo cp nginx/ship-dock.conf /etc/nginx/sites-available/ship-dock.conf
-  sudo ln -sf /etc/nginx/sites-available/ship-dock.conf /etc/nginx/sites-enabled/ship-dock.conf
-  sudo rm -f /etc/nginx/sites-enabled/default
-  if sudo nginx -t 2>/dev/null; then
-    sudo systemctl reload nginx
-    echo "  Nginx config updated and reloaded"
-  else
-    echo "  WARNING: Nginx config test failed, skipping reload"
-  fi
+echo ">> Reloading nginx ..."
+# Nginx config is generated during installation — do not overwrite.
+if sudo nginx -t 2>/dev/null; then
+  sudo systemctl reload nginx
+  echo "  Nginx reloaded"
 else
-  echo "  No nginx config found, skipping"
+  echo "  Nginx config test failed, skipping reload"
 fi
 
 # ── 7. Restart PM2 ──

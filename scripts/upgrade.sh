@@ -417,16 +417,12 @@ if [[ -f "$INSTALL_DIR/frontend/package.json" && -d "$INSTALL_DIR/frontend/.next
 fi
 
 # ---------- Nginx ----------
-if [[ -f "$INSTALL_DIR/nginx/ship-dock.conf" ]]; then
-  header "Updating nginx configuration..."
-  cp "$INSTALL_DIR/nginx/ship-dock.conf" /etc/nginx/sites-available/ship-dock.conf 2>/dev/null || \
-    cp "$INSTALL_DIR/nginx/ship-dock.conf" /etc/nginx/conf.d/ship-dock.conf 2>/dev/null || true
-  if nginx -t 2>/dev/null; then
-    systemctl reload nginx 2>/dev/null || nginx -s reload 2>/dev/null || true
-    log "Nginx configuration updated and reloaded"
-  else
-    warn "Nginx config test failed — skipping reload"
-  fi
+# Nginx config is generated during installation with user-specific settings
+# (domain, SSL, client_max_body_size, etc.) — do NOT overwrite during upgrades.
+# Just reload to pick up any upstream proxy changes.
+if nginx -t 2>/dev/null; then
+  systemctl reload nginx 2>/dev/null || nginx -s reload 2>/dev/null || true
+  log "Nginx reloaded"
 fi
 
 # ---------- PM2 ----------
