@@ -73,10 +73,10 @@ export function ProjectSidebar({ projectId, projectName, status }: ProjectSideba
           </span>
         </div>
       </div>
-      <nav className="space-y-4">
-        {groups.map((group) => (
-          <div key={group.label}>
-            <div className="mb-1 px-2 text-[11px] font-medium uppercase tracking-wider text-foreground-muted">
+      <nav>
+        {groups.map((group, gi) => (
+          <div key={group.label} className={gi > 0 ? 'mt-2 pt-2 border-t border-border/50' : ''}>
+            <div className="mb-1 px-2 pt-1 pb-0.5 text-[11px] font-medium uppercase tracking-wider text-foreground-muted">
               {group.label}
             </div>
             <div className="space-y-0.5">
