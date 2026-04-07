@@ -431,9 +431,110 @@ export class ProjectsService {
     return this.dbProvisioner.exportDatabase(project.dbName);
   }
 
+  async provisionMinio(id: string) {
+    const project = await this.prisma.project.findUnique({ where: { id } });
+    if (!project) throw new NotFoundException('Project not found');
+    if (project.useLocalMinio && project.minioBucket) {
+      throw new BadRequestException('Project already has platform storage');
+    }
+
+    const minioBucket = this.minioProvisioner.generateBucketName(project.slug);
+    const minio = await this.minioProvisioner.provision(minioBucket);
+
+    // Merge MinIO vars into existing envVars
+    let envVarsObj: Record<string, string> = {};
+    if (project.envVars) {
+      try { envVarsObj = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
+    }
+    envVarsObj.MINIO_ENDPOINT = minio.endpoint;
+    envVarsObj.MINIO_PORT = String(minio.port);
+    envVarsObj.MINIO_ACCESS_KEY = minio.accessKey;
+    envVarsObj.MINIO_SECRET_KEY = minio.secretKey;
+    envVarsObj.MINIO_BUCKET = minio.bucketName;
+    envVarsObj.MINIO_USE_SSL = String(minio.useSSL);
+
+    await this.prisma.project.update({
+      where: { id },
+      data: {
+        useLocalMinio: true,
+        minioBucket,
+        envVars: this.encryption.encrypt(JSON.stringify(envVarsObj)),
+      },
+    });
+
+    await this.prisma.serviceConnection.create({
+      data: {
+        projectId: id,
+        type: 'MINIO',
+        name: 'Platform Storage',
+        config: this.encryption.encrypt(JSON.stringify({
+          endPoint: minio.endpoint,
+          port: minio.port,
+          accessKey: minio.accessKey,
+          secretKey: minio.secretKey,
+          useSSL: minio.useSSL,
+          bucket: minioBucket,
+        })),
+        autoDetected: true,
+      },
+    });
+
+    return { minioBucket, endpoint: minio.endpoint };
+  }
+
+  async deprovisionMinio(id: string) {
+    const project = await this.prisma.project.findUnique({ where: { id } });
+    if (!project) throw new NotFoundException('Project not found');
+    if (!project.useLocalMinio || !project.minioBucket) {
+      throw new BadRequestException('Project has no platform storage');
+    }
+
+    await this.minioProvisioner.deprovision(project.minioBucket);
+
+    // Remove MinIO vars from envVars
+    let envVarsObj: Record<string, string> = {};
+    if (project.envVars) {
+      try { envVarsObj = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
+    }
+    delete envVarsObj.MINIO_ENDPOINT;
+    delete envVarsObj.MINIO_PORT;
+    delete envVarsObj.MINIO_ACCESS_KEY;
+    delete envVarsObj.MINIO_SECRET_KEY;
+    delete envVarsObj.MINIO_BUCKET;
+    delete envVarsObj.MINIO_USE_SSL;
+
+    await this.prisma.project.update({
+      where: { id },
+      data: {
+        useLocalMinio: false,
+        minioBucket: null,
+        envVars: Object.keys(envVarsObj).length > 0 ? this.encryption.encrypt(JSON.stringify(envVarsObj)) : '',
+      },
+    });
+
+    await this.prisma.serviceConnection.deleteMany({
+      where: { projectId: id, type: 'MINIO', autoDetected: true },
+    });
+
+    if (Object.keys(envVarsObj).length > 0) {
+      this.syncEnvFile(id, envVarsObj);
+    }
+
+    return { success: true };
+  }
+
   async delete(id: string) {
     const project = await this.prisma.project.findUnique({ where: { id } });
     if (!project) throw new NotFoundException('Project not found');
+
+    // Clean up provisioned resources
+    if (project.useLocalRedis && project.redisDbIndex !== null) {
+      try { await this.redisProvisioner.deprovision(project.redisDbIndex); } catch {}
+    }
+    if (project.useLocalMinio && project.minioBucket) {
+      try { await this.minioProvisioner.deprovision(project.minioBucket); } catch {}
+    }
+
     await this.portAllocation.release(id);
     return this.prisma.project.delete({ where: { id } });
   }
