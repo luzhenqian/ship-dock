@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EnvVarEditor } from '@/components/env-var-editor';
+import { Loading } from '@/components/ui/loading';
 import { useServices, useCreateService, useDeleteService, useDetectServices, useTestService } from '@/hooks/use-services';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import {
@@ -120,7 +121,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
     router.push('/dashboard');
   }
 
-  if (!project) return <p>Loading...</p>;
+  if (!project) return <Loading className="py-20" />;
 
   const projectsDir = settings?.projectsDir || '/var/www';
 

@@ -7,6 +7,7 @@ import { useDeployLogs } from '@/hooks/use-deploy-logs';
 import { StageProgress } from '@/components/stage-progress';
 import { DeployLogViewer } from '@/components/deploy-log-viewer';
 import { Button } from '@/components/ui/button';
+import { Loading } from '@/components/ui/loading';
 
 const statusDot: Record<string, string> = {
   SUCCESS: 'bg-status-ready shadow-[0_0_6px_rgba(80,227,194,0.4)]',
@@ -56,7 +57,7 @@ export default function DeploymentDetailPage({ params }: { params: Promise<{ id:
     return persistedLogs.length >= realtimeLogs.length ? persistedLogs : realtimeLogs;
   }, [persistedLogs, realtimeLogs]);
 
-  if (!deployment) return <p className="text-foreground-secondary">Loading...</p>;
+  if (!deployment) return <Loading className="py-20" />;
 
   const stages = (deployment.stages as any[]).map((s: any, i: number) => ({
     ...s,

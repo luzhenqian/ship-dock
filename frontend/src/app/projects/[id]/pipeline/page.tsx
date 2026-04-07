@@ -4,6 +4,7 @@ import { useProject } from '@/hooks/use-projects';
 import { api } from '@/lib/api';
 import { PipelineEditor } from '@/components/pipeline-editor';
 import { Button } from '@/components/ui/button';
+import { Loading } from '@/components/ui/loading';
 
 export default function PipelinePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
@@ -25,7 +26,7 @@ export default function PipelinePage({ params }: { params: Promise<{ id: string 
     setTimeout(() => setSaved(false), 2000);
   }
 
-  if (!project) return <p>Loading...</p>;
+  if (!project) return <Loading className="py-20" />;
 
   return (
     <div>

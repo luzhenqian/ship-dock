@@ -7,10 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useGitHubInstallations, useGitHubInstallationUrl, useGitHubCallback, useDeleteGitHubInstallation } from '@/hooks/use-github-app';
 import { GitBranch, Trash2, Loader2, ExternalLink } from 'lucide-react';
+import { Loading } from '@/components/ui/loading';
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading...</div>}>
+    <Suspense fallback={<Loading className="py-20" />}>
       <SettingsContent />
     </Suspense>
   );

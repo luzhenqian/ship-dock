@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import { Loading } from '@/components/ui/loading';
 import {
   useWebhookConfig, useCreateWebhook, useUpdateWebhook, useDeleteWebhook,
   useRegenerateSecret, useWebhookEvents, useReplayWebhookEvent,
@@ -125,7 +126,7 @@ export default function WebhooksPage({ params }: { params: Promise<{ id: string 
     }
   }
 
-  if (isLoading) return <p>Loading...</p>;
+  if (isLoading) return <Loading className="py-20" />;
 
   return (
     <div className="space-y-6">

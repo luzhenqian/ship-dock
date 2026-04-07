@@ -10,6 +10,7 @@ import { useRedisKeys, useRedisKeyDetail, useDeleteRedisKey, useCreateRedisKey }
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import { Loading } from '@/components/ui/loading';
 import { Label } from '@/components/ui/label';
 
 export default function RedisPage({ params }: { params: Promise<{ id: string }> }) {
@@ -36,7 +37,7 @@ export default function RedisPage({ params }: { params: Promise<{ id: string }> 
     });
   };
 
-  if (isLoading) return <div className="text-sm text-muted-foreground">Loading...</div>;
+  if (isLoading) return <Loading className="py-20" />;
   if (error) return <div className="text-sm text-muted-foreground">No Redis connection configured. Add one in Settings → Services.</div>;
 
   const typeColors: Record<string, string> = {

@@ -10,6 +10,7 @@ import {
   CardAction,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Loading } from '@/components/ui/loading';
 import { Badge } from '@/components/ui/badge';
 import { useProjectIntegrations, useDeleteIntegration } from '@/hooks/use-analytics';
 import { toast } from 'sonner';
@@ -37,7 +38,7 @@ export default function ProjectAnalyticsPage({
     }
   }
 
-  if (isLoading) return <p className="text-muted-foreground">Loading...</p>;
+  if (isLoading) return <Loading className="py-20" />;
 
   return (
     <div className="space-y-6">

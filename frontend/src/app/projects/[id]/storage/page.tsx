@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useStorageBuckets, useStorageObjects, useUploadFile, useDeleteFile, getDownloadUrl } from '@/hooks/use-storage';
 import { getAccessToken } from '@/lib/api';
+import { Loading } from '@/components/ui/loading';
 
 export default function StoragePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -69,7 +70,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
   };
 
-  if (isLoading) return <div className="text-sm text-muted-foreground">Loading...</div>;
+  if (isLoading) return <Loading className="py-20" />;
   if (error || !buckets?.length) return <div className="text-sm text-muted-foreground">No MinIO connection configured. Add one in Settings → Services.</div>;
 
   return (

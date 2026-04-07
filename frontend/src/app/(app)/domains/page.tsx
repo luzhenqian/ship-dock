@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { Loading } from '@/components/ui/loading';
 
 interface DnsRecord { name: string; type: string; value: string; ttl?: number }
 
@@ -237,7 +238,7 @@ export default function DomainsPage() {
                             </p>
 
                             {recordsLoading ? (
-                              <p className="text-sm text-muted-foreground">Loading...</p>
+                              <Loading className="py-4" />
                             ) : (
                               <>
                                 {/* Records Table */}

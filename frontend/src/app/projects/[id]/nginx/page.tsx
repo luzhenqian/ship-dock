@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { codeToHtml } from 'shiki';
+import { Loading } from '@/components/ui/loading';
 
 function useHighlightedCode(code: string, lang: string) {
   const [html, setHtml] = useState('');
@@ -111,7 +112,7 @@ export default function NginxConfigPage({ params }: { params: Promise<{ id: stri
     }
   }
 
-  if (!project || isLoading) return <p>Loading...</p>;
+  if (!project || isLoading) return <Loading className="py-20" />;
 
   if (!project.domain) {
     return (

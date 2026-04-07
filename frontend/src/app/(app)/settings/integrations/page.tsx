@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Loading } from '@/components/ui/loading';
 import {
   useAnalyticsConnections,
   useDeleteConnection,
@@ -63,7 +64,7 @@ export default function IntegrationsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground">Loading...</p>
+        <Loading />
       ) : connections?.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
