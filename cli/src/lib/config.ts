@@ -4,15 +4,12 @@ import { Credentials } from './credentials.js';
 const PROJECT_DIR = '/opt/shipdock';
 
 export function generateEnvFile(creds: Credentials): void {
-  const dbUrl = `postgresql://shipdock:${creds.dbPassword}@localhost:5432/shipdock`;
-  const redisUrl = creds.redisPassword
-    ? `redis://:${creds.redisPassword}@localhost:6379`
-    : 'redis://localhost:6379';
+  const dbUrl = `postgresql://${creds.dbUser}:${creds.dbPassword}@${creds.dbHost}:${creds.dbPort}/${creds.dbName}`;
 
   const lines = [
     `DATABASE_URL="${dbUrl}"`,
-    `REDIS_HOST=localhost`,
-    `REDIS_PORT=6379`,
+    `REDIS_HOST=${creds.redisHost}`,
+    `REDIS_PORT=${creds.redisPort}`,
     creds.redisPassword ? `REDIS_PASSWORD=${creds.redisPassword}` : '',
     `JWT_SECRET=${creds.jwtSecret}`,
     `JWT_REFRESH_SECRET=${creds.jwtRefreshSecret}`,
@@ -21,8 +18,8 @@ export function generateEnvFile(creds: Credentials): void {
     `PROJECTS_DIR=/var/www`,
     `NODE_ENV=production`,
     '',
-    `MINIO_ENDPOINT=localhost`,
-    `MINIO_PORT=9000`,
+    `MINIO_ENDPOINT=${creds.minioEndpoint}`,
+    `MINIO_PORT=${creds.minioPort}`,
     `MINIO_ACCESS_KEY=${creds.minioAccessKey}`,
     `MINIO_SECRET_KEY=${creds.minioSecretKey}`,
     `MINIO_USE_SSL=false`,

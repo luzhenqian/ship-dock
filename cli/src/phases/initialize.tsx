@@ -50,15 +50,16 @@ export function InitializePhase({ config, onComplete }: Props) {
           if (result.exitCode !== 0) throw new Error(result.stderr);
         },
       },
-      {
+      // Only create DB user/database if not using existing
+      ...(!config.useExistingDb ? [{
         name: 'Set up PostgreSQL database',
-        status: 'pending',
+        status: 'pending' as TaskStatus,
         run: async () => {
-          await runShell(`sudo -u postgres psql -c "CREATE USER shipdock WITH PASSWORD '${config.dbPassword}';" 2>/dev/null || true`);
-          await runShell(`sudo -u postgres psql -c "CREATE DATABASE shipdock OWNER shipdock;" 2>/dev/null || true`);
-          await runShell(`sudo -u postgres psql -d shipdock -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>/dev/null || true`);
+          await runShell(`sudo -u postgres psql -c "CREATE USER ${config.dbUser} WITH PASSWORD '${config.dbPassword}';" 2>/dev/null || true`);
+          await runShell(`sudo -u postgres psql -c "CREATE DATABASE ${config.dbName} OWNER ${config.dbUser};" 2>/dev/null || true`);
+          await runShell(`sudo -u postgres psql -d ${config.dbName} -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>/dev/null || true`);
         },
-      },
+      }] : []),
       {
         name: 'Run database migrations',
         status: 'pending',
@@ -67,17 +68,16 @@ export function InitializePhase({ config, onComplete }: Props) {
           if (result.exitCode !== 0) throw new Error(result.stderr);
         },
       },
-      {
+      // Only configure Redis password if not using existing
+      ...(!config.useExistingRedis && config.redisPassword ? [{
         name: 'Configure Redis password',
-        status: 'pending',
+        status: 'pending' as TaskStatus,
         run: async () => {
-          if (config.redisPassword) {
-            await runShell(`sudo sed -i 's/^# requirepass .*/requirepass ${config.redisPassword}/' /etc/redis/redis.conf`);
-            await runShell(`sudo sed -i 's/^requirepass .*/requirepass ${config.redisPassword}/' /etc/redis/redis.conf`);
-            await runShell('sudo systemctl restart redis-server');
-          }
+          await runShell(`sudo sed -i 's/^# requirepass .*/requirepass ${config.redisPassword}/' /etc/redis/redis.conf`);
+          await runShell(`sudo sed -i 's/^requirepass .*/requirepass ${config.redisPassword}/' /etc/redis/redis.conf`);
+          await runShell('sudo systemctl restart redis-server');
         },
-      },
+      }] : []),
       {
         name: 'Build backend',
         status: 'pending',
@@ -98,9 +98,10 @@ export function InitializePhase({ config, onComplete }: Props) {
           await runShell('sudo systemctl reload nginx');
         },
       },
-      {
+      // Only set up MinIO if not using existing
+      ...(!config.useExistingMinio ? [{
         name: 'Set up MinIO',
-        status: 'pending',
+        status: 'pending' as TaskStatus,
         run: async () => {
           await runShell('id -u minio-user &>/dev/null || sudo useradd -r -s /sbin/nologin minio-user');
           await runShell('sudo mkdir -p /data/minio && sudo chown minio-user:minio-user /data/minio');
@@ -109,7 +110,7 @@ export function InitializePhase({ config, onComplete }: Props) {
           await runShell('sudo mv /tmp/minio.service /etc/systemd/system/minio.service');
           await runShell('sudo systemctl daemon-reload && sudo systemctl enable minio && sudo systemctl start minio');
         },
-      },
+      }] : []),
       ...(config.ssl ? [{
         name: 'Set up SSL certificate',
         status: 'pending' as TaskStatus,

@@ -26,16 +26,18 @@ export function Report({ config }: Props) {
         <Text>  Email:            {config.adminEmail}</Text>
         <Text>  Password:         {config.adminPassword}</Text>
         <Newline />
-        <Text bold>PostgreSQL</Text>
-        <Text>  Database:         shipdock</Text>
-        <Text>  User:             shipdock</Text>
+        <Text bold>PostgreSQL{config.useExistingDb ? ' (existing)' : ''}</Text>
+        <Text>  Host:             {config.dbHost}:{config.dbPort}</Text>
+        <Text>  Database:         {config.dbName}</Text>
+        <Text>  User:             {config.dbUser}</Text>
         <Text>  Password:         {config.dbPassword}</Text>
         <Newline />
-        <Text bold>Redis</Text>
+        <Text bold>Redis{config.useExistingRedis ? ' (existing)' : ''}</Text>
+        <Text>  Host:             {config.redisHost}:{config.redisPort}</Text>
         <Text>  Password:         {config.redisPassword || '(none)'}</Text>
         <Newline />
-        <Text bold>MinIO</Text>
-        <Text>  Console:          http://localhost:9001</Text>
+        <Text bold>MinIO{config.useExistingMinio ? ' (existing)' : ''}</Text>
+        <Text>  Endpoint:         {config.minioEndpoint}:{config.minioPort}</Text>
         <Text>  Access Key:       {config.minioAccessKey}</Text>
         <Text>  Secret Key:       {config.minioSecretKey}</Text>
         <Newline />

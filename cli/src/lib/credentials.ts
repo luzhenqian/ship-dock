@@ -12,10 +12,25 @@ export interface Credentials {
   domain: string;
   port: string;
   ssl: boolean;
+  // PostgreSQL
+  useExistingDb: boolean;
+  dbHost: string;
+  dbPort: string;
+  dbUser: string;
   dbPassword: string;
+  dbName: string;
+  // Redis
+  useExistingRedis: boolean;
+  redisHost: string;
+  redisPort: string;
   redisPassword: string;
+  // MinIO
+  useExistingMinio: boolean;
+  minioEndpoint: string;
+  minioPort: string;
   minioAccessKey: string;
   minioSecretKey: string;
+  // Secrets
   jwtSecret: string;
   jwtRefreshSecret: string;
   encryptionKey: string;
@@ -35,9 +50,15 @@ export function saveCredentials(creds: Credentials, path: string): void {
     `API Port:          ${creds.port}`,
     `SSL:               ${creds.ssl ? 'enabled' : 'disabled'}`,
     '',
+    `PostgreSQL Host:     ${creds.dbHost}:${creds.dbPort}`,
+    `PostgreSQL Database: ${creds.dbName}`,
+    `PostgreSQL User:     ${creds.dbUser}`,
     `PostgreSQL Password: ${creds.dbPassword}`,
-    `Redis Password:      ${creds.redisPassword}`,
     '',
+    `Redis Host:          ${creds.redisHost}:${creds.redisPort}`,
+    `Redis Password:      ${creds.redisPassword || '(none)'}`,
+    '',
+    `MinIO Endpoint:    ${creds.minioEndpoint}:${creds.minioPort}`,
     `MinIO Access Key:  ${creds.minioAccessKey}`,
     `MinIO Secret Key:  ${creds.minioSecretKey}`,
     '',
