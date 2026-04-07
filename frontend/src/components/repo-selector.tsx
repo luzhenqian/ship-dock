@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useGitHubInstallations, useGitHubRepositories } from '@/hooks/use-github-app';
-import { GitBranch, Search, Lock, Globe, Loader2 } from 'lucide-react';
+import { GitBranch, Search, Lock, Globe, Loader2, Check, RefreshCw } from 'lucide-react';
 
 interface RepoSelectorProps {
   onSelect: (repoUrl: string, defaultBranch: string) => void;
@@ -14,6 +14,7 @@ export function RepoSelector({ onSelect, onSwitchToManual }: RepoSelectorProps) 
   const { data: installations, isLoading: installationsLoading } = useGitHubInstallations();
   const [selectedInstallation, setSelectedInstallation] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const [selectedRepo, setSelectedRepo] = useState<{ fullName: string; branch: string; isPrivate: boolean } | null>(null);
 
   const activeInstallationId = selectedInstallation ?? installations?.[0]?.installationId ?? null;
   const { data: repos, isLoading: reposLoading } = useGitHubRepositories(activeInstallationId);
@@ -36,6 +37,42 @@ export function RepoSelector({ onSelect, onSwitchToManual }: RepoSelectorProps) 
 
   if (!installations || installations.length === 0) {
     return null;
+  }
+
+  if (selectedRepo) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-background">
+            <Check className="size-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              {selectedRepo.isPrivate ? (
+                <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
+              ) : (
+                <Globe className="h-3 w-3 text-muted-foreground shrink-0" />
+              )}
+              <p className="truncate text-sm font-medium">{selectedRepo.fullName}</p>
+            </div>
+            <p className="text-xs text-foreground-muted font-mono">{selectedRepo.branch}</p>
+          </div>
+          <button
+            onClick={() => { setSelectedRepo(null); setSearch(''); }}
+            className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-foreground-muted hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <RefreshCw className="size-3" />
+            Change
+          </button>
+        </div>
+        <button
+          className="text-xs text-muted-foreground hover:text-foreground underline"
+          onClick={onSwitchToManual}
+        >
+          Enter repository URL manually instead
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -81,7 +118,10 @@ export function RepoSelector({ onSelect, onSwitchToManual }: RepoSelectorProps) 
             <button
               key={repo.id}
               className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
-              onClick={() => onSelect(`https://github.com/${repo.full_name}`, repo.default_branch)}
+              onClick={() => {
+                setSelectedRepo({ fullName: repo.full_name, branch: repo.default_branch, isPrivate: repo.private });
+                onSelect(`https://github.com/${repo.full_name}`, repo.default_branch);
+              }}
             >
               <div className="flex items-center gap-2">
                 {repo.private ? (
