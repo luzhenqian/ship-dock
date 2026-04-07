@@ -340,6 +340,88 @@ export class ProjectsService {
     return { success: true };
   }
 
+  async provisionRedis(id: string) {
+    const project = await this.prisma.project.findUnique({ where: { id } });
+    if (!project) throw new NotFoundException('Project not found');
+    if (project.useLocalRedis && project.redisDbIndex !== null) {
+      throw new BadRequestException('Project already has platform Redis');
+    }
+
+    const redisDbIndex = await this.redisProvisioner.allocateDbIndex();
+    const redis = await this.redisProvisioner.provision(redisDbIndex);
+
+    // Merge REDIS_URL into existing envVars
+    let envVarsObj: Record<string, string> = {};
+    if (project.envVars) {
+      try { envVarsObj = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
+    }
+    envVarsObj.REDIS_URL = redis.redisUrl;
+
+    await this.prisma.project.update({
+      where: { id },
+      data: {
+        useLocalRedis: true,
+        redisDbIndex,
+        envVars: this.encryption.encrypt(JSON.stringify(envVarsObj)),
+      },
+    });
+
+    // Auto-create service connection
+    const redisUrl = new URL(redis.redisUrl);
+    await this.prisma.serviceConnection.create({
+      data: {
+        projectId: id,
+        type: 'REDIS',
+        name: 'Platform Redis',
+        config: this.encryption.encrypt(JSON.stringify({
+          host: redisUrl.hostname,
+          port: parseInt(redisUrl.port || '6379'),
+          password: redisUrl.password || undefined,
+          db: redisDbIndex,
+        })),
+        autoDetected: true,
+      },
+    });
+
+    return { redisDbIndex, redisUrl: redis.redisUrl };
+  }
+
+  async deprovisionRedis(id: string) {
+    const project = await this.prisma.project.findUnique({ where: { id } });
+    if (!project) throw new NotFoundException('Project not found');
+    if (!project.useLocalRedis || project.redisDbIndex === null) {
+      throw new BadRequestException('Project has no platform Redis');
+    }
+
+    await this.redisProvisioner.deprovision(project.redisDbIndex);
+
+    // Remove REDIS_URL from envVars
+    let envVarsObj: Record<string, string> = {};
+    if (project.envVars) {
+      try { envVarsObj = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
+    }
+    delete envVarsObj.REDIS_URL;
+
+    await this.prisma.project.update({
+      where: { id },
+      data: {
+        useLocalRedis: false,
+        redisDbIndex: null,
+        envVars: Object.keys(envVarsObj).length > 0 ? this.encryption.encrypt(JSON.stringify(envVarsObj)) : '',
+      },
+    });
+
+    await this.prisma.serviceConnection.deleteMany({
+      where: { projectId: id, type: 'REDIS', autoDetected: true },
+    });
+
+    if (Object.keys(envVarsObj).length > 0) {
+      this.syncEnvFile(id, envVarsObj);
+    }
+
+    return { success: true };
+  }
+
   async exportDatabase(id: string): Promise<string> {
     const project = await this.prisma.project.findUnique({ where: { id } });
     if (!project) throw new NotFoundException('Project not found');
