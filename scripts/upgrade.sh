@@ -129,7 +129,7 @@ do_rollback() {
     echo "  2. Restore code:  cp -a <backup>/backend/ $INSTALL_DIR/backend/"
     echo "  3. Restore DB:    gunzip -c <backup>/database.sql.gz | psql \$DATABASE_URL"
     echo "  4. Rebuild:       cd $INSTALL_DIR/backend && npm ci && npx prisma generate && npm run build"
-    echo "  5. Restart:       pm2 reload ship-dock"
+    echo "  5. Restart:       pm2 reload ship-dock-api"
     log_to_file "ROLLBACK FAILED — no backup directory"
     exit 1
   fi
@@ -148,7 +148,7 @@ do_rollback() {
       echo "  1. Restore DB manually: gunzip -c $BACKUP_PATH/database.sql.gz | psql \$DATABASE_URL"
       echo "  2. Restore code:  cp -a $BACKUP_PATH/backend/ $INSTALL_DIR/backend/"
       echo "  3. Rebuild:       cd $INSTALL_DIR/backend && npm ci && npx prisma generate && npm run build"
-      echo "  4. Restart:       pm2 reload ship-dock"
+      echo "  4. Restart:       pm2 reload ship-dock-api"
       log_to_file "ROLLBACK FAILED — database restore error"
       exit 1
     fi
@@ -172,30 +172,31 @@ do_rollback() {
   cd "$INSTALL_DIR/backend"
   if ! npm ci 2>/dev/null; then
     fail "npm ci failed during rollback"
-    echo -e "${RED}${BOLD}Manual recovery:${NC} cd $INSTALL_DIR/backend && npm ci && npx prisma generate && npm run build && pm2 reload ship-dock"
+    echo -e "${RED}${BOLD}Manual recovery:${NC} cd $INSTALL_DIR/backend && npm ci && npx prisma generate && npm run build && pm2 reload ship-dock-api"
     log_to_file "ROLLBACK FAILED — npm ci error"
     exit 1
   fi
   if ! npx prisma generate 2>/dev/null; then
     fail "prisma generate failed during rollback"
-    echo -e "${RED}${BOLD}Manual recovery:${NC} cd $INSTALL_DIR/backend && npx prisma generate && npm run build && pm2 reload ship-dock"
+    echo -e "${RED}${BOLD}Manual recovery:${NC} cd $INSTALL_DIR/backend && npx prisma generate && npm run build && pm2 reload ship-dock-api"
     log_to_file "ROLLBACK FAILED — prisma generate error"
     exit 1
   fi
   if ! npm run build 2>/dev/null; then
     fail "npm run build failed during rollback"
-    echo -e "${RED}${BOLD}Manual recovery:${NC} cd $INSTALL_DIR/backend && npm run build && pm2 reload ship-dock"
+    echo -e "${RED}${BOLD}Manual recovery:${NC} cd $INSTALL_DIR/backend && npm run build && pm2 reload ship-dock-api"
     log_to_file "ROLLBACK FAILED — build error"
     exit 1
   fi
 
   # PM2 reload
-  pm2 reload ship-dock 2>/dev/null || pm2 start "$INSTALL_DIR/backend/dist/main.js" --name ship-dock 2>/dev/null || true
+  pm2 reload ship-dock-api 2>/dev/null || pm2 start "$INSTALL_DIR/backend/dist/main.js" --name ship-dock-api 2>/dev/null || true
+  pm2 reload ship-dock-web 2>/dev/null || true
 
   # Health check
   if ! health_check; then
     fail "Health check failed after rollback"
-    echo -e "${RED}${BOLD}Manual recovery:${NC} Check logs with 'pm2 logs ship-dock' and restart manually"
+    echo -e "${RED}${BOLD}Manual recovery:${NC} Check logs with 'pm2 logs ship-dock-api' and restart manually"
     log_to_file "ROLLBACK FAILED — health check error"
     exit 1
   fi
@@ -430,12 +431,27 @@ fi
 
 # ---------- PM2 ----------
 header "Restarting application..."
-pm2 reload ship-dock 2>/dev/null || pm2 start "$INSTALL_DIR/backend/dist/main.js" --name ship-dock 2>/dev/null || {
-  fail "PM2 reload/start failed"
-  do_rollback "pm2-failed"
-  exit 1
-}
-log "Application restarted"
+
+# Reload backend
+if pm2 describe ship-dock-api &>/dev/null; then
+  pm2 reload ship-dock-api 2>/dev/null
+  log "Backend restarted (ship-dock-api)"
+else
+  pm2 start "$INSTALL_DIR/backend/dist/main.js" --name ship-dock-api -i 1 2>/dev/null || {
+    fail "PM2 start ship-dock-api failed"
+    do_rollback "pm2-failed"
+    exit 1
+  }
+  log "Backend started (ship-dock-api)"
+fi
+
+# Reload frontend (if managed by PM2)
+if pm2 describe ship-dock-web &>/dev/null; then
+  pm2 reload ship-dock-web 2>/dev/null
+  log "Frontend restarted (ship-dock-web)"
+fi
+
+pm2 save 2>/dev/null || true
 
 # ---------- Health check ----------
 if ! health_check; then
