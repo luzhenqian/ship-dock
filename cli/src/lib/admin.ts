@@ -26,9 +26,9 @@ export async function ensureAdmin(email: string, password: string, port: string)
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
 async function main() {
-  const hash = await bcrypt.hash(process.argv[1], 10);
+  const hash = await bcrypt.hash(process.argv[2], 10);
   const prisma = new PrismaClient();
-  await prisma.user.updateMany({ where: { role: 'OWNER' }, data: { email: process.argv[2], password: hash } });
+  await prisma.user.updateMany({ where: { role: 'OWNER' }, data: { email: process.argv[3], password: hash } });
   await prisma.$disconnect();
   console.log('OK');
 }
