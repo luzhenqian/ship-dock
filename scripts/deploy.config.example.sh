@@ -28,6 +28,13 @@ JWT_REFRESH_SECRET="change_me_jwt_refresh_secret"
 NODE_ENV="production"
 PORT="4000"
 
+# ── MinIO (optional — for platform storage) ──
+MINIO_ENDPOINT="localhost"
+MINIO_PORT="9000"
+MINIO_ACCESS_KEY="minioadmin"
+MINIO_SECRET_KEY="change_me_in_production"
+MINIO_USE_SSL="false"
+
 # ── GitHub App (optional — for OAuth-based repo connection) ──
 GITHUB_APP_ID=""
 GITHUB_APP_PRIVATE_KEY=""          # Base64-encoded PEM private key
