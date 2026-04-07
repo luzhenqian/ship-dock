@@ -40,8 +40,8 @@ npx prisma generate
 
 # ── 4. Database migration ──
 echo ""
-echo ">> Syncing database schema ..."
-npx prisma db push --accept-data-loss
+echo ">> Running database migrations ..."
+npx prisma migrate deploy
 
 # ── 5. Build backend ──
 echo ""
