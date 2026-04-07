@@ -14,7 +14,7 @@ import { Loading } from '@/components/ui/loading';
 import { useServices, useCreateService, useDeleteService, useDetectServices, useTestService } from '@/hooks/use-services';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { RepoSelector } from '@/components/repo-selector';
 import { ExternalLink } from 'lucide-react';
@@ -55,6 +55,12 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [showDbDeleteConfirm, setShowDbDeleteConfirm] = useState(false);
   const [dbDeleting, setDbDeleting] = useState(false);
   const [dbExporting, setDbExporting] = useState(false);
+  const [redisProvisioning, setRedisProvisioning] = useState(false);
+  const [redisDeleting, setRedisDeleting] = useState(false);
+  const [showRedisDeleteConfirm, setShowRedisDeleteConfirm] = useState(false);
+  const [minioProvisioning, setMinioProvisioning] = useState(false);
+  const [minioDeleting, setMinioDeleting] = useState(false);
+  const [showMinioDeleteConfirm, setShowMinioDeleteConfirm] = useState(false);
   const [showRepoConnect, setShowRepoConnect] = useState(false);
   const [repoMode, setRepoMode] = useState<'select' | 'manual'>('select');
   const [repoUrl, setRepoUrl] = useState('');
@@ -347,6 +353,108 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
       </Card>
 
       <Card>
+        <CardHeader><CardTitle>Redis</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {project.useLocalRedis ? (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Active</span>
+                <span className="text-sm">Platform Redis</span>
+                <code className="text-xs bg-muted px-2 py-0.5 rounded font-mono">db {project.redisDbIndex}</code>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={redisDeleting}
+                  onClick={() => setShowRedisDeleteConfirm(true)}
+                >
+                  Disable & Delete
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Enable platform Redis to auto-create a Redis database and inject <code className="bg-muted px-1 rounded">REDIS_URL</code> into environment variables.
+              </p>
+              <Button
+                size="sm"
+                disabled={redisProvisioning}
+                onClick={async () => {
+                  setRedisProvisioning(true);
+                  try {
+                    await api(`/projects/${projectId}/provision-redis`, { method: 'POST' });
+                    toast.success('Redis created', { description: 'REDIS_URL has been added to your environment variables. Redeploy to apply.' });
+                    refetch();
+                    const newEnv = await api<Record<string, string>>(`/projects/${projectId}/env`);
+                    setEnvVars(newEnv);
+                  } catch (err: any) {
+                    toast.error(`Failed: ${err.message}`);
+                  } finally {
+                    setRedisProvisioning(false);
+                  }
+                }}
+              >
+                {redisProvisioning ? 'Creating...' : 'Enable Platform Redis'}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Storage</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {project.useLocalMinio ? (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Active</span>
+                <span className="text-sm">Platform Storage</span>
+                <code className="text-xs bg-muted px-2 py-0.5 rounded font-mono">{project.minioBucket}</code>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={minioDeleting}
+                  onClick={() => setShowMinioDeleteConfirm(true)}
+                >
+                  Disable & Delete
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Enable platform storage to auto-create a MinIO bucket and inject storage env vars (<code className="bg-muted px-1 rounded">MINIO_ENDPOINT</code>, <code className="bg-muted px-1 rounded">MINIO_BUCKET</code>, etc.).
+              </p>
+              <Button
+                size="sm"
+                disabled={minioProvisioning}
+                onClick={async () => {
+                  setMinioProvisioning(true);
+                  try {
+                    await api(`/projects/${projectId}/provision-minio`, { method: 'POST' });
+                    toast.success('Storage created', { description: 'MinIO env vars have been added. Redeploy to apply.' });
+                    refetch();
+                    const newEnv = await api<Record<string, string>>(`/projects/${projectId}/env`);
+                    setEnvVars(newEnv);
+                  } catch (err: any) {
+                    toast.error(`Failed: ${err.message}`);
+                  } finally {
+                    setMinioProvisioning(false);
+                  }
+                }}
+              >
+                {minioProvisioning ? 'Creating...' : 'Enable Platform Storage'}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle>Environment Variables</CardTitle></CardHeader>
         <CardContent>
           <EnvVarEditor value={envVars} onChange={setEnvVars} />
@@ -615,6 +723,76 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
         }}
         destructive
       />
+
+      <Dialog open={showRedisDeleteConfirm} onOpenChange={setShowRedisDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Platform Redis?</DialogTitle>
+            <DialogDescription>
+              This will flush all data in Redis database {project.redisDbIndex} and remove REDIS_URL from environment variables. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRedisDeleteConfirm(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={redisDeleting}
+              onClick={async () => {
+                setRedisDeleting(true);
+                try {
+                  await api(`/projects/${projectId}/provision-redis`, { method: 'DELETE' });
+                  toast.success('Redis deleted');
+                  setShowRedisDeleteConfirm(false);
+                  refetch();
+                  const newEnv = await api<Record<string, string>>(`/projects/${projectId}/env`);
+                  setEnvVars(newEnv);
+                } catch (err: any) {
+                  toast.error(`Failed: ${err.message}`);
+                } finally {
+                  setRedisDeleting(false);
+                }
+              }}
+            >
+              {redisDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showMinioDeleteConfirm} onOpenChange={setShowMinioDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Platform Storage?</DialogTitle>
+            <DialogDescription>
+              This will delete all files in bucket &quot;{project.minioBucket}&quot; and remove MinIO env vars. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMinioDeleteConfirm(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={minioDeleting}
+              onClick={async () => {
+                setMinioDeleting(true);
+                try {
+                  await api(`/projects/${projectId}/provision-minio`, { method: 'DELETE' });
+                  toast.success('Storage deleted');
+                  setShowMinioDeleteConfirm(false);
+                  refetch();
+                  const newEnv = await api<Record<string, string>>(`/projects/${projectId}/env`);
+                  setEnvVars(newEnv);
+                } catch (err: any) {
+                  toast.error(`Failed: ${err.message}`);
+                } finally {
+                  setMinioDeleting(false);
+                }
+              }}
+            >
+              {minioDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={showDbDeleteConfirm}
