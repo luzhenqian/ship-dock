@@ -128,7 +128,7 @@ do_rollback() {
     echo "  1. Check $BACKUP_BASE/ for available backups"
     echo "  2. Restore code:  cp -a <backup>/backend/ $INSTALL_DIR/backend/"
     echo "  3. Restore DB:    gunzip -c <backup>/database.sql.gz | psql \$DATABASE_URL"
-    echo "  4. Rebuild:       cd $INSTALL_DIR/backend && npm ci --production && npx prisma generate && npm run build"
+    echo "  4. Rebuild:       cd $INSTALL_DIR/backend && npm ci && npx prisma generate && npm run build"
     echo "  5. Restart:       pm2 reload ship-dock"
     log_to_file "ROLLBACK FAILED — no backup directory"
     exit 1
@@ -147,7 +147,7 @@ do_rollback() {
       echo -e "${RED}${BOLD}Manual recovery instructions:${NC}"
       echo "  1. Restore DB manually: gunzip -c $BACKUP_PATH/database.sql.gz | psql \$DATABASE_URL"
       echo "  2. Restore code:  cp -a $BACKUP_PATH/backend/ $INSTALL_DIR/backend/"
-      echo "  3. Rebuild:       cd $INSTALL_DIR/backend && npm ci --production && npx prisma generate && npm run build"
+      echo "  3. Rebuild:       cd $INSTALL_DIR/backend && npm ci && npx prisma generate && npm run build"
       echo "  4. Restart:       pm2 reload ship-dock"
       log_to_file "ROLLBACK FAILED — database restore error"
       exit 1
@@ -170,9 +170,9 @@ do_rollback() {
   # Rebuild
   warn "Rebuilding after rollback..."
   cd "$INSTALL_DIR/backend"
-  if ! npm ci --production 2>/dev/null; then
+  if ! npm ci 2>/dev/null; then
     fail "npm ci failed during rollback"
-    echo -e "${RED}${BOLD}Manual recovery:${NC} cd $INSTALL_DIR/backend && npm ci --production && npx prisma generate && npm run build && pm2 reload ship-dock"
+    echo -e "${RED}${BOLD}Manual recovery:${NC} cd $INSTALL_DIR/backend && npm ci && npx prisma generate && npm run build && pm2 reload ship-dock"
     log_to_file "ROLLBACK FAILED — npm ci error"
     exit 1
   fi
@@ -365,7 +365,7 @@ fi
 # ---------- Install backend deps ----------
 header "Installing backend dependencies..."
 cd "$INSTALL_DIR/backend"
-if ! npm ci --production 2>&1; then
+if ! npm ci 2>&1; then
   fail "npm ci failed"
   do_rollback "npm-ci-failed"
   exit 1
