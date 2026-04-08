@@ -42,7 +42,10 @@ export class EnvMapper {
     env: Record<string, string>,
     local: LocalServices,
   ): EnvMappingResult[] {
-    return Object.entries(env).map(([key, value]) => {
+    return Object.entries(env).map(([key, rawValue]) => {
+      // Ensure value is a string (env vars from CLI may include numbers/booleans)
+      const value = String(rawValue ?? '');
+
       // Check connection string formats first
       if (value.startsWith('postgresql://') || value.startsWith('postgres://')) {
         return {

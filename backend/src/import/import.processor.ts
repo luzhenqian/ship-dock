@@ -247,6 +247,9 @@ export class ImportProcessor extends WorkerHost {
     // Get the import record to find userId
     const importRecord = await this.prisma.import.findUnique({ where: { id: importId } });
 
+    // Only pass port if within Ship Dock's valid range, otherwise let auto-assign
+    const port = config.port && config.port >= 3001 && config.port <= 3999 ? config.port : undefined;
+
     const project = await this.projectsService.create(importRecord!.userId, {
       name: config.name,
       slug,
@@ -254,7 +257,7 @@ export class ImportProcessor extends WorkerHost {
       repoUrl: config.repoUrl,
       branch: config.branch || 'main',
       domain: config.domain,
-      port: config.port,
+      port,
       useLocalDb: hasDatabase,
       useLocalRedis: hasRedis,
       useLocalMinio: hasStorage,
