@@ -193,6 +193,7 @@ program
             await reportProgress('uploading', `Uploading... ${progress.percent}%`, progress.percent);
           }
         },
+        options.importId,
       );
 
       if (result.success) {

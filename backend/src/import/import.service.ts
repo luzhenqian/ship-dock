@@ -72,7 +72,7 @@ export class ImportService {
     return { ok: true };
   }
 
-  async handleUpload(file: Express.Multer.File, userId: string): Promise<any> {
+  async handleUpload(file: Express.Multer.File, userId: string, existingImportId?: string): Promise<any> {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
@@ -100,22 +100,39 @@ export class ImportService {
     const manifestRaw = JSON.parse(readFileSync(manifestPath, 'utf-8'));
     const manifest = this.manifestParser.parse(manifestRaw);
 
-    // Create import record
-    const importRecord = await this.prisma.import.create({
-      data: {
-        status: 'UPLOADED',
-        sourceType: 'CLI_PACKAGE',
-        manifestData: manifestRaw,
-        packageKey: filePath,
-        totalProjects: manifest.projects.length,
-        userId,
-      },
-    });
+    let importId: string;
 
-    await this.parseAndCreateItems(importRecord.id, manifest);
+    if (existingImportId) {
+      // Update existing import record (created by frontend)
+      await this.prisma.import.update({
+        where: { id: existingImportId },
+        data: {
+          status: 'UPLOADED',
+          manifestData: manifestRaw,
+          packageKey: filePath,
+          totalProjects: manifest.projects.length,
+        },
+      });
+      importId = existingImportId;
+    } else {
+      // Create new import record
+      const importRecord = await this.prisma.import.create({
+        data: {
+          status: 'UPLOADED',
+          sourceType: 'CLI_PACKAGE',
+          manifestData: manifestRaw,
+          packageKey: filePath,
+          totalProjects: manifest.projects.length,
+          userId,
+        },
+      });
+      importId = importRecord.id;
+    }
+
+    await this.parseAndCreateItems(importId, manifest);
 
     return this.prisma.import.findUnique({
-      where: { id: importRecord.id },
+      where: { id: importId },
       include: { items: true },
     });
   }

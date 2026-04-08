@@ -27,8 +27,8 @@ export class ImportController {
   @Post('upload')
   @MinRole('ADMIN')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_FILE_SIZE } }))
-  upload(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
-    return this.importService.handleUpload(file, req.user.id);
+  upload(@UploadedFile() file: Express.Multer.File, @Body('importId') importId: string, @Req() req: any) {
+    return this.importService.handleUpload(file, req.user.id, importId);
   }
 
   @Get('upload/:id')

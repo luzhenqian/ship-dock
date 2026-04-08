@@ -24,17 +24,27 @@ export async function uploadPackage(
   serverUrl: string,
   token: string,
   onProgress?: (progress: UploadProgress) => void,
+  importId?: string,
 ): Promise<UploadResult> {
   const fileSize = fs.statSync(packagePath).size;
   const fileName = path.basename(packagePath);
   const boundary = `----ShipDock${Date.now()}`;
 
-  // Build multipart form data
-  const header = Buffer.from(
+  // Build multipart form data with optional importId field
+  let formPrefix = '';
+  if (importId) {
+    formPrefix =
+      `--${boundary}\r\n` +
+      `Content-Disposition: form-data; name="importId"\r\n\r\n` +
+      `${importId}\r\n`;
+  }
+
+  const fileHeader =
     `--${boundary}\r\n` +
-      `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
-      `Content-Type: application/gzip\r\n\r\n`,
-  );
+    `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
+    `Content-Type: application/gzip\r\n\r\n`;
+
+  const header = Buffer.from(formPrefix + fileHeader);
   const footer = Buffer.from(`\r\n--${boundary}--\r\n`);
   const totalSize = header.length + fileSize + footer.length;
 
