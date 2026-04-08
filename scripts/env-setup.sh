@@ -76,7 +76,7 @@ if command -v psql &>/dev/null; then
   if ! sudo -u postgres psql -lqt | cut -d\| -f1 | grep -qw "$DB_NAME"; then
     echo ""
     echo ">> Creating database '$DB_NAME' ..."
-    sudo -u postgres psql -c "CREATE USER \"$DB_USER\" WITH PASSWORD '$DB_PASSWORD';" 2>/dev/null || true
+    sudo -u postgres psql -c "CREATE USER \"$DB_USER\" WITH PASSWORD '$DB_PASSWORD' CREATEDB;" 2>/dev/null || true
     sudo -u postgres psql -c "CREATE DATABASE \"$DB_NAME\" OWNER \"$DB_USER\";"
     echo "   Database '$DB_NAME' created"
   fi

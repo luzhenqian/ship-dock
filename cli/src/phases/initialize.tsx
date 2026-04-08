@@ -57,10 +57,10 @@ export function InitializePhase({ config, onComplete }: Props) {
         status: 'pending' as TaskStatus,
         run: async () => {
           // Create or update user
-          const createUser = await runShell(`sudo -u postgres psql -c "CREATE USER ${config.dbUser} WITH PASSWORD '${config.dbPassword}';"`);
+          const createUser = await runShell(`sudo -u postgres psql -c "CREATE USER ${config.dbUser} WITH PASSWORD '${config.dbPassword}' CREATEDB;"`);
           if (createUser.exitCode !== 0) {
             if (createUser.stderr.includes('already exists')) {
-              const alter = await runShell(`sudo -u postgres psql -c "ALTER USER ${config.dbUser} WITH PASSWORD '${config.dbPassword}';"`);
+              const alter = await runShell(`sudo -u postgres psql -c "ALTER USER ${config.dbUser} WITH PASSWORD '${config.dbPassword}' CREATEDB;"`);
               if (alter.exitCode !== 0) throw new Error(alter.stderr);
             } else {
               throw new Error(createUser.stderr);
