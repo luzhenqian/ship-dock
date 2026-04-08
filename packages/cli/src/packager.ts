@@ -141,9 +141,9 @@ export async function packageProjects(
 
       manifest.projects.push({
         index: i,
-        name: project.name,
-        directory: project.directory,
-        detectedBy: project.detectedBy,
+        ...projectMeta,
+        envVars: project.envVars || {},
+        cronEntries: project.cronEntries || [],
       });
     }
 
@@ -183,11 +183,10 @@ interface ManifestData {
   version: string;
   createdAt: string;
   hostname: string;
-  projects: Array<{
+  projects: Array<ProjectMeta & {
     index: number;
-    name: string;
-    directory: string;
-    detectedBy: string;
+    envVars: Record<string, string>;
+    cronEntries: Array<{ schedule: string; command: string }>;
   }>;
 }
 

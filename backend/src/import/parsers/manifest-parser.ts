@@ -39,17 +39,48 @@ export class ManifestParser {
 
     const projects: ManifestProject[] = raw.projects.map((p: any, i: number) => {
       if (!p.name) throw new Error(`Project at index ${i} missing name`);
+
+      // Build databases array from CLI's databaseUrl string or existing array
+      const databases = p.databases || [];
+      if (databases.length === 0 && p.databaseUrl) {
+        const dbType = p.databaseUrl.startsWith('mysql') ? 'mysql' : 'postgresql';
+        databases.push({ type: dbType, connectionUrl: p.databaseUrl });
+      }
+
+      // Build redis array from CLI's redisUrl string or existing array
+      const redis = p.redis || [];
+      if (redis.length === 0 && p.redisUrl) {
+        redis.push({ connectionUrl: p.redisUrl });
+      }
+
+      // Map env from CLI's envVars or existing env
+      const env = p.env || p.envVars || {};
+
+      // Map type from CLI's processManager/detectedBy or existing type
+      const type = p.type && p.type !== 'unknown'
+        ? p.type
+        : p.processManager || p.detectedBy?.split(',')[0] || 'unknown';
+
+      // Map cron from CLI's cronEntries or existing cron
+      const cron = p.cron || p.cronEntries || [];
+
+      // Map nginx from CLI format to standard format
+      let nginx = p.nginx || null;
+      if (nginx && nginx.serverName && !nginx.serverNames) {
+        nginx = { serverNames: [nginx.serverName], sslCert: nginx.sslCert, sslKey: nginx.sslKey };
+      }
+
       return {
         name: p.name,
-        type: p.type || 'unknown',
+        type,
         directory: p.directory || '',
-        command: p.command || '',
+        command: p.command || p.startCommand || '',
         port: p.port,
-        env: p.env || {},
-        nginx: p.nginx || null,
-        cron: p.cron || [],
-        databases: p.databases || [],
-        redis: p.redis || [],
+        env,
+        nginx,
+        cron,
+        databases,
+        redis,
         storage: p.storage || [],
         data: p.data || {},
         gitRemote: p.gitRemote || null,
