@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import * as fs from 'fs';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
@@ -199,6 +200,12 @@ program
       if (result.success) {
         await reportProgress('done', 'Upload complete!', 100);
         uploadSpinner.succeed('Upload complete!');
+
+        // Clean up local temp file after successful upload
+        try {
+          fs.unlinkSync(packageResult.packagePath);
+        } catch {}
+
         console.log('');
         if (result.importId) {
           console.log(chalk.green(`  Import ID: ${result.importId}`));
