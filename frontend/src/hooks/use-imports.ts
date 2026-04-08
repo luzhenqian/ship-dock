@@ -34,7 +34,7 @@ export function useImport(importId: string | null) {
     enabled: !!importId,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      if (status === 'RUNNING' || status === 'PENDING') return 2000;
+      if (!status || status === 'RUNNING' || status === 'PENDING' || status === 'UPLOADED' || status === 'CONFIGURING') return 2000;
       return false;
     },
   });
