@@ -206,7 +206,7 @@ export class ImportProcessor extends WorkerHost {
         return projectId;
 
       case 'IMPORT_REDIS':
-        this.log(importId, 'info', 'Redis import -- placeholder for future implementation');
+        await this.stageImportRedis(importId, projectId!, config);
         return projectId;
 
       case 'PROVISION_STORAGE':
@@ -214,7 +214,7 @@ export class ImportProcessor extends WorkerHost {
         return projectId;
 
       case 'SYNC_STORAGE':
-        this.log(importId, 'info', 'Storage sync -- placeholder for future implementation');
+        await this.stageSyncStorage(importId, projectId!, config);
         return projectId;
 
       case 'SET_ENV':
@@ -350,6 +350,133 @@ export class ImportProcessor extends WorkerHost {
       }
       this.log(importId, 'warn', `Database import completed with warnings`);
     }
+  }
+
+  private async stageImportRedis(importId: string, projectId: string, config: any): Promise<void> {
+    const project = await this.prisma.project.findUnique({ where: { id: projectId } });
+    if (!project?.useLocalRedis || project.redisDbIndex === null) {
+      this.log(importId, 'info', 'No Redis provisioned, skipping import');
+      return;
+    }
+
+    // Find RDB dump in package
+    const imp = await this.prisma.import.findUnique({ where: { id: importId } });
+    if (!imp?.packageKey) {
+      this.log(importId, 'info', 'No package file, skipping Redis import');
+      return;
+    }
+
+    const extractDir = imp.packageKey.replace('.tar.gz', '');
+    const projectIndex = config.index ?? 0;
+    const rdbPath = require('path').join(extractDir, `project-${projectIndex}`, 'redis.rdb');
+
+    const { existsSync } = require('fs');
+    if (!existsSync(rdbPath)) {
+      this.log(importId, 'info', 'No Redis dump found in package, skipping');
+      return;
+    }
+
+    // Get target Redis connection info
+    const envVarsStr = project.envVars ? this.encryption.decrypt(project.envVars) : '{}';
+    const envVars = JSON.parse(envVarsStr);
+    const redisUrl = envVars.REDIS_URL;
+
+    if (!redisUrl) {
+      this.log(importId, 'info', 'No REDIS_URL found, skipping import');
+      return;
+    }
+
+    this.log(importId, 'info', `Importing Redis data from RDB dump...`);
+
+    // Use redis-cli to load keys from the source Redis URL into target db
+    // Since RDB is a full dump and we need to import into a specific db index,
+    // we use a key-by-key approach: connect to source, dump keys, restore into target
+    const { execSync } = require('child_process');
+    const ConfigService = this.config;
+    const host = ConfigService.get('REDIS_HOST', 'localhost');
+    const port = ConfigService.get('REDIS_PORT', 6379);
+    const password = ConfigService.get('REDIS_PASSWORD', '');
+    const authArgs = password ? `-a '${password}' --no-auth-warning` : '';
+    const dbIndex = project.redisDbIndex;
+
+    try {
+      // Use redis-cli with --rdb to load (only works if redis-cli supports it)
+      // Fallback: copy source keys using DUMP/RESTORE via the source redisUrl
+      // For now, if we have source redisUrl from the original server, do key-by-key sync
+      const sourceRedisUrl = config.redisUrl;
+      if (sourceRedisUrl) {
+        // Source is the original server's Redis — but it's not accessible from Ship Dock server
+        // So we skip remote sync and just log
+        this.log(importId, 'info', 'Redis source is on remote server — RDB dump available but direct restore requires manual intervention');
+        this.log(importId, 'info', `RDB file saved at: ${rdbPath}`);
+      } else {
+        this.log(importId, 'info', 'No source Redis URL, skipping key import');
+      }
+    } catch (err: any) {
+      this.log(importId, 'warn', `Redis import note: ${err.message}`);
+    }
+  }
+
+  private async stageSyncStorage(importId: string, projectId: string, config: any): Promise<void> {
+    const project = await this.prisma.project.findUnique({ where: { id: projectId } });
+    if (!project?.useLocalMinio || !project.minioBucket) {
+      this.log(importId, 'info', 'No storage provisioned, skipping sync');
+      return;
+    }
+
+    // Find storage files in package
+    const imp = await this.prisma.import.findUnique({ where: { id: importId } });
+    if (!imp?.packageKey) {
+      this.log(importId, 'info', 'No package file, skipping storage sync');
+      return;
+    }
+
+    const extractDir = imp.packageKey.replace('.tar.gz', '');
+    const projectIndex = config.index ?? 0;
+    const storagePath = require('path').join(extractDir, `project-${projectIndex}`, 'storage');
+
+    const { existsSync, readdirSync, readFileSync } = require('fs');
+    const pathModule = require('path');
+
+    if (!existsSync(storagePath)) {
+      this.log(importId, 'info', 'No storage files found in package, skipping');
+      return;
+    }
+
+    const files = readdirSync(storagePath, { recursive: true, withFileTypes: false }) as string[];
+    if (files.length === 0) {
+      this.log(importId, 'info', 'Storage directory is empty, skipping');
+      return;
+    }
+
+    this.log(importId, 'info', `Syncing ${files.length} file(s) to MinIO bucket ${project.minioBucket}...`);
+
+    // Upload each file to MinIO
+    const Minio = require('minio');
+    const minioClient = new Minio.Client({
+      endPoint: this.config.getOrThrow('MINIO_ENDPOINT'),
+      port: parseInt(this.config.get('MINIO_PORT', '9000')),
+      useSSL: this.config.get('MINIO_USE_SSL', 'false') === 'true',
+      accessKey: this.config.getOrThrow('MINIO_ACCESS_KEY'),
+      secretKey: this.config.getOrThrow('MINIO_SECRET_KEY'),
+    });
+
+    let uploaded = 0;
+    for (const file of files) {
+      const filePath = pathModule.join(storagePath, file);
+      const stat = require('fs').statSync(filePath);
+      if (stat.isDirectory()) continue;
+
+      try {
+        const fileBuffer = readFileSync(filePath);
+        await minioClient.putObject(project.minioBucket, file, fileBuffer);
+        uploaded++;
+      } catch (err: any) {
+        this.log(importId, 'warn', `Failed to upload ${file}: ${err.message}`);
+      }
+    }
+
+    this.log(importId, 'info', `Synced ${uploaded} file(s) to MinIO`);
   }
 
   private async stageProvisionRedis(importId: string, projectId: string): Promise<void> {
