@@ -168,6 +168,11 @@ export class ImportProcessor extends WorkerHost {
         case 'SETUP_CRON':
           if (!hasCron) status = 'SKIPPED';
           break;
+        case 'DEPLOY':
+          // Skip deploy during import — no source code configured yet.
+          // Users can deploy manually after configuring git repo in Ship Dock.
+          status = 'SKIPPED';
+          break;
         case 'SWITCH_DNS':
           if (!hasDomain) status = 'SKIPPED';
           break;
