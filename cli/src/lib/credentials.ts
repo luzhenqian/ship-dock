@@ -34,6 +34,17 @@ export interface Credentials {
   jwtSecret: string;
   jwtRefreshSecret: string;
   encryptionKey: string;
+  // GitHub App (optional)
+  githubAppId: string;
+  githubAppPrivateKey: string;
+  githubAppWebhookSecret: string;
+  githubAppSlug: string;
+  // Google Analytics (optional)
+  googleClientId: string;
+  googleClientSecret: string;
+  // Microsoft Clarity (optional)
+  microsoftClientId: string;
+  microsoftClientSecret: string;
 }
 
 export function saveCredentials(creds: Credentials, path: string): void {

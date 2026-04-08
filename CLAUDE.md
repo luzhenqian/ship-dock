@@ -14,17 +14,14 @@ Self-hosted deployment platform (like Vercel, but self-managed).
 Push to `main` branch → Vercel auto-deploys. No manual steps needed.
 
 ### Backend
-Run `./scripts/deploy.sh` from local machine. This script:
-1. Rsync uploads source code to server (54.174.82.13)
-2. SSHes in and runs `deploy-remote.sh`
-3. Installs deps, generates Prisma client, runs migrations, builds, and reloads PM2
-
-Config: `scripts/deploy.config.sh` (gitignored, copy from `deploy.config.example.sh`)
+Push to `main`, then SSH into the server and run:
+```bash
+ship-dock upgrade --edge --force
+```
+This pulls latest `main`, installs deps, runs Prisma migrations, builds, and reloads PM2. Includes automatic backup and rollback on failure.
 
 ### Deploying both
-When changes span frontend + backend:
-1. Push to `main` (triggers Vercel for frontend)
-2. Run `./scripts/deploy.sh` (deploys backend to server)
+Push to `main` (triggers Vercel for frontend), then run `ship-dock upgrade --edge --force` on the server for backend.
 
 ## Development
 

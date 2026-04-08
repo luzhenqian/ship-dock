@@ -25,6 +25,7 @@ interface InitTask {
 export function InitializePhase({ config, onComplete }: Props) {
   const [tasks, setTasks] = useState<InitTask[]>([]);
   const [started, setStarted] = useState(false);
+  let adminToken = '';
 
   useEffect(() => {
     const taskDefs: InitTask[] = [
@@ -181,7 +182,36 @@ export function InitializePhase({ config, onComplete }: Props) {
         name: 'Create admin account',
         status: 'pending',
         run: async () => {
-          await ensureAdmin(config.adminEmail, config.adminPassword, config.port);
+          adminToken = await ensureAdmin(config.adminEmail, config.adminPassword, config.port);
+        },
+      },
+      {
+        name: 'Register Ship Dock as managed project',
+        status: 'pending',
+        run: async () => {
+          if (!adminToken) throw new Error('No admin token — skipping self-registration');
+          const proto = config.ssl ? 'https' : 'http';
+          const domain = config.domain ? `${proto}://${config.domain}` : '';
+          const payload = JSON.stringify({
+            name: 'Ship Dock',
+            slug: 'ship-dock',
+            sourceType: 'GITHUB',
+            repoUrl: 'https://github.com/luzhenqian/ship-dock',
+            branch: 'main',
+            domain: domain ? config.domain : undefined,
+            directory: 'shipdock',
+          });
+          const result = await runShell(
+            `curl -s -X POST http://localhost:${config.port}/api/projects ` +
+            `-H "Content-Type: application/json" ` +
+            `-H "Authorization: Bearer ${adminToken}" ` +
+            `-d '${payload}'`
+          );
+          if (result.stdout.includes('error') || result.stdout.includes('Error')) {
+            // Not critical — may already exist on reinstall
+            const parsed = JSON.parse(result.stdout).message ?? result.stdout;
+            throw new Error(typeof parsed === 'string' ? parsed : JSON.stringify(parsed));
+          }
         },
       },
       {

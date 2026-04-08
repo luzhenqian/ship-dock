@@ -59,6 +59,20 @@ const fields: FieldDef[] = [
 
   // ── Secrets ──
   { key: 'jwtSecret', label: 'JWT secret', type: 'password', placeholder: 'leave empty to auto-generate', autoGenerate: true, masked: true },
+
+  // ── GitHub App (optional) ──
+  { key: 'githubAppId', label: 'GitHub App ID', type: 'text', placeholder: 'leave empty to skip' },
+  { key: 'githubAppPrivateKey', label: 'GitHub App private key (base64)', type: 'password', placeholder: 'leave empty to skip', masked: true, showWhen: (v) => !!v.githubAppId },
+  { key: 'githubAppWebhookSecret', label: 'GitHub App webhook secret', type: 'password', placeholder: 'leave empty to skip', masked: true, showWhen: (v) => !!v.githubAppId },
+  { key: 'githubAppSlug', label: 'GitHub App slug', type: 'text', placeholder: 'e.g. my-ship-dock', showWhen: (v) => !!v.githubAppId },
+
+  // ── Google Analytics (optional) ──
+  { key: 'googleClientId', label: 'Google OAuth client ID', type: 'text', placeholder: 'leave empty to skip' },
+  { key: 'googleClientSecret', label: 'Google OAuth client secret', type: 'password', placeholder: 'leave empty to skip', masked: true, showWhen: (v) => !!v.googleClientId },
+
+  // ── Microsoft Clarity (optional) ──
+  { key: 'microsoftClientId', label: 'Microsoft OAuth client ID', type: 'text', placeholder: 'leave empty to skip' },
+  { key: 'microsoftClientSecret', label: 'Microsoft OAuth client secret', type: 'password', placeholder: 'leave empty to skip', masked: true, showWhen: (v) => !!v.microsoftClientId },
 ];
 
 function getVisibleFields(values: Record<string, string>): FieldDef[] {
@@ -109,6 +123,15 @@ export function CollectPhase({ onComplete }: Props) {
         jwtSecret: v.jwtSecret,
         jwtRefreshSecret: generateSecret(),
         encryptionKey: generateSecret(64),
+        // Optional integrations (empty = not configured)
+        githubAppId: v.githubAppId || '',
+        githubAppPrivateKey: v.githubAppPrivateKey || '',
+        githubAppWebhookSecret: v.githubAppWebhookSecret || '',
+        githubAppSlug: v.githubAppSlug || '',
+        googleClientId: v.googleClientId || '',
+        googleClientSecret: v.googleClientSecret || '',
+        microsoftClientId: v.microsoftClientId || '',
+        microsoftClientSecret: v.microsoftClientSecret || '',
       };
       onComplete(creds);
     } else {

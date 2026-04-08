@@ -61,6 +61,40 @@ export function Report({ config }: Props) {
         <Text>  Credentials:      {homedir()}/.shipdock/credentials</Text>
         <Text>  PM2 logs:         pm2 logs</Text>
       </Box>
+      {config.githubAppId && (
+        <>
+          <Newline />
+          <Text bold>GitHub App</Text>
+          <Text>  App ID:           {config.githubAppId}</Text>
+          <Text>  Slug:             {config.githubAppSlug}</Text>
+        </>
+      )}
+      {config.googleClientId && (
+        <>
+          <Newline />
+          <Text bold>Google Analytics</Text>
+          <Text>  Client ID:        {config.googleClientId}</Text>
+          <Text>  Redirect URI:     {url}/api/analytics/callback/google</Text>
+        </>
+      )}
+      {config.microsoftClientId && (
+        <>
+          <Newline />
+          <Text bold>Microsoft Clarity</Text>
+          <Text>  Client ID:        {config.microsoftClientId}</Text>
+          <Text>  Redirect URI:     {url}/api/analytics/callback/microsoft</Text>
+        </>
+      )}
+      {(!config.githubAppId || !config.googleClientId || !config.microsoftClientId) && (
+        <>
+          <Newline />
+          <Text bold>Next Steps</Text>
+          {!config.githubAppId && <Text>  • Configure GitHub App for git-based deployments</Text>}
+          {!config.googleClientId && <Text>  • Configure Google Analytics (GA4) integration</Text>}
+          {!config.microsoftClientId && <Text>  • Configure Microsoft Clarity integration</Text>}
+          <Text>  Edit /opt/shipdock/backend/.env, then: pm2 reload ship-dock-api</Text>
+        </>
+      )}
       <Newline />
       <Text color="gray">─────────────────────────────────────────</Text>
     </Box>

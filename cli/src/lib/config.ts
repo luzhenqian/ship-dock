@@ -8,7 +8,7 @@ export function generateBackendEnv(creds: Credentials): void {
   const proto = creds.ssl ? 'https' : 'http';
   const frontendUrl = creds.domain ? `${proto}://${creds.domain}` : 'http://localhost:3000';
 
-  const lines = [
+  let lines = [
     `DATABASE_URL="${dbUrl}"`,
     `REDIS_HOST=${creds.redisHost}`,
     `REDIS_PORT=${creds.redisPort}`,
@@ -27,7 +27,42 @@ export function generateBackendEnv(creds: Credentials): void {
     `MINIO_USE_SSL=false`,
     '',
     `FRONTEND_URL=${frontendUrl}`,
-  ].filter(Boolean);
+    '',
+    `BASE_URL=${frontendUrl}`,
+  ];
+
+  // GitHub App
+  if (creds.githubAppId) {
+    lines.push(
+      '',
+      `GITHUB_APP_ID=${creds.githubAppId}`,
+      `GITHUB_APP_PRIVATE_KEY=${creds.githubAppPrivateKey}`,
+      `GITHUB_APP_WEBHOOK_SECRET=${creds.githubAppWebhookSecret}`,
+      `GITHUB_APP_SLUG=${creds.githubAppSlug}`,
+    );
+  }
+
+  // Google Analytics
+  if (creds.googleClientId) {
+    lines.push(
+      '',
+      `GOOGLE_CLIENT_ID=${creds.googleClientId}`,
+      `GOOGLE_CLIENT_SECRET=${creds.googleClientSecret}`,
+      `GOOGLE_REDIRECT_URI=${frontendUrl}/api/analytics/callback/google`,
+    );
+  }
+
+  // Microsoft Clarity
+  if (creds.microsoftClientId) {
+    lines.push(
+      '',
+      `MICROSOFT_CLIENT_ID=${creds.microsoftClientId}`,
+      `MICROSOFT_CLIENT_SECRET=${creds.microsoftClientSecret}`,
+      `MICROSOFT_REDIRECT_URI=${frontendUrl}/api/analytics/callback/microsoft`,
+    );
+  }
+
+  lines = lines.filter(Boolean);
 
   writeFileSync(`${PROJECT_DIR}/backend/.env`, lines.join('\n') + '\n');
 }
