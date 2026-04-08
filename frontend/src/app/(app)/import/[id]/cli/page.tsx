@@ -4,7 +4,6 @@ import { use, useState, useEffect } from 'react';
 import copyToClipboard from 'copy-to-clipboard';
 import { useRouter } from 'next/navigation';
 import { useImport } from '@/hooks/use-imports';
-import { useImportProgress } from '@/hooks/use-import-progress';
 import { getAccessToken } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -14,7 +13,6 @@ export default function CliConnectPage({ params }: { params: Promise<{ id: strin
   const { id } = use(params);
   const router = useRouter();
   const { data: importData } = useImport(id);
-  const { uploadComplete, logs, progress } = useImportProgress(id);
   const [token, setToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -22,12 +20,16 @@ export default function CliConnectPage({ params }: { params: Promise<{ id: strin
     setToken(getAccessToken());
   }, []);
 
+  // CLI progress from polled import data
+  const cliProgress: { stage: string; message?: string; percent?: number }[] =
+    (importData?.manifestData as any)?.cliProgress || [];
+
   // Redirect when upload complete or import already has items
   useEffect(() => {
-    if (uploadComplete || (importData && importData.items && importData.items.length > 0)) {
+    if (importData?.status === 'UPLOADED' || (importData && importData.items && importData.items.length > 0)) {
       router.push(`/import/${id}/preview`);
     }
-  }, [uploadComplete, importData, id, router]);
+  }, [importData, id, router]);
 
   const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
   const apiUrl = typeof window !== 'undefined' && rawApiUrl.startsWith('/')
@@ -79,7 +81,7 @@ export default function CliConnectPage({ params }: { params: Promise<{ id: strin
           </div>
 
           <div className="rounded-lg border p-4 space-y-3">
-            {logs.length === 0 ? (
+            {cliProgress.length === 0 ? (
               <div className="flex items-center gap-3">
                 <Loader2 className="size-4 animate-spin text-muted-foreground" />
                 <div>
@@ -91,29 +93,35 @@ export default function CliConnectPage({ params }: { params: Promise<{ id: strin
               </div>
             ) : (
               <>
-                {(progress.get('cli') || []).map((p) => (
-                  <div key={p.stage} className="flex items-center gap-3">
-                    {p.status === 'RUNNING' ? (
-                      <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                    ) : (
-                      <Check className="size-4 text-green-500" />
-                    )}
-                    <div className="flex-1">
-                      <p className="text-sm font-medium capitalize">{p.stage}</p>
-                      {p.progress != null && p.progress > 0 && p.progress < 100 && (
-                        <div className="mt-1 h-1.5 w-full rounded-full bg-muted">
-                          <div
-                            className="h-1.5 rounded-full bg-foreground transition-all"
-                            style={{ width: `${p.progress}%` }}
-                          />
-                        </div>
+                {cliProgress.map((p, i) => {
+                  const isLast = i === cliProgress.length - 1;
+                  const isDone = p.stage === 'done';
+                  return (
+                    <div key={p.stage} className="flex items-center gap-3">
+                      {isDone ? (
+                        <Check className="size-4 text-green-500" />
+                      ) : isLast && !isDone ? (
+                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <Check className="size-4 text-green-500" />
                       )}
+                      <div className="flex-1">
+                        <p className="text-sm font-medium capitalize">{p.stage}</p>
+                        {p.message && (
+                          <p className="text-xs text-muted-foreground">{p.message}</p>
+                        )}
+                        {isLast && !isDone && p.percent != null && p.percent > 0 && p.percent < 100 && (
+                          <div className="mt-1 h-1.5 w-full rounded-full bg-muted">
+                            <div
+                              className="h-1.5 rounded-full bg-foreground transition-all"
+                              style={{ width: `${p.percent}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {logs.length > 0 && (
-                  <p className="text-xs text-muted-foreground">{logs[logs.length - 1].message}</p>
-                )}
+                  );
+                })}
               </>
             )}
           </div>

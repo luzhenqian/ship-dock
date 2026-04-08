@@ -34,7 +34,8 @@ export function useImport(importId: string | null) {
     enabled: !!importId,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status === 'RUNNING' ? 2000 : false;
+      if (status === 'RUNNING' || status === 'PENDING') return 2000;
+      return false;
     },
   });
 }

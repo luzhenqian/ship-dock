@@ -43,19 +43,32 @@ export class ImportService {
   }
 
   async reportProgress(importId: string, data: { stage: string; message?: string; percent?: number }) {
+    // Store progress in the Import record so frontend can poll it
+    const imp = await this.prisma.import.findUnique({ where: { id: importId } });
+    if (!imp) throw new NotFoundException('Import not found');
+
+    const cliProgress = ((imp.manifestData as any)?.cliProgress || []) as any[];
+    const existing = cliProgress.findIndex((p: any) => p.stage === data.stage);
+    const entry = { stage: data.stage, message: data.message, percent: data.percent, updatedAt: new Date().toISOString() };
+    if (existing >= 0) {
+      cliProgress[existing] = entry;
+    } else {
+      cliProgress.push(entry);
+    }
+
+    await this.prisma.import.update({
+      where: { id: importId },
+      data: { manifestData: { ...(imp.manifestData as any || {}), cliProgress } },
+    });
+
+    // Also emit via WebSocket for real-time updates
     this.gateway.emitProgress(importId, {
       itemId: 'cli',
       stage: data.stage,
       status: 'RUNNING',
       progress: data.percent,
     });
-    if (data.message) {
-      this.gateway.emitLog(importId, {
-        itemId: 'cli',
-        stage: data.stage,
-        message: data.message,
-      });
-    }
+
     return { ok: true };
   }
 
