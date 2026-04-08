@@ -42,6 +42,8 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
     queryFn: () => api<Record<string, string>>(`/projects/${projectId}/env`),
   });
 
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
   const [domain, setDomain] = useState('');
   const [directory, setDirectory] = useState('');
   const [workDir, setWorkDir] = useState('');
@@ -76,6 +78,8 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
 
   useEffect(() => {
     if (project) {
+      setName(project.name || '');
+      setSlug(project.slug || '');
       setDomain(project.domain || '');
       setDirectory(project.directory || project.slug || '');
       setWorkDir(project.workDir || '');
@@ -91,16 +95,24 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
 
   async function handleSave() {
     setSaving(true);
-    await api(`/projects/${projectId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        domain: domain || undefined,
-        directory: directory || undefined,
-        workDir: workDir || null,
-        startCommand: startCommand || null,
-        envVars: Object.keys(envVars).length > 0 ? envVars : undefined,
-      }),
-    });
+    try {
+      await api(`/projects/${projectId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: name || undefined,
+          slug: slug || undefined,
+          domain: domain || undefined,
+          directory: directory || undefined,
+          workDir: workDir || null,
+          startCommand: startCommand || null,
+          envVars: Object.keys(envVars).length > 0 ? envVars : undefined,
+        }),
+      });
+    } catch (err: any) {
+      setSaving(false);
+      toast.error(err.message || 'Failed to save');
+      return;
+    }
     setSaving(false);
     refetch();
     toast.success('Settings saved', {
@@ -138,11 +150,19 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
         <CardContent className="space-y-4">
           <div>
             <Label>Name</Label>
-            <Input value={project.name} disabled />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Project name" />
           </div>
           <div>
             <Label>Slug</Label>
-            <Input value={project.slug} disabled className="font-mono" />
+            <Input
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+              className="font-mono"
+              placeholder="project-slug"
+            />
+            {slug && !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) && (
+              <p className="text-xs text-status-error mt-1">Slug must be lowercase alphanumeric with hyphens</p>
+            )}
           </div>
           <div>
             <Label>Port</Label>

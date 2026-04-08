@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { execFile } from 'child_process';
 import { existsSync, writeFileSync } from 'fs';
@@ -206,6 +206,24 @@ export class ProjectsService {
 
   async update(id: string, dto: UpdateProjectDto) {
     const data: any = { ...dto };
+
+    // Validate slug format and uniqueness if being changed
+    if ('slug' in dto && dto.slug !== undefined) {
+      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(dto.slug)) {
+        throw new ConflictException('Slug must be lowercase alphanumeric with hyphens (e.g. my-project)');
+      }
+      const existing = await this.prisma.project.findFirst({
+        where: { slug: dto.slug, id: { not: id } },
+      });
+      if (existing) {
+        throw new ConflictException('A project with this slug already exists');
+      }
+    }
+
+    // Validate name is not empty if being changed
+    if ('name' in dto && dto.name !== undefined && dto.name.trim() === '') {
+      throw new ConflictException('Project name cannot be empty');
+    }
 
     // Handle repo connect/disconnect
     if ('repoUrl' in dto) {
