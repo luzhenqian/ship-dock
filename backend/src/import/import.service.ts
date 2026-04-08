@@ -208,27 +208,36 @@ export class ImportService {
   async parseAndCreateItems(importId: string, manifest: any): Promise<void> {
     const projects = manifest.projects || [];
 
-    for (const project of projects) {
+    for (let i = 0; i < projects.length; i++) {
+      const project = projects[i];
       await this.prisma.importItem.create({
         data: {
           importId,
           sourceName: project.name,
           status: 'PENDING',
           config: {
+            index: project.index ?? i,
             name: project.name,
             type: project.type,
             directory: project.directory,
             command: project.command,
             port: project.port,
-            env: project.env || {},
+            env: project.env || project.envVars || {},
             nginx: project.nginx,
-            cron: project.cron || [],
+            cron: project.cron || project.cronEntries || [],
             databases: project.databases || [],
             redis: project.redis || [],
             storage: project.storage || [],
             data: project.data || {},
             gitRemote: project.gitRemote,
             gitCommit: project.gitCommit,
+            gitBranch: project.gitBranch,
+            databaseUrl: project.databaseUrl,
+            redisUrl: project.redisUrl,
+            runtime: project.runtime,
+            processManager: project.processManager,
+            detectedBy: project.detectedBy,
+            startCommand: project.startCommand,
           },
           stages: [],
         },
