@@ -1,4 +1,5 @@
 import { Inject, Logger, forwardRef } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { PrismaService } from '../common/prisma.service';
@@ -40,6 +41,7 @@ export class ImportProcessor extends WorkerHost {
   constructor(
     private prisma: PrismaService,
     private encryption: EncryptionService,
+    private config: ConfigService,
     @Inject(forwardRef(() => ProjectsService)) private projectsService: ProjectsService,
     @Inject(forwardRef(() => DeployService)) private deployService: DeployService,
     private gateway: ImportGateway,
@@ -391,12 +393,9 @@ export class ImportProcessor extends WorkerHost {
     // Use redis-cli to load keys from the source Redis URL into target db
     // Since RDB is a full dump and we need to import into a specific db index,
     // we use a key-by-key approach: connect to source, dump keys, restore into target
-    const { execSync } = require('child_process');
-    const ConfigService = this.config;
-    const host = ConfigService.get('REDIS_HOST', 'localhost');
-    const port = ConfigService.get('REDIS_PORT', 6379);
-    const password = ConfigService.get('REDIS_PASSWORD', '');
-    const authArgs = password ? `-a '${password}' --no-auth-warning` : '';
+    const host = this.config.get('REDIS_HOST', 'localhost');
+    const port = this.config.get('REDIS_PORT', 6379);
+    const password = this.config.get('REDIS_PASSWORD', '');
     const dbIndex = project.redisDbIndex;
 
     try {
