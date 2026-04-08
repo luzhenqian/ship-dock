@@ -6,7 +6,7 @@ import { useImport } from '@/hooks/use-imports';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Package, Database, HardDrive } from 'lucide-react';
+import { Loader2, Package, Database, HardDrive, Info } from 'lucide-react';
 
 export default function PreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -66,6 +66,13 @@ export default function PreviewPage({ params }: { params: Promise<{ id: string }
       </div>
 
       <div className="max-w-2xl space-y-4">
+        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-300">
+          <Info className="size-4 mt-0.5 shrink-0" />
+          <span>
+            Database connections, Redis URLs, ports, and storage credentials will be automatically replaced with Ship Dock local services during import. The values shown below are from the source server.
+          </span>
+        </div>
+
         {items.length > 1 && (
           <div className="flex items-center gap-2">
             <input
