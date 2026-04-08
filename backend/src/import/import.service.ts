@@ -73,6 +73,7 @@ export class ImportService {
   }
 
   async handleUpload(file: Express.Multer.File, userId: string, existingImportId?: string): Promise<any> {
+    this.logger.log(`handleUpload called — existingImportId: ${existingImportId || 'none'}, fileSize: ${file?.size}`);
     if (!file) {
       throw new BadRequestException('No file provided');
     }
