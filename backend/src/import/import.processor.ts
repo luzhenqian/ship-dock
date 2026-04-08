@@ -247,22 +247,26 @@ export class ImportProcessor extends WorkerHost {
     const hasRedis = config.redis?.length > 0 && !config.skipRedis;
     const hasStorage = config.storage?.length > 0 && !config.skipStorage;
 
-    const slug = config.slug || config.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    // Clean slug: lowercase, replace non-alphanumeric with dash, strip leading/trailing dashes, collapse multiple dashes
+    const slug = (config.slug || config.name)
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
 
     // Get the import record to find userId
     const importRecord = await this.prisma.import.findUnique({ where: { id: importId } });
 
-    // Always let Ship Dock auto-assign ports — source server ports may conflict
-    const port = undefined;
+    // Map git remote to repoUrl (CLI detects gitRemote, Ship Dock expects repoUrl)
+    const repoUrl = config.repoUrl || config.gitRemote || null;
 
     const project = await this.projectsService.create(importRecord!.userId, {
       name: config.name,
       slug,
-      sourceType: config.repoUrl ? 'GITHUB' : 'UPLOAD',
-      repoUrl: config.repoUrl,
-      branch: config.branch || 'main',
+      sourceType: repoUrl ? 'GITHUB' : 'UPLOAD',
+      repoUrl,
+      branch: config.branch || config.gitBranch || 'main',
       domain: config.domain,
-      port,
       useLocalDb: hasDatabase,
       useLocalRedis: hasRedis,
       useLocalMinio: hasStorage,
