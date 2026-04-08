@@ -198,7 +198,7 @@ export class ImportProcessor extends WorkerHost {
         return projectId;
 
       case 'IMPORT_DB':
-        this.log(importId, 'info', 'Database import -- will be implemented with DataMigrationService integration');
+        await this.stageImportDb(importId, projectId!, config);
         return projectId;
 
       case 'PROVISION_REDIS':
@@ -291,6 +291,65 @@ export class ImportProcessor extends WorkerHost {
     }
     await this.projectsService.provisionDatabase(projectId);
     this.log(importId, 'info', 'Database provisioned');
+  }
+
+  private async stageImportDb(importId: string, projectId: string, config: any): Promise<void> {
+    const project = await this.prisma.project.findUnique({ where: { id: projectId } });
+    if (!project?.dbName) {
+      this.log(importId, 'info', 'No database provisioned, skipping import');
+      return;
+    }
+
+    // Find the database dump file in the extracted package
+    const imp = await this.prisma.import.findUnique({ where: { id: importId } });
+    if (!imp?.packageKey) {
+      this.log(importId, 'info', 'No package file, skipping database import');
+      return;
+    }
+
+    // Derive extract directory from packageKey
+    // packageKey is like /tmp/imports/{uploadId}.tar.gz, extract dir is /tmp/imports/{uploadId}/
+    const extractDir = imp.packageKey.replace('.tar.gz', '');
+    const projectIndex = config.index ?? 0;
+    const dumpPath = require('path').join(extractDir, `project-${projectIndex}`, 'database.sql.gz');
+
+    const { existsSync } = require('fs');
+    if (!existsSync(dumpPath)) {
+      this.log(importId, 'info', 'No database dump found in package, skipping');
+      return;
+    }
+
+    // Get the target database URL
+    const envVarsStr = project.envVars
+      ? this.encryption.decrypt(project.envVars)
+      : '{}';
+    const envVars = JSON.parse(envVarsStr);
+    const databaseUrl = envVars.DATABASE_URL;
+
+    if (!databaseUrl) {
+      this.log(importId, 'info', 'No DATABASE_URL found, skipping import');
+      return;
+    }
+
+    this.log(importId, 'info', `Restoring database from ${dumpPath}...`);
+
+    const { execSync } = require('child_process');
+    try {
+      // gunzip and pipe to psql
+      execSync(`gunzip -c "${dumpPath}" | psql "${databaseUrl}"`, {
+        timeout: 600000, // 10 minutes
+        stdio: 'pipe',
+        maxBuffer: 50 * 1024 * 1024,
+      });
+      this.log(importId, 'info', 'Database imported successfully');
+    } catch (err: any) {
+      // psql may return warnings/notices that aren't fatal
+      const stderr = err.stderr?.toString() || '';
+      if (stderr.includes('ERROR')) {
+        throw new Error(`Database import failed: ${stderr.slice(0, 500)}`);
+      }
+      this.log(importId, 'warn', `Database import completed with warnings`);
+    }
   }
 
   private async stageProvisionRedis(importId: string, projectId: string): Promise<void> {
