@@ -2,6 +2,7 @@ import {
   Controller, Get, Post, Param, Body, UseGuards, UseInterceptors, UploadedFiles, BadRequestException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { MinRole } from '../common/decorators/roles.decorator';
@@ -10,7 +11,7 @@ import {
   TestStorageConnectionDto, DiscoverStorageObjectsDto, ValidateUrlsDto, CreateStorageImportDto,
 } from './dto/create-storage-import.dto';
 import { ConfigService } from '@nestjs/config';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { mkdirSync, existsSync, renameSync, statSync } from 'fs';
 import { join } from 'path';
 import { randomBytes } from 'crypto';
 
@@ -40,21 +41,29 @@ export class StorageImportController {
   }
 
   @Post('upload') @MinRole('DEVELOPER')
-  @UseInterceptors(FilesInterceptor('files', 50, { limits: { fileSize: MAX_FILE_SIZE } }))
+  @UseInterceptors(FilesInterceptor('files', 50, {
+    limits: { fileSize: MAX_FILE_SIZE },
+    storage: diskStorage({
+      destination: (_req, _file, cb) => {
+        const tempDir = process.env.TEMP_DIR || '/tmp';
+        if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true });
+        cb(null, tempDir);
+      },
+      filename: (_req, file, cb) => {
+        const hex = randomBytes(8).toString('hex');
+        const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+        cb(null, `storage-import-${hex}-${safeName}`);
+      },
+    }),
+  }))
   upload(@UploadedFiles() files: Express.Multer.File[]) {
     if (!files?.length) throw new BadRequestException('No files uploaded');
 
-    const tempDir = this.config.get('TEMP_DIR', '/tmp');
-    if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true });
-
-    const results = files.map((file) => {
-      const hex = randomBytes(8).toString('hex');
-      const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const fileKey = `storage-import-${hex}-${safeName}`;
-      const filePath = join(tempDir, fileKey);
-      writeFileSync(filePath, file.buffer);
-      return { fileKey, fileName: file.originalname, fileSize: file.size };
-    });
+    const results = files.map((file) => ({
+      fileKey: file.filename,
+      fileName: file.originalname,
+      fileSize: file.size,
+    }));
 
     return { files: results };
   }
