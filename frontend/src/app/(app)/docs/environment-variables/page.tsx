@@ -375,6 +375,11 @@ export default function EnvironmentVariablesDocsPage() {
                     <td className="py-2 pr-4">Read repository files for deployment</td>
                   </tr>
                   <tr className="border-b">
+                    <td className="py-2 pr-4">Pull requests</td>
+                    <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">Read-only</code></td>
+                    <td className="py-2 pr-4">Enables "Pull request" event subscription for deploy on PR merge</td>
+                  </tr>
+                  <tr className="border-b">
                     <td className="py-2 pr-4">Metadata</td>
                     <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">Read-only</code></td>
                     <td className="py-2 pr-4">List repositories and basic info</td>
@@ -392,7 +397,7 @@ export default function EnvironmentVariablesDocsPage() {
           {/* Step 4 */}
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">4. Subscribe to Events</p>
-            <p className="text-sm text-foreground/80">Under "Subscribe to events", check the following:</p>
+            <p className="text-sm text-foreground/80">Under "Subscribe to events", check the following. Note: some events (like Pull requests) only appear after enabling the corresponding permission in Step 3.</p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
