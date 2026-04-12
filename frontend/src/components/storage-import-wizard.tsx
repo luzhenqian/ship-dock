@@ -58,7 +58,7 @@ export function StorageImportWizard({ projectId, bucket, prefix, onClose }: Stor
   // Conflict + execution state
   const [conflictStrategy, setConflictStrategy] = useState<ConflictStrategy>('SKIP');
   const [importId, setImportId] = useState('');
-  const [showLogs, setShowLogs] = useState(false);
+  const [showLogs, setShowLogs] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -167,13 +167,15 @@ export function StorageImportWizard({ projectId, bucket, prefix, onClose }: Stor
       // For upload source, upload files first
       if (sourceMode === 'UPLOAD') {
         const result = await uploadImportFiles.mutateAsync(uploadFiles);
-        setUploadedFileKeys(result.fileKeys || []);
+        const fileKeys = (result.files || []).map((f: any) => f.fileKey);
+        setUploadedFileKeys(fileKeys);
         const importResult = await createImport.mutateAsync({
-          source: 'UPLOAD',
-          fileKeys: result.fileKeys,
+          source: 'FILE',
+          fileKeys,
           targetBucket: bucket,
           targetPrefix: prefix,
           conflictStrategy,
+          totalFiles: uploadFiles.length,
         });
         setImportId(importResult.id);
       } else if (sourceMode === 'REMOTE') {
@@ -181,11 +183,11 @@ export function StorageImportWizard({ projectId, bucket, prefix, onClose }: Stor
           source: 'REMOTE',
           connection,
           sourceBucket: selectedRemoteBucket,
-          sourcePrefix: remotePrefix || undefined,
-          objects: Array.from(selectedObjects),
+          objectKeys: Array.from(selectedObjects),
           targetBucket: bucket,
           targetPrefix: prefix,
           conflictStrategy,
+          totalFiles: selectedObjects.size,
         });
         setImportId(importResult.id);
       } else if (sourceMode === 'URL') {
@@ -196,6 +198,7 @@ export function StorageImportWizard({ projectId, bucket, prefix, onClose }: Stor
           targetBucket: bucket,
           targetPrefix: prefix,
           conflictStrategy,
+          totalFiles: validUrls.length,
         });
         setImportId(importResult.id);
       }

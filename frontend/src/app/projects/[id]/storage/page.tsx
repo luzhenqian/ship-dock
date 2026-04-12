@@ -24,7 +24,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   const [renameTarget, setRenameTarget] = useState<{ bucket: string; prefix: string; name: string } | null>(null);
   const [renameName, setRenameName] = useState('');
   const [showImport, setShowImport] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState('');
@@ -40,22 +40,26 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   const previewMutation = usePreviewUrl(id);
 
   const breadcrumbs = prefix ? prefix.split('/').filter(Boolean) : [];
+  const allItems = [
+    ...(objects?.prefixes || []),
+    ...(objects?.objects?.map((o: any) => o.name) || []),
+  ];
 
   const handleBucketSelect = (name: string) => {
     setSelectedBucket(name);
     setPrefix('');
-    setSelectedFiles(new Set());
+    setSelectedItems(new Set());
   };
 
   const handleFolderClick = (folderPrefix: string) => {
     setPrefix(folderPrefix);
-    setSelectedFiles(new Set());
+    setSelectedItems(new Set());
   };
 
   const handleBreadcrumb = (index: number) => {
     if (index < 0) setPrefix('');
     else setPrefix(breadcrumbs.slice(0, index + 1).join('/') + '/');
-    setSelectedFiles(new Set());
+    setSelectedItems(new Set());
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,7 +83,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteMutation.mutate(deleteTarget, { onSuccess: () => { setDeleteTarget(null); setSelectedFiles((prev) => { const next = new Set(prev); next.delete(deleteTarget.key); return next; }); } });
+    deleteMutation.mutate(deleteTarget, { onSuccess: () => { setDeleteTarget(null); setSelectedItems((prev) => { const next = new Set(prev); next.delete(deleteTarget.key); return next; }); } });
   };
 
   const handleDeleteFolder = () => {
@@ -97,12 +101,19 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
     );
   };
 
-  const handleBulkDelete = () => {
-    if (!selectedFiles.size) return;
-    deleteBulkMutation.mutate(
-      { bucket: selectedBucket, keys: Array.from(selectedFiles) },
-      { onSuccess: () => { setSelectedFiles(new Set()); setBulkDeleteConfirm(false); } },
-    );
+  const handleBulkDelete = async () => {
+    if (!selectedItems.size) return;
+    const folders = Array.from(selectedItems).filter((k) => k.endsWith('/'));
+    const files = Array.from(selectedItems).filter((k) => !k.endsWith('/'));
+
+    for (const folder of folders) {
+      await deletePrefixMutation.mutateAsync({ bucket: selectedBucket, prefix: folder });
+    }
+    if (files.length > 0) {
+      await deleteBulkMutation.mutateAsync({ bucket: selectedBucket, keys: files });
+    }
+    setSelectedItems(new Set());
+    setBulkDeleteConfirm(false);
   };
 
   const handlePreview = async (key: string) => {
@@ -112,7 +123,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   };
 
   const toggleFile = (key: string) => {
-    setSelectedFiles((prev) => {
+    setSelectedItems((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
       return next;
@@ -120,12 +131,11 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   };
 
   const toggleAll = () => {
-    if (!objects?.objects?.length) return;
-    const allKeys = objects.objects.map((o: any) => o.name);
-    if (selectedFiles.size === allKeys.length) {
-      setSelectedFiles(new Set());
+    if (!allItems.length) return;
+    if (selectedItems.size === allItems.length) {
+      setSelectedItems(new Set());
     } else {
-      setSelectedFiles(new Set(allKeys));
+      setSelectedItems(new Set(allItems));
     }
   };
 
@@ -185,9 +195,9 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                 ))}
               </div>
               <div className="flex gap-2 items-center">
-                {selectedFiles.size > 0 && (
+                {selectedItems.size > 0 && (
                   <Button size="sm" variant="destructive" onClick={() => setBulkDeleteConfirm(true)}>
-                    Delete {selectedFiles.size} selected
+                    Delete {selectedItems.size} selected
                   </Button>
                 )}
                 <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
@@ -203,10 +213,10 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                 <thead>
                   <tr className="bg-muted/30 border-b">
                     <th className="px-3 py-2 w-8">
-                      {objects?.objects?.length > 0 && (
+                      {allItems.length > 0 && (
                         <input
                           type="checkbox"
-                          checked={objects.objects.length > 0 && selectedFiles.size === objects.objects.length}
+                          checked={allItems.length > 0 && selectedItems.size === allItems.length}
                           onChange={toggleAll}
                         />
                       )}
@@ -222,7 +232,9 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                     const name = p.replace(prefix, '').replace(/\/$/, '');
                     return (
                       <tr key={p} className="border-b hover:bg-foreground/[0.04]">
-                        <td className="px-3 py-2"></td>
+                        <td className="px-3 py-2">
+                          <input type="checkbox" checked={selectedItems.has(p)} onChange={() => toggleFile(p)} />
+                        </td>
                         <td className="px-3 py-2 font-medium cursor-pointer" onClick={() => handleFolderClick(p)}>{name}/</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
@@ -253,7 +265,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                         <td className="px-3 py-2">
                           <input
                             type="checkbox"
-                            checked={selectedFiles.has(obj.name)}
+                            checked={selectedItems.has(obj.name)}
                             onChange={() => toggleFile(obj.name)}
                           />
                         </td>
@@ -323,8 +335,8 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
       <ConfirmDialog
         open={bulkDeleteConfirm}
         onOpenChange={(open) => !open && setBulkDeleteConfirm(false)}
-        title={`Delete ${selectedFiles.size} Files?`}
-        description={`This will permanently delete ${selectedFiles.size} selected files.`}
+        title={`Delete ${selectedItems.size} Files?`}
+        description={`This will permanently delete ${selectedItems.size} selected files.`}
         onConfirm={handleBulkDelete}
       />
 

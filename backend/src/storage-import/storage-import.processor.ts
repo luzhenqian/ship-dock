@@ -92,8 +92,10 @@ export class StorageImportProcessor extends WorkerHost {
         }
       }
 
+      this.log(importId, 'info', `Copying: ${key} → ${targetKey}`);
       const stream = await sourceClient.getObject(meta.sourceBucket, key);
       await targetClient.putObject(imp.targetBucket, targetKey, stream);
+      this.log(importId, 'info', `Imported (${completed + 1}/${allKeys.length}): ${targetKey}`);
       this.emitProgress(importId, ++completed, allKeys.length, targetKey, skipped);
     }
 
@@ -140,6 +142,7 @@ export class StorageImportProcessor extends WorkerHost {
 
           const stream = entry.stream();
           await targetClient.putObject(imp.targetBucket, targetKey, stream);
+          this.log(importId, 'info', `Extracted & imported: ${targetKey}`);
           this.emitProgress(importId, ++totalUploaded, 0, targetKey, skipped);
         }
       } else if (isTarGz) {
@@ -164,6 +167,7 @@ export class StorageImportProcessor extends WorkerHost {
         };
 
         const extractedFiles = walkDir(extractDir);
+        this.log(importId, 'info', `Found ${extractedFiles.length} files in archive`);
         await this.prisma.storageImport.update({
           where: { id: importId },
           data: { totalFiles: { increment: extractedFiles.length - 1 } },
@@ -177,12 +181,13 @@ export class StorageImportProcessor extends WorkerHost {
 
           const exists = await this.objectExists(targetClient, imp.targetBucket, targetKey);
           if (exists) {
-            if (imp.conflictStrategy === 'SKIP') { skipped++; this.emitProgress(importId, ++totalUploaded, 0, targetKey, skipped); continue; }
+            if (imp.conflictStrategy === 'SKIP') { skipped++; this.log(importId, 'info', `Skipped (exists): ${targetKey}`); this.emitProgress(importId, ++totalUploaded, 0, targetKey, skipped); continue; }
             else if (imp.conflictStrategy === 'ERROR') throw new Error(`Object already exists: ${targetKey}`);
           }
 
           const fileStream = createReadStream(join(extractDir, relPath));
           await targetClient.putObject(imp.targetBucket, targetKey, fileStream);
+          this.log(importId, 'info', `Imported (${totalUploaded + 1}/${extractedFiles.length}): ${targetKey}`);
           this.emitProgress(importId, ++totalUploaded, 0, targetKey, skipped);
         }
 
@@ -200,8 +205,10 @@ export class StorageImportProcessor extends WorkerHost {
           else if (imp.conflictStrategy === 'ERROR') throw new Error(`Object already exists: ${targetKey}`);
         }
 
+        this.log(importId, 'info', `Uploading: ${originalName}`);
         const fileStream = createReadStream(filePath);
         await targetClient.putObject(imp.targetBucket, targetKey, fileStream);
+        this.log(importId, 'info', `Imported: ${targetKey}`);
         this.emitProgress(importId, ++totalUploaded, 0, targetKey, skipped);
       }
 

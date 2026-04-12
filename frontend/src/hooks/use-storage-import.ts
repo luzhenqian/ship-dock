@@ -18,16 +18,17 @@ interface DiscoverParams {
 }
 
 interface CreateStorageImportDto {
-  source: 'REMOTE' | 'UPLOAD' | 'URL';
+  source: 'REMOTE' | 'FILE' | 'URL';
   connection?: StorageConnection;
   sourceBucket?: string;
-  sourcePrefix?: string;
-  objects?: string[];
+  objectKeys?: string[];
   urls?: string[];
   fileKeys?: string[];
   targetBucket: string;
   targetPrefix: string;
   conflictStrategy: 'OVERWRITE' | 'SKIP' | 'ERROR';
+  totalFiles?: number;
+  totalSize?: number;
 }
 
 export function useTestStorageConnection(projectId: string) {
