@@ -6,6 +6,8 @@ export interface CustomLocation {
   cacheEnabled?: boolean;
   cacheDuration?: string;
   cacheMaxSize?: string;
+  proxyBuffering?: boolean;
+  customDirectives?: string;
 }
 
 export interface NginxConfigData {

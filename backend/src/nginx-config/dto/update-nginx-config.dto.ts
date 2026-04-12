@@ -14,6 +14,12 @@ export class CustomLocationDto {
 
   @IsOptional() @IsString() @Matches(/^\d+[mgk]?$/, { message: 'cacheMaxSize must be like "500m", "1g"' })
   cacheMaxSize?: string;
+
+  @IsOptional() @IsBoolean()
+  proxyBuffering?: boolean;
+
+  @IsOptional() @IsString()
+  customDirectives?: string;
 }
 
 export class UpdateNginxConfigDto {

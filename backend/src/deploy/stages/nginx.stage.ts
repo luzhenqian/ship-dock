@@ -6,6 +6,8 @@ export interface CustomLocation {
   cacheEnabled?: boolean;
   cacheDuration?: string;
   cacheMaxSize?: string;
+  proxyBuffering?: boolean;
+  customDirectives?: string;
 }
 
 export interface NginxStageConfig {
@@ -54,16 +56,25 @@ export class NginxStage {
     const customLocationBlocks = (c.customLocations || []).map((loc) => {
       const path = loc.path.endsWith('/') ? loc.path : loc.path + '/';
       const cacheName = `cache_${c.slug}_${path.replace(/\//g, '_').replace(/^_|_$/g, '')}`;
-      const cacheLines = loc.cacheEnabled ? `
-        proxy_cache ${cacheName};
-        proxy_cache_valid 200 ${loc.cacheDuration || '7d'};
-        proxy_cache_key $uri;
-        add_header X-Cache-Status $upstream_cache_status;` : '';
+      const lines: string[] = [];
+      if (loc.cacheEnabled) {
+        lines.push(`proxy_cache ${cacheName};`);
+        lines.push(`proxy_cache_valid 200 ${loc.cacheDuration || '7d'};`);
+        lines.push(`proxy_cache_key $uri;`);
+        lines.push(`add_header X-Cache-Status $upstream_cache_status;`);
+      }
+      if (loc.proxyBuffering === false) {
+        lines.push('proxy_buffering off;');
+      }
+      if (loc.customDirectives?.trim()) {
+        lines.push(...loc.customDirectives.trim().split('\n').map((l) => l.trim()).filter(Boolean));
+      }
+      const extraLines = lines.length ? '\n' + lines.map((l) => `        ${l}`).join('\n') : '';
       return `
     location ${path} {
         proxy_pass http://127.0.0.1:${c.port};
         proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto $scheme;${cacheLines}
+        proxy_set_header X-Forwarded-Proto $scheme;${extraLines}
     }`;
     }).join('\n');
 

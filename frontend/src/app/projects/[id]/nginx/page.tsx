@@ -41,16 +41,25 @@ function buildPreview(
 
   const customBlocks = (config.customLocations || []).map((loc) => {
     const path = loc.path.endsWith('/') ? loc.path : loc.path + '/';
-    const cacheLines = loc.cacheEnabled ? `
-        proxy_cache files_cache;
-        proxy_cache_valid 200 ${loc.cacheDuration || '7d'};
-        proxy_cache_key $uri;
-        add_header X-Cache-Status $upstream_cache_status;` : '';
+    const lines: string[] = [];
+    if (loc.cacheEnabled) {
+      lines.push('proxy_cache files_cache;');
+      lines.push(`proxy_cache_valid 200 ${loc.cacheDuration || '7d'};`);
+      lines.push('proxy_cache_key $uri;');
+      lines.push('add_header X-Cache-Status $upstream_cache_status;');
+    }
+    if (loc.proxyBuffering === false) {
+      lines.push('proxy_buffering off;');
+    }
+    if (loc.customDirectives?.trim()) {
+      lines.push(...loc.customDirectives.trim().split('\n').map((l) => l.trim()).filter(Boolean));
+    }
+    const extra = lines.length ? '\n' + lines.map((l) => `        ${l}`).join('\n') : '';
     return `
     location ${path} {
         proxy_pass http://127.0.0.1:${port};
         proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto $scheme;${cacheLines}
+        proxy_set_header X-Forwarded-Proto $scheme;${extra}
     }`;
   }).join('\n');
 
@@ -286,7 +295,7 @@ export default function NginxConfigPage({ params }: { params: Promise<{ id: stri
               variant="outline"
               onClick={() => setForm((prev) => ({
                 ...prev,
-                customLocations: [...prev.customLocations, { path: '/', cacheEnabled: false, cacheDuration: '7d', cacheMaxSize: '500m' }],
+                customLocations: [...prev.customLocations, { path: '/', cacheEnabled: false, cacheDuration: '7d', cacheMaxSize: '500m', customDirectives: '' }],
               }))}
             >
               Add Location
@@ -366,6 +375,36 @@ export default function NginxConfigPage({ params }: { params: Promise<{ id: stri
                   </div>
                 </div>
               )}
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={loc.proxyBuffering === false}
+                    onChange={(e) => {
+                      const updated = [...form.customLocations];
+                      updated[i] = { ...updated[i], proxyBuffering: e.target.checked ? false : undefined };
+                      setForm((prev) => ({ ...prev, customLocations: updated }));
+                    }}
+                    className="h-4 w-4 rounded border"
+                  />
+                  <span className="text-sm font-medium">Disable Proxy Buffering</span>
+                  <span className="text-xs text-muted-foreground">(SSE / streaming)</span>
+                </label>
+              </div>
+              <div>
+                <Label>Custom Directives</Label>
+                <textarea
+                  value={loc.customDirectives || ''}
+                  onChange={(e) => {
+                    const updated = [...form.customLocations];
+                    updated[i] = { ...updated[i], customDirectives: e.target.value };
+                    setForm((prev) => ({ ...prev, customLocations: updated }));
+                  }}
+                  className="w-full h-20 rounded-md border bg-transparent px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder={"proxy_read_timeout 300s;\nadd_header X-Custom-Header value;"}
+                />
+                <p className="text-xs text-muted-foreground mt-1">One directive per line. Added inside the location block.</p>
+              </div>
             </div>
           ))}
         </CardContent>
