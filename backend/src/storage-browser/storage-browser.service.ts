@@ -29,7 +29,7 @@ export class StorageBrowserService {
     const prefix = options.prefix || '';
     const delimiter = options.delimiter || '/';
 
-    return new Promise<{ objects: any[]; prefixes: string[]; isTruncated: boolean; nextMarker?: string }>((resolve, reject) => {
+    return new Promise<{ objects: any[]; prefixes: any[]; isTruncated: boolean; nextMarker?: string }>((resolve, reject) => {
       const objects: any[] = [];
       const prefixes: string[] = [];
       const maxKeys = options.maxKeys || 100;
@@ -59,7 +59,38 @@ export class StorageBrowserService {
         count++;
       });
 
-      stream.on('end', () => resolve({ objects, prefixes, isTruncated: truncated, nextMarker: truncated ? lastKey : undefined }));
+      stream.on('end', async () => {
+        // Compute size and latest modified for each prefix (folder)
+        const prefixStats = await Promise.all(
+          prefixes.map((p) => this.getPrefixStats(client, bucket, p)),
+        );
+        resolve({
+          objects,
+          prefixes: prefixes.map((p, i) => ({ prefix: p, ...prefixStats[i] })),
+          isTruncated: truncated,
+          nextMarker: truncated ? lastKey : undefined,
+        });
+      });
+      stream.on('error', reject);
+    });
+  }
+
+  private getPrefixStats(client: any, bucket: string, prefix: string): Promise<{ totalSize: number; totalObjects: number; lastModified: string | null }> {
+    return new Promise((resolve, reject) => {
+      let totalSize = 0;
+      let totalObjects = 0;
+      let lastModified: Date | null = null;
+      const stream = client.listObjectsV2(bucket, prefix, true);
+      stream.on('data', (obj: any) => {
+        if (obj.size !== undefined) {
+          totalSize += obj.size;
+          totalObjects++;
+          if (obj.lastModified && (!lastModified || obj.lastModified > lastModified)) {
+            lastModified = obj.lastModified;
+          }
+        }
+      });
+      stream.on('end', () => resolve({ totalSize, totalObjects, lastModified: lastModified?.toISOString() || null }));
       stream.on('error', reject);
     });
   }

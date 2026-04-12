@@ -54,7 +54,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
 
   const breadcrumbs = prefix ? prefix.split('/').filter(Boolean) : [];
   const allItems = [
-    ...(objects?.prefixes || []),
+    ...(objects?.prefixes?.map((p: any) => typeof p === 'string' ? p : p.prefix) || []),
     ...(objects?.objects?.map((o: any) => o.name) || []),
   ];
 
@@ -290,16 +290,20 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                   </tr>
                 </thead>
                 <tbody>
-                  {objects?.prefixes?.map((p: string) => {
+                  {objects?.prefixes?.map((pObj: any) => {
+                    const p = typeof pObj === 'string' ? pObj : pObj.prefix;
                     const name = p.replace(prefix, '').replace(/\/$/, '');
+                    const folderSize = pObj.totalSize;
+                    const folderObjects = pObj.totalObjects;
+                    const folderModified = pObj.lastModified;
                     return (
                       <tr key={p} className="border-b hover:bg-foreground/[0.04]">
                         <td className="px-3 py-2">
                           <input type="checkbox" checked={selectedItems.has(p)} onChange={() => toggleFile(p)} />
                         </td>
                         <td className="px-3 py-2 font-medium cursor-pointer" onClick={() => handleFolderClick(p)}>{name}/</td>
-                        <td className="px-3 py-2 text-muted-foreground">—</td>
-                        <td className="px-3 py-2 text-muted-foreground">—</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">{folderSize != null ? `${formatSize(folderSize)} (${folderObjects})` : '—'}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">{folderModified ? new Date(folderModified).toLocaleDateString() : '—'}</td>
                         <td className="px-3 py-2">
                           <div className="flex gap-2">
                             <button
