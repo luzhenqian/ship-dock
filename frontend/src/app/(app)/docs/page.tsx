@@ -5,6 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const docs = [
   {
+    title: 'Environment Variables',
+    description: 'Platform configuration reference — database, GitHub App, OAuth, MinIO, and more',
+    href: '/docs/environment-variables',
+  },
+  {
     title: 'Analytics Integration',
     description: 'Connect Google Analytics (GA4) and Microsoft Clarity to your projects',
     href: '/docs/analytics',
