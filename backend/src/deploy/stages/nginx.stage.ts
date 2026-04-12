@@ -1,6 +1,13 @@
 import { StageContext, StageResult } from './command.stage';
 import { spawn } from 'child_process';
 
+export interface CustomLocation {
+  path: string;
+  cacheEnabled?: boolean;
+  cacheDuration?: string;
+  cacheMaxSize?: string;
+}
+
 export interface NginxStageConfig {
   domain: string;
   port: number;
@@ -16,6 +23,7 @@ export interface NginxStageConfig {
   proxyBuffering?: boolean;
   proxyBufferSize?: string;
   proxyBuffers?: string;
+  customLocations?: CustomLocation[];
 }
 
 const DEFAULTS = {
@@ -43,7 +51,24 @@ export class NginxStage {
       : `
     gzip off;`;
 
-    const locationBlock = `
+    const customLocationBlocks = (c.customLocations || []).map((loc) => {
+      const path = loc.path.endsWith('/') ? loc.path : loc.path + '/';
+      const cacheName = `cache_${c.slug}_${path.replace(/\//g, '_').replace(/^_|_$/g, '')}`;
+      const cacheLines = loc.cacheEnabled ? `
+        proxy_cache ${cacheName};
+        proxy_cache_valid 200 ${loc.cacheDuration || '7d'};
+        proxy_cache_key $uri;
+        add_header X-Cache-Status $upstream_cache_status;` : '';
+      return `
+    location ${path} {
+        proxy_pass http://127.0.0.1:${c.port};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;${cacheLines}
+    }`;
+    }).join('\n');
+
+    const locationBlock = `${customLocationBlocks}
+
     location / {
         proxy_pass http://127.0.0.1:${c.port};
         proxy_set_header Host $host;
@@ -85,6 +110,17 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/${config.domain}/privkey.pem;
 ${serverBlock}
 }`;
+  }
+
+  buildCacheConfig(config: NginxStageConfig): string | null {
+    const locs = (config.customLocations || []).filter((l) => l.cacheEnabled);
+    if (!locs.length) return null;
+    return locs.map((loc) => {
+      const path = loc.path.endsWith('/') ? loc.path : loc.path + '/';
+      const cacheName = `cache_${config.slug}_${path.replace(/\//g, '_').replace(/^_|_$/g, '')}`;
+      const maxSize = loc.cacheMaxSize || '500m';
+      return `proxy_cache_path /tmp/nginx-cache-${cacheName} levels=1:2 keys_zone=${cacheName}:10m max_size=${maxSize} inactive=${loc.cacheDuration || '7d'};`;
+    }).join('\n');
   }
 
   async execute(config: NginxStageConfig, ctx: StageContext): Promise<StageResult> {

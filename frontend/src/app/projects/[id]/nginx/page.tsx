@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import { useProject } from '@/hooks/use-projects';
-import { useNginxConfig, useUpdateNginxConfig, NginxConfigData } from '@/hooks/use-nginx-config';
+import { useNginxConfig, useUpdateNginxConfig, NginxConfigData, CustomLocation } from '@/hooks/use-nginx-config';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,21 @@ function buildPreview(
     ? `\n        proxy_buffer_size ${config.proxyBufferSize};\n        proxy_buffers ${config.proxyBuffers};`
     : '';
 
+  const customBlocks = (config.customLocations || []).map((loc) => {
+    const path = loc.path.endsWith('/') ? loc.path : loc.path + '/';
+    const cacheLines = loc.cacheEnabled ? `
+        proxy_cache files_cache;
+        proxy_cache_valid 200 ${loc.cacheDuration || '7d'};
+        proxy_cache_key $uri;
+        add_header X-Cache-Status $upstream_cache_status;` : '';
+    return `
+    location ${path} {
+        proxy_pass http://127.0.0.1:${port};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;${cacheLines}
+    }`;
+  }).join('\n');
+
   return `server {
     listen 80;
     server_name ${domain};
@@ -54,6 +69,7 @@ server {
 
     client_max_body_size ${config.clientMaxBodySize}m;
 ${gzipBlock}
+${customBlocks}
 
     location / {
         proxy_pass http://127.0.0.1:${port};
@@ -90,6 +106,7 @@ export default function NginxConfigPage({ params }: { params: Promise<{ id: stri
     proxyBuffering: true,
     proxyBufferSize: '4k',
     proxyBuffers: '8 4k',
+    customLocations: [],
   });
 
   useEffect(() => {
@@ -257,6 +274,100 @@ export default function NginxConfigPage({ params }: { params: Promise<{ id: stri
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Custom Locations</CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setForm((prev) => ({
+                ...prev,
+                customLocations: [...prev.customLocations, { path: '/', cacheEnabled: false, cacheDuration: '7d', cacheMaxSize: '500m' }],
+              }))}
+            >
+              Add Location
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {form.customLocations.length === 0 && (
+            <p className="text-sm text-muted-foreground">No custom locations. The default <code className="text-xs bg-muted px-1 py-0.5 rounded">location /</code> proxies all traffic to your app.</p>
+          )}
+          {form.customLocations.map((loc, i) => (
+            <div key={i} className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Path</Label>
+                <button
+                  className="text-xs text-status-error hover:underline"
+                  onClick={() => setForm((prev) => ({
+                    ...prev,
+                    customLocations: prev.customLocations.filter((_, j) => j !== i),
+                  }))}
+                >
+                  Remove
+                </button>
+              </div>
+              <Input
+                value={loc.path}
+                onChange={(e) => {
+                  const updated = [...form.customLocations];
+                  updated[i] = { ...updated[i], path: e.target.value };
+                  setForm((prev) => ({ ...prev, customLocations: updated }));
+                }}
+                placeholder="/files/"
+                className="font-mono text-sm w-48"
+              />
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={loc.cacheEnabled || false}
+                    onChange={(e) => {
+                      const updated = [...form.customLocations];
+                      updated[i] = { ...updated[i], cacheEnabled: e.target.checked };
+                      setForm((prev) => ({ ...prev, customLocations: updated }));
+                    }}
+                    className="h-4 w-4 rounded border"
+                  />
+                  <span className="text-sm font-medium">Enable Nginx Cache</span>
+                </label>
+              </div>
+              {loc.cacheEnabled && (
+                <div className="flex gap-4 pl-6">
+                  <div>
+                    <Label>Cache Duration</Label>
+                    <Input
+                      value={loc.cacheDuration || '7d'}
+                      onChange={(e) => {
+                        const updated = [...form.customLocations];
+                        updated[i] = { ...updated[i], cacheDuration: e.target.value };
+                        setForm((prev) => ({ ...prev, customLocations: updated }));
+                      }}
+                      className="w-24 font-mono text-sm"
+                      placeholder="7d"
+                    />
+                  </div>
+                  <div>
+                    <Label>Max Size</Label>
+                    <Input
+                      value={loc.cacheMaxSize || '500m'}
+                      onChange={(e) => {
+                        const updated = [...form.customLocations];
+                        updated[i] = { ...updated[i], cacheMaxSize: e.target.value };
+                        setForm((prev) => ({ ...prev, customLocations: updated }));
+                      }}
+                      className="w-24 font-mono text-sm"
+                      placeholder="500m"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </CardContent>
       </Card>
 

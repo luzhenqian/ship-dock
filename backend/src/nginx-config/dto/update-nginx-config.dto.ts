@@ -1,4 +1,20 @@
-import { IsBoolean, IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, Max, Min, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class CustomLocationDto {
+  @IsString()
+  @Matches(/^\/[a-zA-Z0-9_\-/]*$/, { message: 'path must start with / and contain only alphanumeric, dash, underscore, slash' })
+  path: string;
+
+  @IsOptional() @IsBoolean()
+  cacheEnabled?: boolean;
+
+  @IsOptional() @IsString() @Matches(/^\d+[mhdw]$/, { message: 'cacheDuration must be like "7d", "12h", "30m"' })
+  cacheDuration?: string;
+
+  @IsOptional() @IsString() @Matches(/^\d+[mgk]?$/, { message: 'cacheMaxSize must be like "500m", "1g"' })
+  cacheMaxSize?: string;
+}
 
 export class UpdateNginxConfigDto {
   @IsOptional() @IsInt() @Min(1) @Max(1024)
@@ -30,4 +46,7 @@ export class UpdateNginxConfigDto {
 
   @IsOptional() @IsString() @Matches(/^\d+\s+\d+[km]?$/i, { message: 'proxyBuffers must be like "8 4k" or "4 8k"' })
   proxyBuffers?: string;
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => CustomLocationDto)
+  customLocations?: CustomLocationDto[];
 }

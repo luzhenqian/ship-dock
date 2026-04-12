@@ -15,7 +15,7 @@ export class NginxConfigService {
 
   constructor(private prisma: PrismaService) {}
 
-  private extractValues(config: { clientMaxBodySize: number; proxyReadTimeout: number; proxySendTimeout: number; proxyConnectTimeout: number; gzipEnabled: boolean; gzipMinLength: number; gzipTypes: string; proxyBuffering: boolean; proxyBufferSize: string; proxyBuffers: string }) {
+  private extractValues(config: { clientMaxBodySize: number; proxyReadTimeout: number; proxySendTimeout: number; proxyConnectTimeout: number; gzipEnabled: boolean; gzipMinLength: number; gzipTypes: string; proxyBuffering: boolean; proxyBufferSize: string; proxyBuffers: string; customLocations: any }) {
     return {
       clientMaxBodySize: config.clientMaxBodySize,
       proxyReadTimeout: config.proxyReadTimeout,
@@ -27,6 +27,7 @@ export class NginxConfigService {
       proxyBuffering: config.proxyBuffering,
       proxyBufferSize: config.proxyBufferSize,
       proxyBuffers: config.proxyBuffers,
+      customLocations: (config.customLocations as any[]) || [],
     };
   }
 
@@ -47,6 +48,7 @@ export class NginxConfigService {
       proxyBuffering: true,
       proxyBufferSize: '4k',
       proxyBuffers: '8 4k',
+      customLocations: [] as any[],
     };
 
     const values = config ? this.extractValues(config) : defaults;
@@ -72,10 +74,14 @@ export class NginxConfigService {
     // Save previous config for rollback
     const previousConfig = await this.prisma.nginxConfig.findUnique({ where: { projectId } });
 
+    const prismaDto = {
+      ...dto,
+      customLocations: dto.customLocations ? JSON.parse(JSON.stringify(dto.customLocations)) : undefined,
+    };
     const config = await this.prisma.nginxConfig.upsert({
       where: { projectId },
-      create: { projectId, ...dto },
-      update: dto,
+      create: { projectId, ...prismaDto },
+      update: prismaDto,
     });
 
     const hasSsl = this.sslStage.hasCert(project.domain);
@@ -90,6 +96,8 @@ export class NginxConfigService {
     const confPath = `/etc/nginx/sites-available/${project.slug}.conf`;
     const backupPath = `${confPath}.bak`;
     const nginxConf = this.nginxStage.buildConfig(stageConfig);
+    const cacheConf = this.nginxStage.buildCacheConfig(stageConfig);
+    const cacheConfPath = `/etc/nginx/conf.d/${project.slug}-cache.conf`;
 
     // Backup current config file
     if (existsSync(confPath)) {
@@ -102,6 +110,16 @@ export class NginxConfigService {
     await this.execCommand(`sudo cp ${tmpPath} ${confPath}`);
     unlinkSync(tmpPath);
 
+    // Write or remove cache config in conf.d (http block level)
+    if (cacheConf) {
+      const tmpCachePath = join(tmpdir(), `nginx-cache-${project.slug}-${Date.now()}.conf`);
+      writeFileSync(tmpCachePath, cacheConf);
+      await this.execCommand(`sudo cp ${tmpCachePath} ${cacheConfPath}`);
+      unlinkSync(tmpCachePath);
+    } else {
+      await this.execCommand(`sudo rm -f ${cacheConfPath}`);
+    }
+
     // Validate nginx config
     const result = await this.execCommand('sudo nginx -t 2>&1');
 
@@ -110,6 +128,8 @@ export class NginxConfigService {
       if (existsSync(backupPath)) {
         await this.execCommand(`sudo cp ${backupPath} ${confPath}`);
       }
+      // Remove cache conf on failure
+      await this.execCommand(`sudo rm -f ${cacheConfPath}`);
       // Rollback database to previous state
       if (previousConfig) {
         await this.prisma.nginxConfig.update({

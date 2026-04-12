@@ -1,6 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
+export interface CustomLocation {
+  path: string;
+  cacheEnabled?: boolean;
+  cacheDuration?: string;
+  cacheMaxSize?: string;
+}
+
 export interface NginxConfigData {
   clientMaxBodySize: number;
   proxyReadTimeout: number;
@@ -12,6 +19,7 @@ export interface NginxConfigData {
   proxyBuffering: boolean;
   proxyBufferSize: string;
   proxyBuffers: string;
+  customLocations: CustomLocation[];
 }
 
 export interface NginxConfigResponse {

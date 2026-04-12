@@ -332,6 +332,8 @@ model NginxConfig {
   proxyBufferSize String  @default("4k")
   proxyBuffers    String  @default("8 4k")
 
+  customLocations Json @default("[]")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

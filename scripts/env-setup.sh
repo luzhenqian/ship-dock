@@ -151,6 +151,13 @@ MINIO_SVC
   sudo systemctl enable minio
   sudo systemctl start minio
   echo "   Installed MinIO (API: :9000, Console: :9001)"
+
+  # Configure mc aliases
+  if command -v mc &>/dev/null; then
+    mc alias set local http://localhost:9000 "${MINIO_ACCESS_KEY}" "${MINIO_SECRET_KEY}" 2>/dev/null
+    mc alias set shipdock http://localhost:9000 "${MINIO_ACCESS_KEY}" "${MINIO_SECRET_KEY}" 2>/dev/null
+    echo "   Configured mc aliases 'local' and 'shipdock'"
+  fi
 fi
 
 # ── Ensure all services are running ──
