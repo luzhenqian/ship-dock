@@ -70,8 +70,15 @@ export class DeployProcessor extends WorkerHost {
 
     // Prepend Node.js version bin to PATH if configured
     if (project.nodeVersion) {
-      const nodeBin = `/usr/local/n/versions/node/${project.nodeVersion}/bin`;
-      projectEnvVars.PATH = `${nodeBin}:${process.env.PATH || ''}`;
+      try {
+        const { readdirSync } = require('fs');
+        const versions: string[] = readdirSync('/usr/local/n/versions/node/');
+        const match = versions.find((v: string) => v.startsWith(project.nodeVersion + '.'));
+        if (match) {
+          const nodeBin = `/usr/local/n/versions/node/${match}/bin`;
+          projectEnvVars.PATH = `${nodeBin}:${process.env.PATH || ''}`;
+        }
+      } catch {}
     }
 
     const stages = (project.pipeline as any).stages;
