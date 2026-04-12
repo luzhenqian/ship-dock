@@ -291,12 +291,32 @@ export class StorageImportProcessor extends WorkerHost {
   }
 
   private async updateStatus(importId: string, status: string, error?: string) {
+    await this.flushLogs(importId);
     await this.prisma.storageImport.update({ where: { id: importId }, data: { status: status as any, error } });
     this.gateway.emit(importId, 'storage-import:status', { status, error });
   }
 
+  private logBuffer: Map<string, any[]> = new Map();
+
   private log(importId: string, level: string, message: string) {
-    this.gateway.emit(importId, 'storage-import:log', { timestamp: new Date().toISOString(), level, message });
+    const entry = { timestamp: new Date().toISOString(), level, message };
+    this.gateway.emit(importId, 'storage-import:log', entry);
+    if (!this.logBuffer.has(importId)) this.logBuffer.set(importId, []);
+    this.logBuffer.get(importId)!.push(entry);
+  }
+
+  private async flushLogs(importId: string) {
+    const logs = this.logBuffer.get(importId) || [];
+    if (logs.length === 0) return;
+    try {
+      const imp = await this.prisma.storageImport.findUnique({ where: { id: importId }, select: { metadata: true } });
+      const meta = (imp?.metadata as any) || {};
+      await this.prisma.storageImport.update({
+        where: { id: importId },
+        data: { metadata: { ...meta, logs } },
+      });
+    } catch {}
+    this.logBuffer.delete(importId);
   }
 
   private emitProgress(importId: string, completedFiles: number, totalFiles: number, currentFile: string, skippedFiles: number) {

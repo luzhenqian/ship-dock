@@ -49,20 +49,25 @@ export function useStorageImportProgress(projectId: string, importId: string) {
     socket.on('storage-import:progress', (data: StorageImportProgress) => { setProgress(data); });
     socket.on('storage-import:status', (data: { status: string }) => { handleDone(data.status); });
 
-    // Polling fallback — covers cases where WebSocket can't connect
+    // Polling fallback — covers cases where WebSocket can't connect or job finishes before WS joins
     pollTimer = setInterval(async () => {
       try {
         const data = await api<any>(`/projects/${projectId}/storage/import/${importId}`);
+        setProgress({
+          completedFiles: data.completedFiles ?? 0,
+          totalFiles: data.totalFiles ?? 0,
+          currentFile: '',
+        });
+        // Load persisted logs if WebSocket didn't deliver them
+        const dbLogs = data.metadata?.logs;
+        if (dbLogs?.length) {
+          setLogs((prev) => prev.length < dbLogs.length ? dbLogs : prev);
+        }
         if (data.status && data.status !== status) {
-          setProgress({
-            completedFiles: data.completedFiles ?? 0,
-            totalFiles: data.totalFiles ?? 0,
-            currentFile: '',
-          });
           handleDone(data.status);
         }
       } catch {}
-    }, 3000);
+    }, 2000);
 
     return () => {
       socket.emit('leave-storage-import', importId);

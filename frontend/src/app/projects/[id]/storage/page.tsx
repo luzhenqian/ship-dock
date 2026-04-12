@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import { useStorageBuckets, useStorageObjects, useUploadFile, useDeleteFile, useDeleteBulk, useDeletePrefix, useRenamePrefix, usePreviewUrl, getDownloadUrl } from '@/hooks/use-storage';
+import { useStorageBuckets, useStorageObjects, useUploadFile, useDeleteFile, useDeleteBulk, useDeletePrefix, useRenamePrefix, getDownloadUrl } from '@/hooks/use-storage';
 import { StorageImportWizard } from '@/components/storage-import-wizard';
 import { getAccessToken } from '@/lib/api';
 import { Loading } from '@/components/ui/loading';
@@ -37,7 +37,6 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   const deleteBulkMutation = useDeleteBulk(id);
   const deletePrefixMutation = useDeletePrefix(id);
   const renamePrefixMutation = useRenamePrefix(id);
-  const previewMutation = usePreviewUrl(id);
 
   const breadcrumbs = prefix ? prefix.split('/').filter(Boolean) : [];
   const allItems = [
@@ -117,8 +116,11 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   };
 
   const handlePreview = async (key: string) => {
-    const result = await previewMutation.mutateAsync({ bucket: selectedBucket, key });
-    setPreviewUrl(result.url);
+    const url = getDownloadUrl(id, selectedBucket, key);
+    const token = getAccessToken();
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' });
+    const blob = await res.blob();
+    setPreviewUrl(URL.createObjectURL(blob));
     setPreviewName(key.split('/').pop() || key);
   };
 
@@ -366,11 +368,11 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
 
       {/* Preview dialog */}
       {previewUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => setPreviewUrl(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => { if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }}>
           <div className="relative max-w-4xl max-h-[90vh] p-2" onClick={(e) => e.stopPropagation()}>
             <button
               className="absolute -top-2 -right-2 z-10 bg-background border rounded-full p-1 hover:bg-muted"
-              onClick={() => setPreviewUrl(null)}
+              onClick={() => { if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }}
             >
               <X className="h-4 w-4" />
             </button>

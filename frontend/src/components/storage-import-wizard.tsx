@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -61,6 +62,7 @@ export function StorageImportWizard({ projectId, bucket, prefix, onClose }: Stor
   const [showLogs, setShowLogs] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
 
   const testConnection = useTestStorageConnection(projectId);
   const discoverObjects = useDiscoverStorageObjects(projectId);
@@ -69,6 +71,13 @@ export function StorageImportWizard({ projectId, bucket, prefix, onClose }: Stor
   const createImport = useCreateStorageImport(projectId);
   const cancelImport = useCancelStorageImport(projectId);
   const { logs, progress, status } = useStorageImportProgress(projectId, importId);
+
+  // Refresh storage data when import completes
+  useEffect(() => {
+    if (['COMPLETED', 'FAILED', 'CANCELLED'].includes(status)) {
+      qc.invalidateQueries({ queryKey: ['storage-objects', projectId] });
+    }
+  }, [status, projectId, qc]);
 
   const archiveExtensions = ['zip', 'tar', 'tar.gz', 'tgz', 'tar.bz2', 'gz'];
   const isArchive = (name: string) => archiveExtensions.some((ext) => name.toLowerCase().endsWith(`.${ext}`));
