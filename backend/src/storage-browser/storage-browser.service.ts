@@ -48,6 +48,8 @@ export class StorageBrowserService {
         if (obj.prefix) {
           prefixes.push(obj.prefix);
         } else {
+          // Skip zero-byte folder marker objects (created by "new folder")
+          if (obj.name?.endsWith('/') && obj.size === 0) return;
           objects.push({
             name: obj.name,
             size: obj.size,
