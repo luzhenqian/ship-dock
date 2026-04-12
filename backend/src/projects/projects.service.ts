@@ -227,6 +227,8 @@ export class ProjectsService {
 
     // Handle repo connect/disconnect
     if ('repoUrl' in dto) {
+      console.log(`[ProjectUpdate] repoUrl in dto: "${dto.repoUrl}", type: ${typeof dto.repoUrl}, keys: ${Object.keys(dto).join(',')}`);
+      console.trace('[ProjectUpdate] stack trace');
       if (dto.repoUrl) {
         // Connect: switch to GITHUB
         data.sourceType = 'GITHUB';
