@@ -6,6 +6,7 @@ import { MinRole } from '../common/decorators/roles.decorator';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { SYSTEM_DEPS_WHITELIST } from './system-deps.const';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -54,6 +55,12 @@ export class ProjectsController {
   @MinRole('VIEWER')
   getProjectsDir() {
     return { projectsDir: this.projectsService.getProjectsDir() };
+  }
+
+  @Get('settings/system-deps')
+  @MinRole('VIEWER')
+  getSystemDepsWhitelist() {
+    return SYSTEM_DEPS_WHITELIST;
   }
 
   @Post() @MinRole('ADMIN')

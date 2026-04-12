@@ -111,6 +111,7 @@ model Project {
   redisDbIndex  Int?
   useLocalMinio Boolean       @default(false)
   minioBucket   String?
+  systemDeps    Json          @default("[]")
   status        ProjectStatus @default(ACTIVE)
 
   createdBy   User   @relation(fields: [createdById], references: [id])

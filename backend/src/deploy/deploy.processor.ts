@@ -15,8 +15,9 @@ import { DomainsService } from '../domains/domains.service';
 import { DatabaseProvisionerService } from '../common/database-provisioner.service';
 import { sign } from 'jsonwebtoken';
 import { existsSync, writeFileSync, mkdirSync } from 'fs';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { join, dirname } from 'path';
+import { SYSTEM_DEPS_WHITELIST } from '../projects/system-deps.const';
 
 @Processor('deploy')
 export class DeployProcessor extends WorkerHost {
@@ -79,6 +80,32 @@ export class DeployProcessor extends WorkerHost {
           projectEnvVars.PATH = `${nodeBin}:${process.env.PATH || ''}`;
         }
       } catch {}
+    }
+
+    // Install system dependencies if configured
+    const systemDeps = (project.systemDeps as string[]) || [];
+    if (systemDeps.length > 0) {
+      const packagesToInstall: string[] = [];
+      for (const depId of systemDeps) {
+        const entry = SYSTEM_DEPS_WHITELIST.find((d) => d.id === depId);
+        if (!entry) continue;
+        for (const pkg of entry.packages) {
+          try {
+            execFileSync('dpkg', ['-s', pkg], { stdio: 'pipe' });
+          } catch {
+            packagesToInstall.push(pkg);
+          }
+        }
+      }
+      if (packagesToInstall.length > 0) {
+        this.gateway.emitToDeployment(deploymentId, 'log', { index: -1, stage: 'system-deps', line: `Installing system dependencies: ${packagesToInstall.join(', ')}`, t: Date.now() });
+        try {
+          execFileSync('sudo', ['apt-get', 'install', '-y', '--no-install-recommends', ...packagesToInstall], { stdio: 'pipe', timeout: 120000 });
+          this.gateway.emitToDeployment(deploymentId, 'log', { index: -1, stage: 'system-deps', line: 'System dependencies installed', t: Date.now() });
+        } catch (err: any) {
+          this.gateway.emitToDeployment(deploymentId, 'log', { index: -1, stage: 'system-deps', line: `\x1b[31mFailed to install system dependencies: ${err.message}\x1b[0m`, t: Date.now() });
+        }
+      }
     }
 
     const stages = (project.pipeline as any).stages;

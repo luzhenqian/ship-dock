@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsInt, IsObject, IsOptional, IsString, IsUrl, Max, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsEnum, IsInt, IsObject, IsOptional, IsString, IsUrl, Max, Min } from 'class-validator';
 
 export class CreateProjectDto {
   @IsString()
@@ -67,4 +67,9 @@ export class CreateProjectDto {
   @IsObject()
   @IsOptional()
   pipeline?: { stages: any[] };
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  systemDeps?: string[];
 }

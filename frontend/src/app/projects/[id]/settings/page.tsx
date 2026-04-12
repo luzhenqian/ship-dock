@@ -72,6 +72,12 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [repoInstallationId, setRepoInstallationId] = useState<string | undefined>();
   const [repoConnecting, setRepoConnecting] = useState(false);
   const [showRepoDisconnect, setShowRepoDisconnect] = useState(false);
+  const [systemDeps, setSystemDeps] = useState<string[]>([]);
+
+  const { data: systemDepsWhitelist } = useQuery({
+    queryKey: ['system-deps-whitelist'],
+    queryFn: () => api<Array<{ id: string; name: string; description: string }>>('/projects/settings/system-deps'),
+  });
 
   const { data: services, refetch: refetchServices } = useServices(projectId);
   const createService = useCreateService(projectId);
@@ -88,6 +94,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
       setWorkDir(project.workDir || '');
       setStartCommand(project.startCommand || '');
       setNodeVersion(project.nodeVersion || '');
+      setSystemDeps((project as any).systemDeps || []);
     }
   }, [project]);
 
@@ -111,6 +118,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           startCommand: startCommand || null,
           nodeVersion: nodeVersion || null,
           envVars: Object.keys(envVars).length > 0 ? envVars : undefined,
+          systemDeps,
         }),
       });
     } catch (err: any) {
@@ -653,6 +661,41 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {systemDepsWhitelist && systemDepsWhitelist.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>System Dependencies</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-[13px] text-foreground-secondary mb-4">
+              Select system packages required by your project. These will be installed automatically during deployment.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {systemDepsWhitelist.map((dep) => (
+                <label key={dep.id} className="flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer hover:bg-foreground/[0.04] transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={systemDeps.includes(dep.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSystemDeps((prev) => [...prev, dep.id]);
+                      } else {
+                        setSystemDeps((prev) => prev.filter((d) => d !== dep.id));
+                      }
+                    }}
+                    className="h-4 w-4 mt-0.5 rounded border shrink-0"
+                  />
+                  <div>
+                    <span className="text-sm font-medium">{dep.name}</span>
+                    <p className="text-xs text-muted-foreground">{dep.description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex justify-between items-center pt-2">
         <Button onClick={handleSave} disabled={saving}>

@@ -8,6 +8,7 @@ import { PrismaService } from '../common/prisma.service';
 import { EncryptionService } from '../common/encryption.service';
 import { DatabaseProvisionerService } from '../common/database-provisioner.service';
 import { RedisProvisionerService } from '../common/redis-provisioner.service';
+import { SYSTEM_DEPS_IDS } from './system-deps.const';
 import { MinioProvisionerService } from '../common/minio-provisioner.service';
 import { PortAllocationService } from './port-allocation.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -253,6 +254,11 @@ export class ProjectsService {
           // No webhook configured — that's fine
         }
       }
+    }
+
+    if (data.systemDeps) {
+      const invalid = (data.systemDeps as string[]).filter((d) => !SYSTEM_DEPS_IDS.has(d));
+      if (invalid.length) throw new BadRequestException(`Invalid system dependencies: ${invalid.join(', ')}`);
     }
 
     if (data.envVars) {
