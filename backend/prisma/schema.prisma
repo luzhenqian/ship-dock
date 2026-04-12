@@ -103,6 +103,7 @@ model Project {
   directory    String?
   workDir      String?
   startCommand String?
+  nodeVersion  String?
   pm2Name      String
   useLocalDb    Boolean       @default(false)
   dbName        String?

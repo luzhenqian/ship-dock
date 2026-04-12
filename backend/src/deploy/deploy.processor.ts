@@ -68,6 +68,12 @@ export class DeployProcessor extends WorkerHost {
       try { projectEnvVars = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
     }
 
+    // Prepend Node.js version bin to PATH if configured
+    if (project.nodeVersion) {
+      const nodeBin = `/usr/local/n/versions/node/${project.nodeVersion}/bin`;
+      projectEnvVars.PATH = `${nodeBin}:${process.env.PATH || ''}`;
+    }
+
     const stages = (project.pipeline as any).stages;
     let allSuccess = true;
 
@@ -118,7 +124,7 @@ export class DeployProcessor extends WorkerHost {
 
       let result: { success: boolean; error?: string };
       if (stage.type === 'builtin') {
-        result = await this.executeBuiltinStage(stage.name, project, repoDir, projectDir, isFirstDeploy && i === 0, deploymentId, onLog);
+        result = await this.executeBuiltinStage(stage.name, project, repoDir, projectDir, isFirstDeploy && i === 0, deploymentId, onLog, projectEnvVars);
       } else {
         result = await this.commandStage.execute(stage, { projectDir, onLog, envVars: projectEnvVars });
       }
@@ -156,9 +162,9 @@ export class DeployProcessor extends WorkerHost {
   private async executeBuiltinStage(
     name: string, project: any, repoDir: string, projectDir: string,
     isFirstDeploy: boolean, deploymentId: string,
-    onLog: (line: string) => void,
+    onLog: (line: string) => void, projectEnvVars: Record<string, string> = {},
   ) {
-    const ctx = { projectDir, onLog };
+    const ctx = { projectDir, onLog, envVars: projectEnvVars };
 
     switch (name) {
       case 'clone': {
@@ -199,7 +205,7 @@ export class DeployProcessor extends WorkerHost {
             execMode: pm2Config?.execMode,
             maxMemoryRestart: pm2Config?.maxMemoryRestart ?? undefined,
           },
-          isFirstDeploy, ctx, isNpmStart,
+          isFirstDeploy, { ...ctx, envVars: projectEnvVars }, isNpmStart,
         );
       }
       case 'nginx': {

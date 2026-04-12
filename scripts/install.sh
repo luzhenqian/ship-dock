@@ -49,11 +49,11 @@ if [[ -d "$INSTALL_DIR" ]]; then
   rm -rf "$INSTALL_DIR"
 fi
 
-# ── Install Node.js 20 ──
+# ── Install Node.js (multiple versions via n) ──
 if command -v node &>/dev/null && node -v | grep -q "^v2[0-9]"; then
   echo -e "${GREEN}✓${NC} Node.js $(node -v) already installed"
 else
-  echo -e "  Installing Node.js 22..."
+  echo -e "  Installing Node.js 22 (default)..."
   if [[ "$PM" == "apt" ]]; then
     apt-get update -qq
     apt-get install -y -qq ca-certificates curl gnupg
@@ -65,6 +65,22 @@ else
   fi
   echo -e "${GREEN}✓${NC} Node.js $(node -v) installed"
 fi
+
+# ── Install n (Node version manager) and additional versions ──
+if command -v n &>/dev/null; then
+  echo -e "${GREEN}✓${NC} n (Node version manager) already installed"
+else
+  echo "  Installing n (Node version manager)..."
+  npm install -g n
+  echo -e "${GREEN}✓${NC} n installed"
+fi
+
+echo "  Installing Node.js 20, 22, 24..."
+n install 20 >/dev/null 2>&1 && echo -e "${GREEN}✓${NC} Node.js 20 installed"
+n install 22 >/dev/null 2>&1 && echo -e "${GREEN}✓${NC} Node.js 22 installed"
+n install 24 >/dev/null 2>&1 && echo -e "${GREEN}✓${NC} Node.js 24 installed"
+# Keep 22 as default
+n 22 >/dev/null 2>&1
 
 # ── Install Git ──
 if command -v git &>/dev/null; then

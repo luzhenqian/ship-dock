@@ -48,6 +48,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [directory, setDirectory] = useState('');
   const [workDir, setWorkDir] = useState('');
   const [startCommand, setStartCommand] = useState('');
+  const [nodeVersion, setNodeVersion] = useState('');
   const [envVars, setEnvVars] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [showAddService, setShowAddService] = useState(false);
@@ -84,6 +85,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
       setDirectory(project.directory || project.slug || '');
       setWorkDir(project.workDir || '');
       setStartCommand(project.startCommand || '');
+      setNodeVersion(project.nodeVersion || '');
     }
   }, [project]);
 
@@ -105,6 +107,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           directory: directory || undefined,
           workDir: workDir || null,
           startCommand: startCommand || null,
+          nodeVersion: nodeVersion || null,
           envVars: Object.keys(envVars).length > 0 ? envVars : undefined,
         }),
       });
@@ -288,6 +291,26 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           />
           <p className="text-xs text-muted-foreground">
             The entry file for PM2 to run. Leave empty to auto-detect from <code className="bg-muted px-1 rounded">package.json</code> (uses <code className="bg-muted px-1 rounded">npm start</code> or <code className="bg-muted px-1 rounded">dist/main.js</code>).
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Node.js Version</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <Label>Select Node.js version for this project</Label>
+          <select
+            value={nodeVersion}
+            onChange={(e) => setNodeVersion(e.target.value)}
+            className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm"
+          >
+            <option value="">System default</option>
+            <option value="20">Node.js 20 (LTS)</option>
+            <option value="22">Node.js 22 (LTS)</option>
+            <option value="24">Node.js 24</option>
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Each project can use a different Node.js version. The selected version will be used for <code className="bg-muted px-1 rounded">npm install</code>, <code className="bg-muted px-1 rounded">npm run build</code>, and PM2 runtime.
           </p>
         </CardContent>
       </Card>
