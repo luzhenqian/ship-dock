@@ -13,6 +13,7 @@ import { CommandStage } from './stages/command.stage';
 import { DeployGateway } from './deploy.gateway';
 import { DomainsService } from '../domains/domains.service';
 import { DatabaseProvisionerService } from '../common/database-provisioner.service';
+import { GitHubAppService } from '../github-app/github-app.service';
 import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 import { join, dirname } from 'path';
@@ -30,6 +31,7 @@ export class DeployProcessor extends WorkerHost {
     private encryption: EncryptionService, private config: ConfigService,
     private gateway: DeployGateway, private domainsService: DomainsService,
     private dbProvisioner: DatabaseProvisionerService,
+    private githubAppService: GitHubAppService,
   ) { super(); }
 
   async process(job: Job<{ deploymentId: string; projectId: string; resumeFromStage?: number }>) {
@@ -143,8 +145,20 @@ export class DeployProcessor extends WorkerHost {
     const ctx = { projectDir, onLog };
 
     switch (name) {
-      case 'clone':
-        return this.cloneStage.execute({ repoUrl: project.repoUrl!, branch: project.branch, projectDir: repoDir, isFirstDeploy }, { projectDir: repoDir, onLog });
+      case 'clone': {
+        let githubToken: string | undefined;
+        if (project.githubInstallationId) {
+          try {
+            const installation = await this.prisma.gitHubInstallation.findUnique({ where: { id: project.githubInstallationId } });
+            if (installation) {
+              githubToken = await this.githubAppService.getInstallationAccessToken(installation.installationId);
+            }
+          } catch (err: any) {
+            onLog(`\x1b[33mWarning: Could not get GitHub token: ${err.message}. Trying without auth.\x1b[0m`);
+          }
+        }
+        return this.cloneStage.execute({ repoUrl: project.repoUrl!, branch: project.branch, projectDir: repoDir, isFirstDeploy, githubToken }, { projectDir: repoDir, onLog });
+      }
       case 'pm2': {
         let envVars: Record<string, string> = {};
         if (project.envVars) { try { envVars = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {} }
