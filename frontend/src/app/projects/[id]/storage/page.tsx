@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useRef, useState, useCallback } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,8 +18,20 @@ function isPreviewable(name: string) {
 
 export default function StoragePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [selectedBucket, setSelectedBucket] = useState('');
-  const [prefix, setPrefix] = useState('');
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const selectedBucket = searchParams.get('bucket') ?? '';
+  const prefix = searchParams.get('prefix') ?? '';
+
+  const updateUrl = useCallback((bucket: string, pfx: string) => {
+    const params = new URLSearchParams();
+    if (bucket) params.set('bucket', bucket);
+    if (pfx) params.set('prefix', pfx);
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [router, pathname]);
   const [deleteTarget, setDeleteTarget] = useState<{ bucket: string; key: string } | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<{ bucket: string; prefix: string } | null>(null);
   const [renameTarget, setRenameTarget] = useState<{ bucket: string; prefix: string; name: string } | null>(null);
@@ -45,19 +58,18 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   ];
 
   const handleBucketSelect = (name: string) => {
-    setSelectedBucket(name);
-    setPrefix('');
+    updateUrl(name, '');
     setSelectedItems(new Set());
   };
 
   const handleFolderClick = (folderPrefix: string) => {
-    setPrefix(folderPrefix);
+    updateUrl(selectedBucket, folderPrefix);
     setSelectedItems(new Set());
   };
 
   const handleBreadcrumb = (index: number) => {
-    if (index < 0) setPrefix('');
-    else setPrefix(breadcrumbs.slice(0, index + 1).join('/') + '/');
+    const newPrefix = index < 0 ? '' : breadcrumbs.slice(0, index + 1).join('/') + '/';
+    updateUrl(selectedBucket, newPrefix);
     setSelectedItems(new Set());
   };
 
