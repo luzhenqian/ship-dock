@@ -49,6 +49,49 @@ export function useDeleteFile(projectId: string) {
   });
 }
 
+export function useDeleteBulk(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ bucket, keys }: { bucket: string; keys: string[] }) =>
+      api(`/projects/${projectId}/storage/buckets/${bucket}/delete-bulk`, {
+        method: 'POST',
+        body: JSON.stringify({ keys }),
+      }),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['storage-objects', projectId, vars.bucket] }),
+  });
+}
+
+export function useDeletePrefix(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ bucket, prefix }: { bucket: string; prefix: string }) =>
+      api(`/projects/${projectId}/storage/buckets/${bucket}/delete-prefix`, {
+        method: 'POST',
+        body: JSON.stringify({ prefix }),
+      }),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['storage-objects', projectId, vars.bucket] }),
+  });
+}
+
+export function useRenamePrefix(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ bucket, oldPrefix, newPrefix }: { bucket: string; oldPrefix: string; newPrefix: string }) =>
+      api(`/projects/${projectId}/storage/buckets/${bucket}/rename-prefix`, {
+        method: 'POST',
+        body: JSON.stringify({ oldPrefix, newPrefix }),
+      }),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['storage-objects', projectId, vars.bucket] }),
+  });
+}
+
+export function usePreviewUrl(projectId: string) {
+  return useMutation({
+    mutationFn: ({ bucket, key }: { bucket: string; key: string }) =>
+      api<{ url: string }>(`/projects/${projectId}/storage/buckets/${bucket}/preview?key=${encodeURIComponent(key)}`),
+  });
+}
+
 export function getDownloadUrl(projectId: string, bucket: string, key: string) {
   return `${API_URL}/projects/${projectId}/storage/buckets/${bucket}/download?key=${encodeURIComponent(key)}`;
 }

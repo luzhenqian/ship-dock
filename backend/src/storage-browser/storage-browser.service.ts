@@ -85,4 +85,55 @@ export class StorageBrowserService {
     await client.removeObject(bucket, key);
     return { success: true };
   }
+
+  async deleteObjects(projectId: string, bucket: string, keys: string[]) {
+    const client = await this.getClient(projectId);
+    await client.removeObjects(bucket, keys);
+    return { success: true, deleted: keys.length };
+  }
+
+  async deletePrefix(projectId: string, bucket: string, prefix: string) {
+    const client = await this.getClient(projectId);
+    const objects: string[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      const stream = client.listObjectsV2(bucket, prefix, true);
+      stream.on('data', (obj: any) => { if (obj.name) objects.push(obj.name); });
+      stream.on('end', resolve);
+      stream.on('error', reject);
+    });
+
+    if (objects.length > 0) {
+      await client.removeObjects(bucket, objects);
+    }
+    return { success: true, deleted: objects.length };
+  }
+
+  async renamePrefix(projectId: string, bucket: string, oldPrefix: string, newPrefix: string) {
+    const client = await this.getClient(projectId);
+    const objects: string[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      const stream = client.listObjectsV2(bucket, oldPrefix, true);
+      stream.on('data', (obj: any) => { if (obj.name) objects.push(obj.name); });
+      stream.on('end', resolve);
+      stream.on('error', reject);
+    });
+
+    for (const key of objects) {
+      const newKey = newPrefix + key.slice(oldPrefix.length);
+      const stream = await client.getObject(bucket, key);
+      await client.putObject(bucket, newKey, stream);
+    }
+
+    if (objects.length > 0) {
+      await client.removeObjects(bucket, objects);
+    }
+    return { success: true, renamed: objects.length };
+  }
+
+  async getObjectUrl(projectId: string, bucket: string, key: string) {
+    const client = await this.getClient(projectId);
+    return client.presignedGetObject(bucket, key, 60 * 60);
+  }
 }

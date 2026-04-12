@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Param, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Body, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -68,5 +68,42 @@ export class StorageBrowserController {
     @Query('key') key: string,
   ) {
     return this.storageService.deleteObject(projectId, bucket, key);
+  }
+
+  @Post('buckets/:bucket/delete-bulk') @MinRole('DEVELOPER')
+  deleteBulk(
+    @Param('projectId') projectId: string,
+    @Param('bucket') bucket: string,
+    @Body() body: { keys: string[] },
+  ) {
+    return this.storageService.deleteObjects(projectId, bucket, body.keys);
+  }
+
+  @Post('buckets/:bucket/delete-prefix') @MinRole('DEVELOPER')
+  deletePrefix(
+    @Param('projectId') projectId: string,
+    @Param('bucket') bucket: string,
+    @Body() body: { prefix: string },
+  ) {
+    return this.storageService.deletePrefix(projectId, bucket, body.prefix);
+  }
+
+  @Post('buckets/:bucket/rename-prefix') @MinRole('DEVELOPER')
+  renamePrefix(
+    @Param('projectId') projectId: string,
+    @Param('bucket') bucket: string,
+    @Body() body: { oldPrefix: string; newPrefix: string },
+  ) {
+    return this.storageService.renamePrefix(projectId, bucket, body.oldPrefix, body.newPrefix);
+  }
+
+  @Get('buckets/:bucket/preview') @MinRole('VIEWER')
+  async previewUrl(
+    @Param('projectId') projectId: string,
+    @Param('bucket') bucket: string,
+    @Query('key') key: string,
+  ) {
+    const url = await this.storageService.getObjectUrl(projectId, bucket, key);
+    return { url };
   }
 }
