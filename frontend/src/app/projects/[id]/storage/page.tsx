@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useRef, useState, useCallback } from 'react';
+import { use, useRef, useState, useCallback, useEffect } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,66 @@ import { StorageImportWizard } from '@/components/storage-import-wizard';
 import { getAccessToken } from '@/lib/api';
 import { Loading } from '@/components/ui/loading';
 import { X } from 'lucide-react';
+
+function HoverPreview({ projectId, bucket, objectKey, children }: { projectId: string; bucket: string; objectKey: string; children: React.ReactNode }) {
+  const [show, setShow] = useState(false);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const handleEnter = (e: React.MouseEvent) => {
+    setPos({ x: e.clientX, y: e.clientY });
+    timerRef.current = setTimeout(async () => {
+      setShow(true);
+      if (!blobUrl) {
+        const controller = new AbortController();
+        abortRef.current = controller;
+        try {
+          const url = getDownloadUrl(projectId, bucket, objectKey);
+          const token = getAccessToken();
+          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include', signal: controller.signal });
+          const blob = await res.blob();
+          setBlobUrl(URL.createObjectURL(blob));
+        } catch { /* aborted or failed */ }
+      }
+    }, 300);
+  };
+
+  const handleMove = (e: React.MouseEvent) => {
+    if (show) setPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleLeave = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setShow(false);
+    if (abortRef.current) abortRef.current.abort();
+  };
+
+  useEffect(() => {
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+  }, [blobUrl]);
+
+  return (
+    <span onMouseEnter={handleEnter} onMouseMove={handleMove} onMouseLeave={handleLeave}>
+      {children}
+      {show && (
+        <div
+          className="fixed z-[100] pointer-events-none"
+          style={{ left: pos.x + 16, top: pos.y - 80 }}
+        >
+          <div className="bg-background border rounded-lg shadow-xl p-1.5 max-w-[240px]">
+            {blobUrl ? (
+              <img src={blobUrl} alt="" className="max-w-[224px] max-h-[160px] object-contain rounded" />
+            ) : (
+              <div className="w-[120px] h-[80px] flex items-center justify-center text-xs text-muted-foreground">Loading...</div>
+            )}
+          </div>
+        </div>
+      )}
+    </span>
+  );
+}
 
 function isPreviewable(name: string) {
   return /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i.test(name);
@@ -337,9 +397,11 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                         </td>
                         <td className="px-3 py-2 font-mono text-xs">
                           {canPreview ? (
-                            <button className="hover:underline hover:text-foreground text-left" onClick={() => handlePreview(obj.name)}>
-                              {name}
-                            </button>
+                            <HoverPreview projectId={id} bucket={selectedBucket} objectKey={obj.name}>
+                              <button className="hover:underline hover:text-foreground text-left" onClick={() => handlePreview(obj.name)}>
+                                {name}
+                              </button>
+                            </HoverPreview>
                           ) : name}
                         </td>
                         <td className="px-3 py-2 text-xs text-muted-foreground">{formatSize(obj.size)}</td>
