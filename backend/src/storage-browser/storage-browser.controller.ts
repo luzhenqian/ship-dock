@@ -102,6 +102,24 @@ export class StorageBrowserController {
     return this.storageService.renamePrefix(projectId, bucket, body.oldPrefix, body.newPrefix);
   }
 
+  @Post('buckets/:bucket/create-folder') @MinRole('DEVELOPER')
+  createFolder(
+    @Param('projectId') projectId: string,
+    @Param('bucket') bucket: string,
+    @Body() body: { prefix: string },
+  ) {
+    return this.storageService.createFolder(projectId, bucket, body.prefix);
+  }
+
+  @Post('buckets/:bucket/move-prefix') @MinRole('DEVELOPER')
+  movePrefix(
+    @Param('projectId') projectId: string,
+    @Param('bucket') bucket: string,
+    @Body() body: { sourcePrefix: string; destPrefix: string },
+  ) {
+    return this.storageService.movePrefix(projectId, bucket, body.sourcePrefix, body.destPrefix);
+  }
+
   @Get('buckets/:bucket/preview') @MinRole('VIEWER')
   async previewUrl(
     @Param('projectId') projectId: string,

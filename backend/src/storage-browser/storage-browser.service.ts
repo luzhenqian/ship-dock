@@ -163,6 +163,36 @@ export class StorageBrowserService {
     return { success: true, renamed: objects.length };
   }
 
+  async createFolder(projectId: string, bucket: string, prefix: string) {
+    const client = await this.getClient(projectId);
+    const folderKey = prefix.endsWith('/') ? prefix : prefix + '/';
+    await client.putObject(bucket, folderKey, Buffer.alloc(0), 0);
+    return { success: true, key: folderKey };
+  }
+
+  async movePrefix(projectId: string, bucket: string, sourcePrefix: string, destPrefix: string) {
+    const client = await this.getClient(projectId);
+    const objects: string[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      const stream = client.listObjectsV2(bucket, sourcePrefix, true);
+      stream.on('data', (obj: any) => { if (obj.name) objects.push(obj.name); });
+      stream.on('end', resolve);
+      stream.on('error', reject);
+    });
+
+    for (const key of objects) {
+      const newKey = destPrefix + key.slice(sourcePrefix.length);
+      const stream = await client.getObject(bucket, key);
+      await client.putObject(bucket, newKey, stream);
+    }
+
+    if (objects.length > 0) {
+      await client.removeObjects(bucket, objects);
+    }
+    return { success: true, moved: objects.length };
+  }
+
   async getObjectUrl(projectId: string, bucket: string, key: string) {
     const client = await this.getClient(projectId);
     return client.presignedGetObject(bucket, key, 60 * 60);

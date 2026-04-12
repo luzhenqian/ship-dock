@@ -92,6 +92,30 @@ export function useRenamePrefix(projectId: string) {
   });
 }
 
+export function useCreateFolder(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ bucket, prefix }: { bucket: string; prefix: string }) =>
+      api(`/projects/${projectId}/storage/buckets/${bucket}/create-folder`, {
+        method: 'POST',
+        body: JSON.stringify({ prefix }),
+      }),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['storage-objects', projectId, vars.bucket] }),
+  });
+}
+
+export function useMovePrefix(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ bucket, sourcePrefix, destPrefix }: { bucket: string; sourcePrefix: string; destPrefix: string }) =>
+      api(`/projects/${projectId}/storage/buckets/${bucket}/move-prefix`, {
+        method: 'POST',
+        body: JSON.stringify({ sourcePrefix, destPrefix }),
+      }),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['storage-objects', projectId, vars.bucket] }),
+  });
+}
+
 export function usePreviewUrl(projectId: string) {
   return useMutation({
     mutationFn: ({ bucket, key }: { bucket: string; key: string }) =>

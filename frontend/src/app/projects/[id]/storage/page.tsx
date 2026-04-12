@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import { useStorageOverview, useStorageBuckets, useStorageObjects, useUploadFile, useDeleteFile, useDeleteBulk, useDeletePrefix, useRenamePrefix, getDownloadUrl } from '@/hooks/use-storage';
+import { useStorageOverview, useStorageBuckets, useStorageObjects, useUploadFile, useDeleteFile, useDeleteBulk, useDeletePrefix, useRenamePrefix, useCreateFolder, useMovePrefix, getDownloadUrl } from '@/hooks/use-storage';
 import { StorageImportWizard } from '@/components/storage-import-wizard';
 import { getAccessToken } from '@/lib/api';
 import { Loading } from '@/components/ui/loading';
@@ -101,6 +101,10 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState('');
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [moveTarget, setMoveTarget] = useState<{ bucket: string; prefix: string; name: string } | null>(null);
+  const [moveDest, setMoveDest] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: buckets, isLoading, error } = useStorageBuckets(id);
@@ -111,6 +115,8 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   const deleteBulkMutation = useDeleteBulk(id);
   const deletePrefixMutation = useDeletePrefix(id);
   const renamePrefixMutation = useRenamePrefix(id);
+  const createFolderMutation = useCreateFolder(id);
+  const movePrefixMutation = useMovePrefix(id);
 
   const breadcrumbs = prefix ? prefix.split('/').filter(Boolean) : [];
   const allItems = [
@@ -161,6 +167,26 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   const handleDeleteFolder = () => {
     if (!deleteFolderTarget) return;
     deletePrefixMutation.mutate(deleteFolderTarget, { onSuccess: () => setDeleteFolderTarget(null) });
+  };
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim() || !selectedBucket) return;
+    const folderPrefix = prefix + newFolderName.trim() + '/';
+    createFolderMutation.mutate(
+      { bucket: selectedBucket, prefix: folderPrefix },
+      { onSuccess: () => { setShowNewFolder(false); setNewFolderName(''); } },
+    );
+  };
+
+  const handleMoveFolder = () => {
+    if (!moveTarget || moveDest === undefined) return;
+    const dest = moveDest.trim();
+    const destPrefix = dest ? (dest.endsWith('/') ? dest : dest + '/') : '';
+    const folderName = moveTarget.name + '/';
+    movePrefixMutation.mutate(
+      { bucket: moveTarget.bucket, sourcePrefix: moveTarget.prefix, destPrefix: destPrefix + folderName },
+      { onSuccess: () => setMoveTarget(null) },
+    );
   };
 
   const handleRenameFolder = () => {
@@ -323,6 +349,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                   </Button>
                 )}
                 <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
+                <Button size="sm" variant="outline" onClick={() => { setShowNewFolder(true); setNewFolderName(''); }}>New Folder</Button>
                 <Button size="sm" variant="outline" onClick={() => setShowImport(true)}>Import</Button>
                 <Button size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending}>
                   {uploadMutation.isPending ? 'Uploading...' : 'Upload'}
@@ -371,6 +398,12 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                               onClick={(e) => { e.stopPropagation(); setRenameTarget({ bucket: selectedBucket, prefix: p, name }); setRenameName(name); }}
                             >
                               Rename
+                            </button>
+                            <button
+                              className="text-xs text-foreground-secondary hover:text-foreground hover:underline"
+                              onClick={(e) => { e.stopPropagation(); setMoveTarget({ bucket: selectedBucket, prefix: p, name }); setMoveDest(prefix); }}
+                            >
+                              Move
                             </button>
                             <button
                               className="text-xs text-status-error hover:underline"
@@ -467,6 +500,61 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
         description={`This will permanently delete ${selectedItems.size} selected files.`}
         onConfirm={handleBulkDelete}
       />
+
+      {/* New folder dialog */}
+      {showNewFolder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowNewFolder(false)}>
+          <div className="bg-background border rounded-xl p-6 w-96 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold">New Folder</h3>
+            <div>
+              <label className="text-sm text-muted-foreground">Folder name</label>
+              <Input
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                autoFocus
+                placeholder="my-folder"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleCreateFolder(); }}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowNewFolder(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleCreateFolder} disabled={!newFolderName.trim() || createFolderMutation.isPending}>
+                {createFolderMutation.isPending ? 'Creating...' : 'Create'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move folder dialog */}
+      {moveTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setMoveTarget(null)}>
+          <div className="bg-background border rounded-xl p-6 w-96 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold">Move Folder</h3>
+            <p className="text-sm text-muted-foreground">
+              Moving <span className="font-mono font-medium text-foreground">{moveTarget.name}/</span>
+            </p>
+            <div>
+              <label className="text-sm text-muted-foreground">Destination path</label>
+              <Input
+                value={moveDest}
+                onChange={(e) => setMoveDest(e.target.value)}
+                autoFocus
+                placeholder="path/to/destination/"
+                className="font-mono text-sm"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleMoveFolder(); }}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Leave empty for bucket root</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setMoveTarget(null)}>Cancel</Button>
+              <Button size="sm" onClick={handleMoveFolder} disabled={movePrefixMutation.isPending}>
+                {movePrefixMutation.isPending ? 'Moving...' : 'Move'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Rename folder dialog */}
       {renameTarget && (
