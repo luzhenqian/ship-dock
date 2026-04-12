@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select } from '@/components/ui/select';
 import { EnvVarEditor } from '@/components/env-var-editor';
 import { Loading } from '@/components/ui/loading';
 import { useServices, useCreateService, useDeleteService, useDetectServices, useTestService } from '@/hooks/use-services';
@@ -299,16 +300,15 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
         <CardHeader><CardTitle>Node.js Version</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           <Label>Select Node.js version for this project</Label>
-          <select
+          <Select
             value={nodeVersion}
             onChange={(e) => setNodeVersion(e.target.value)}
-            className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm"
           >
             <option value="">System default</option>
             <option value="20">Node.js 20 (LTS)</option>
             <option value="22">Node.js 22 (LTS)</option>
             <option value="24">Node.js 24</option>
-          </select>
+          </Select>
           <p className="text-xs text-muted-foreground">
             Each project can use a different Node.js version. The selected version will be used for <code className="bg-muted px-1 rounded">npm install</code>, <code className="bg-muted px-1 rounded">npm run build</code>, and PM2 runtime.
           </p>

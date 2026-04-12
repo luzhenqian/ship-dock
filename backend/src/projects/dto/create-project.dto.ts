@@ -40,6 +40,10 @@ export class CreateProjectDto {
   @IsOptional()
   startCommand?: string;
 
+  @IsString()
+  @IsOptional()
+  nodeVersion?: string;
+
   @IsBoolean()
   @IsOptional()
   useLocalDb?: boolean;
