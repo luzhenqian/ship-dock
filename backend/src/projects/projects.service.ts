@@ -205,7 +205,11 @@ export class ProjectsService {
   }
 
   async update(id: string, dto: UpdateProjectDto) {
-    const data: any = { ...dto };
+    // Only include fields that are explicitly set (not undefined)
+    const data: any = {};
+    for (const [key, value] of Object.entries(dto)) {
+      if (value !== undefined) data[key] = value;
+    }
 
     // Validate slug format and uniqueness if being changed
     if ('slug' in dto && dto.slug !== undefined) {
@@ -225,11 +229,9 @@ export class ProjectsService {
       throw new ConflictException('Project name cannot be empty');
     }
 
-    // Handle repo connect/disconnect
-    if ('repoUrl' in dto) {
-      console.log(`[ProjectUpdate] repoUrl in dto: "${dto.repoUrl}", type: ${typeof dto.repoUrl}, keys: ${Object.keys(dto).join(',')}`);
-      console.trace('[ProjectUpdate] stack trace');
-      if (dto.repoUrl) {
+    // Handle repo connect/disconnect — only when repoUrl is explicitly provided
+    if ('repoUrl' in data) {
+      if (data.repoUrl) {
         // Connect: switch to GITHUB
         data.sourceType = 'GITHUB';
         data.repoUrl = dto.repoUrl;
