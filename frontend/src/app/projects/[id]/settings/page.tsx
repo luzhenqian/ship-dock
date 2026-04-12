@@ -297,9 +297,9 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader><CardTitle>Node.js Version</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-2 overflow-visible">
           <Label>Select Node.js version for this project</Label>
           <Select
             value={nodeVersion}
