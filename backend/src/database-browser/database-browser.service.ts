@@ -3,7 +3,7 @@ import { ServicesService } from '../services/services.service';
 import { ConnectionPoolService } from '../services/connection-pool.service';
 
 const ALLOWED_SQL = /^\s*(SELECT|INSERT|UPDATE|DELETE|EXPLAIN)\b/i;
-const BLOCKED_SQL = /\b(DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE|SET|COPY|DO|EXECUTE|PREPARE|CALL)\b/i;
+const BLOCKED_SQL = /\b(DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE|COPY|DO|EXECUTE|PREPARE|CALL)\b/i;
 const HAS_SEMICOLON = /;[\s]*\S/; // detects multi-statement queries
 
 function throwPgError(err: any): never {
