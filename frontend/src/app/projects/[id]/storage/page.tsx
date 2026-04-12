@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useStorageBuckets, useStorageObjects, useUploadFile, useDeleteFile, getDownloadUrl } from '@/hooks/use-storage';
+import { StorageImportWizard } from '@/components/storage-import-wizard';
 import { getAccessToken } from '@/lib/api';
 import { Loading } from '@/components/ui/loading';
 
@@ -13,6 +14,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   const [selectedBucket, setSelectedBucket] = useState('');
   const [prefix, setPrefix] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ bucket: string; key: string } | null>(null);
+  const [showImport, setShowImport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: buckets, isLoading, error } = useStorageBuckets(id);
@@ -95,6 +97,13 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
       <div className="flex-1 min-w-0">
         {!selectedBucket ? (
           <div className="text-sm text-muted-foreground">Select a bucket to browse files.</div>
+        ) : showImport ? (
+          <StorageImportWizard
+            projectId={id}
+            bucket={selectedBucket}
+            prefix={prefix}
+            onClose={() => setShowImport(false)}
+          />
         ) : (
           <>
             <div className="flex items-center justify-between mb-4">
@@ -111,8 +120,11 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
                   </span>
                 ))}
               </div>
-              <div>
+              <div className="flex gap-2">
                 <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
+                <Button size="sm" variant="outline" onClick={() => setShowImport(true)}>
+                  Import
+                </Button>
                 <Button size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending}>
                   {uploadMutation.isPending ? 'Uploading...' : 'Upload'}
                 </Button>
