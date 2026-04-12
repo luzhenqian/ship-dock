@@ -309,6 +309,14 @@ export default function EnvironmentVariablesDocsPage() {
                     <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://<your-frontend-domain>'}</code></td>
                   </tr>
                   <tr className="border-b">
+                    <td className="py-2 pr-4">Setup URL</td>
+                    <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://<your-frontend-domain>/settings'}</code> — users are redirected here after installing the app, with <code className="rounded bg-muted px-1.5 py-0.5 text-xs">?installation_id=xxx&setup_action=install</code> appended automatically</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Redirect on update</td>
+                    <td className="py-2 pr-4">Checked — also redirects when users update their installation (e.g. change repo access)</td>
+                  </tr>
+                  <tr className="border-b">
                     <td className="py-2 pr-4">Expire user authorization tokens</td>
                     <td className="py-2 pr-4">Checked (enabled)</td>
                   </tr>
