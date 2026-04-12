@@ -136,4 +136,33 @@ export class StorageBrowserService {
     const client = await this.getClient(projectId);
     return client.presignedGetObject(bucket, key, 60 * 60);
   }
+
+  async getOverview(projectId: string) {
+    const client = await this.getClient(projectId);
+    const buckets = await client.listBuckets();
+
+    const results = await Promise.all(
+      buckets.map(async (b) => {
+        let totalSize = 0;
+        let totalObjects = 0;
+        await new Promise<void>((resolve, reject) => {
+          const stream = client.listObjectsV2(b.name, '', true);
+          stream.on('data', (obj: any) => {
+            if (obj.size !== undefined) {
+              totalSize += obj.size;
+              totalObjects++;
+            }
+          });
+          stream.on('end', resolve);
+          stream.on('error', reject);
+        });
+        return { name: b.name, creationDate: b.creationDate, totalObjects, totalSize };
+      }),
+    );
+
+    const totalSize = results.reduce((s, b) => s + b.totalSize, 0);
+    const totalObjects = results.reduce((s, b) => s + b.totalObjects, 0);
+
+    return { buckets: results, totalBuckets: results.length, totalObjects, totalSize };
+  }
 }

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import { useStorageBuckets, useStorageObjects, useUploadFile, useDeleteFile, useDeleteBulk, useDeletePrefix, useRenamePrefix, getDownloadUrl } from '@/hooks/use-storage';
+import { useStorageOverview, useStorageBuckets, useStorageObjects, useUploadFile, useDeleteFile, useDeleteBulk, useDeletePrefix, useRenamePrefix, getDownloadUrl } from '@/hooks/use-storage';
 import { StorageImportWizard } from '@/components/storage-import-wizard';
 import { getAccessToken } from '@/lib/api';
 import { Loading } from '@/components/ui/loading';
@@ -44,6 +44,7 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: buckets, isLoading, error } = useStorageBuckets(id);
+  const { data: overview } = useStorageOverview(id);
   const { data: objects } = useStorageObjects(id, selectedBucket, prefix);
   const uploadMutation = useUploadFile(id);
   const deleteMutation = useDeleteFile(id);
@@ -184,7 +185,54 @@ export default function StoragePage({ params }: { params: Promise<{ id: string }
       {/* File browser */}
       <div className="flex-1 min-w-0">
         {!selectedBucket ? (
-          <div className="text-sm text-muted-foreground">Select a bucket to browse files.</div>
+          <div className="space-y-4">
+            {overview && (
+              <>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="border rounded-xl p-4">
+                    <p className="text-xs text-muted-foreground">Buckets</p>
+                    <p className="text-2xl font-semibold mt-1">{overview.totalBuckets}</p>
+                  </div>
+                  <div className="border rounded-xl p-4">
+                    <p className="text-xs text-muted-foreground">Total Objects</p>
+                    <p className="text-2xl font-semibold mt-1">{overview.totalObjects.toLocaleString()}</p>
+                  </div>
+                  <div className="border rounded-xl p-4">
+                    <p className="text-xs text-muted-foreground">Total Size</p>
+                    <p className="text-2xl font-semibold mt-1">{formatSize(overview.totalSize)}</p>
+                  </div>
+                </div>
+
+                <div className="border rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/30 border-b">
+                        <th className="px-3 py-2 text-left font-medium">Bucket</th>
+                        <th className="px-3 py-2 text-left font-medium">Objects</th>
+                        <th className="px-3 py-2 text-left font-medium">Size</th>
+                        <th className="px-3 py-2 text-left font-medium">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overview.buckets.map((b: any) => (
+                        <tr
+                          key={b.name}
+                          className="border-b last:border-0 hover:bg-foreground/[0.04] cursor-pointer"
+                          onClick={() => handleBucketSelect(b.name)}
+                        >
+                          <td className="px-3 py-2 font-medium">{b.name}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{b.totalObjects.toLocaleString()}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{formatSize(b.totalSize)}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{b.creationDate ? new Date(b.creationDate).toLocaleDateString() : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+            {!overview && <div className="text-sm text-muted-foreground">Select a bucket to browse files.</div>}
+          </div>
         ) : showImport ? (
           <StorageImportWizard
             projectId={id}

@@ -5,6 +5,13 @@ import { api, apiRaw, getAccessToken } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
+export function useStorageOverview(projectId: string) {
+  return useQuery({
+    queryKey: ['storage-overview', projectId],
+    queryFn: () => api<{ buckets: any[]; totalBuckets: number; totalObjects: number; totalSize: number }>(`/projects/${projectId}/storage/overview`),
+  });
+}
+
 export function useStorageBuckets(projectId: string) {
   return useQuery({
     queryKey: ['storage-buckets', projectId],

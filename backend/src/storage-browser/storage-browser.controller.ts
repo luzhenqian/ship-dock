@@ -11,6 +11,11 @@ import { StorageBrowserService } from './storage-browser.service';
 export class StorageBrowserController {
   constructor(private storageService: StorageBrowserService) {}
 
+  @Get('overview') @MinRole('VIEWER')
+  getOverview(@Param('projectId') projectId: string) {
+    return this.storageService.getOverview(projectId);
+  }
+
   @Get('buckets') @MinRole('VIEWER')
   listBuckets(@Param('projectId') projectId: string) {
     return this.storageService.listBuckets(projectId);
