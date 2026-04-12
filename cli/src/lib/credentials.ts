@@ -30,6 +30,8 @@ export interface Credentials {
   minioPort: string;
   minioAccessKey: string;
   minioSecretKey: string;
+  // Server
+  serverIp: string;
   // Secrets
   jwtSecret: string;
   jwtRefreshSecret: string;

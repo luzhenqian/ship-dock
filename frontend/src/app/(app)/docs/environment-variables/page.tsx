@@ -48,7 +48,7 @@ export default function EnvironmentVariablesDocsPage() {
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">SERVER_IP</code></td>
-                <td className="py-2 pr-4">Server public IP address, used in deployment context and DNS configuration</td>
+                <td className="py-2 pr-4"><strong>Required for auto-DNS.</strong> Server public IP address. When set, Ship Dock automatically creates DNS A records via your domain provider (GoDaddy/Namecheap) during deployment, before requesting SSL certificates. Without this, you must manually add DNS records. Auto-detected during installation via <code className="rounded bg-muted px-1.5 py-0.5 text-xs">curl -s ifconfig.me</code></td>
                 <td className="py-2 pr-4">—</td>
               </tr>
             </tbody>

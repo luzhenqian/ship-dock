@@ -4,6 +4,7 @@ import { TextPrompt } from '../components/text-prompt.js';
 import { PasswordPrompt } from '../components/password-prompt.js';
 import { SelectPrompt } from '../components/select-prompt.js';
 import { CompletedField } from '../components/completed-field.js';
+import { execSync } from 'child_process';
 import { generateSecret, Credentials } from '../lib/credentials.js';
 
 interface Props {
@@ -132,6 +133,7 @@ export function CollectPhase({ onComplete }: Props) {
         googleClientSecret: v.googleClientSecret || '',
         microsoftClientId: v.microsoftClientId || '',
         microsoftClientSecret: v.microsoftClientSecret || '',
+        serverIp: (() => { try { return execSync('curl -s -4 ifconfig.me', { timeout: 5000 }).toString().trim(); } catch { return ''; } })(),
       };
       onComplete(creds);
     } else {

@@ -29,6 +29,8 @@ export function generateBackendEnv(creds: Credentials): void {
     `FRONTEND_URL=${frontendUrl}`,
     '',
     `BASE_URL=${frontendUrl}`,
+    '',
+    `SERVER_IP=${creds.serverIp || ''}`,
   ];
 
   // GitHub App
