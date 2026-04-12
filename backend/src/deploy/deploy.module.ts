@@ -7,10 +7,9 @@ import { DeployProcessor } from './deploy.processor';
 import { DeployGateway } from './deploy.gateway';
 import { ProjectsModule } from '../projects/projects.module';
 import { DomainsModule } from '../domains/domains.module';
-import { GitHubAppModule } from '../github-app/github-app.module';
 
 @Module({
-  imports: [BullModule.registerQueue({ name: 'deploy' }), JwtModule.register({}), forwardRef(() => ProjectsModule), DomainsModule, GitHubAppModule],
+  imports: [BullModule.registerQueue({ name: 'deploy' }), JwtModule.register({}), forwardRef(() => ProjectsModule), DomainsModule],
   controllers: [DeployController],
   providers: [DeployService, DeployProcessor, DeployGateway],
   exports: [DeployService, DeployGateway],

@@ -13,7 +13,7 @@ import { CommandStage } from './stages/command.stage';
 import { DeployGateway } from './deploy.gateway';
 import { DomainsService } from '../domains/domains.service';
 import { DatabaseProvisionerService } from '../common/database-provisioner.service';
-import { GitHubAppService } from '../github-app/github-app.service';
+import { sign } from 'jsonwebtoken';
 import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 import { join, dirname } from 'path';
@@ -31,8 +31,24 @@ export class DeployProcessor extends WorkerHost {
     private encryption: EncryptionService, private config: ConfigService,
     private gateway: DeployGateway, private domainsService: DomainsService,
     private dbProvisioner: DatabaseProvisionerService,
-    private githubAppService: GitHubAppService,
   ) { super(); }
+
+  private async getGitHubInstallationToken(installationId: number): Promise<string> {
+    const appId = this.config.get('GITHUB_APP_ID');
+    const privateKey = Buffer.from(this.config.get('GITHUB_APP_PRIVATE_KEY', ''), 'base64').toString('utf-8');
+    if (!appId || !privateKey) throw new Error('GitHub App not configured');
+
+    const now = Math.floor(Date.now() / 1000);
+    const jwt = sign({ iat: now - 60, exp: now + 600, iss: appId }, privateKey, { algorithm: 'RS256' });
+
+    const res = await fetch(`https://api.github.com/app/installations/${installationId}/access_tokens`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${jwt}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    });
+    if (!res.ok) throw new Error(`GitHub token request failed: ${res.status}`);
+    const data = await res.json();
+    return data.token;
+  }
 
   async process(job: Job<{ deploymentId: string; projectId: string; resumeFromStage?: number }>) {
     const { deploymentId, projectId, resumeFromStage } = job.data;
@@ -151,7 +167,7 @@ export class DeployProcessor extends WorkerHost {
           try {
             const installation = await this.prisma.gitHubInstallation.findUnique({ where: { id: project.githubInstallationId } });
             if (installation) {
-              githubToken = await this.githubAppService.getInstallationAccessToken(installation.installationId);
+              githubToken = await this.getGitHubInstallationToken(installation.installationId);
             }
           } catch (err: any) {
             onLog(`\x1b[33mWarning: Could not get GitHub token: ${err.message}. Trying without auth.\x1b[0m`);
