@@ -5,6 +5,7 @@ import { PrismaService } from '../common/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { CreateStorageImportDto, RemoteConnectionDto, ValidateUrlsDto } from './dto/create-storage-import.dto';
 import { Client as MinioClient } from 'minio';
+import { InputJsonValue } from '@prisma/client/runtime/library';
 import { readdirSync, statSync, unlinkSync } from 'fs';
 import { join } from 'path';
 
@@ -135,7 +136,7 @@ export class StorageImportService implements OnModuleInit {
           objectKeys: dto.source === 'REMOTE' ? dto.objectKeys : undefined,
           fileKeys: dto.source === 'FILE' ? dto.fileKeys : undefined,
           urls: dto.source === 'URL' ? dto.urls : undefined,
-        },
+        } as unknown as InputJsonValue,
       },
     });
 
