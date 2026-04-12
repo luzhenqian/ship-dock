@@ -223,53 +223,249 @@ export default function EnvironmentVariablesDocsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold border-b pb-2">GitHub App</h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          GitHub App integration enables repository connections, automatic deployments via webhooks, and Git-based project imports. Create a GitHub App at{' '}
-          <strong>GitHub → Settings → Developer settings → GitHub Apps</strong>.
+          GitHub App integration enables repository connections, automatic deployments via webhooks (push, PR merge, release), and Git-based project imports.
         </p>
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b">
                 <th className="py-2 pr-4 text-left font-medium">Variable</th>
                 <th className="py-2 pr-4 text-left font-medium">Description</th>
+                <th className="py-2 pr-4 text-left font-medium">Where to find</th>
               </tr>
             </thead>
             <tbody className="text-foreground/80">
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">GITHUB_APP_ID</code></td>
-                <td className="py-2 pr-4">GitHub App ID, found on the app's settings page</td>
+                <td className="py-2 pr-4">GitHub App ID (numeric)</td>
+                <td className="py-2 pr-4">App settings page → General → About → App ID</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">GITHUB_APP_PRIVATE_KEY</code></td>
-                <td className="py-2 pr-4">Base64-encoded private key (PEM). Generate in the app settings, then encode: <code className="rounded bg-muted px-1.5 py-0.5 text-xs">base64 -i key.pem</code></td>
+                <td className="py-2 pr-4">Base64-encoded RSA private key, used to sign JWT for API authentication</td>
+                <td className="py-2 pr-4">App settings → General → Private keys → Generate</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">GITHUB_APP_WEBHOOK_SECRET</code></td>
-                <td className="py-2 pr-4">Secret for verifying webhook payloads from GitHub. Set the same value in your GitHub App webhook settings</td>
+                <td className="py-2 pr-4">Secret for HMAC-SHA256 signature verification of webhook payloads</td>
+                <td className="py-2 pr-4">App settings → General → Webhook → Webhook secret</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">GITHUB_APP_CLIENT_ID</code></td>
-                <td className="py-2 pr-4">OAuth Client ID for user authentication via GitHub</td>
+                <td className="py-2 pr-4">OAuth Client ID for user authorization flow</td>
+                <td className="py-2 pr-4">App settings → General → About → Client ID</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">GITHUB_APP_CLIENT_SECRET</code></td>
-                <td className="py-2 pr-4">OAuth Client Secret for user authentication via GitHub</td>
+                <td className="py-2 pr-4">OAuth Client Secret</td>
+                <td className="py-2 pr-4">App settings → General → Client secrets → Generate</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">GITHUB_APP_SLUG</code></td>
-                <td className="py-2 pr-4">GitHub App URL slug, used for generating the installation link</td>
+                <td className="py-2 pr-4">App URL slug, used to build installation link: <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'github.com/apps/<slug>'}</code></td>
+                <td className="py-2 pr-4">The URL-friendly name shown in your app's public URL</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground space-y-2">
-          <p><strong>Setup steps:</strong></p>
-          <ol className="list-decimal list-inside space-y-1">
-            <li>Create a GitHub App with repository read permissions and webhook push events</li>
-            <li>Set the webhook URL to <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://<your-api-domain>/api/webhooks/github'}</code></li>
-            <li>Generate a private key and base64-encode it</li>
-            <li>Copy the App ID, Client ID, and Client Secret to your environment</li>
-          </ol>
+
+        <div className="space-y-4">
+          <h3 className="text-base font-semibold">Step-by-step Setup</h3>
+
+          {/* Step 1 */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">1. Create a GitHub App</p>
+            <p className="text-sm text-foreground/80">
+              Go to{' '}
+              <a href="https://github.com/settings/apps/new" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4 hover:text-foreground/70">
+                https://github.com/settings/apps/new
+              </a>
+              {' '}and fill in the following fields:
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="py-2 pr-4 text-left font-medium">Field</th>
+                    <th className="py-2 pr-4 text-left font-medium">Value</th>
+                  </tr>
+                </thead>
+                <tbody className="text-foreground/80">
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">GitHub App name</td>
+                    <td className="py-2 pr-4">Your app name, e.g. <code className="rounded bg-muted px-1.5 py-0.5 text-xs">ship-dock</code> (this becomes the slug)</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Description</td>
+                    <td className="py-2 pr-4">Optional, e.g. "Self-hosted deployment platform"</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Homepage URL</td>
+                    <td className="py-2 pr-4">Your Ship Dock frontend URL, e.g. <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://<your-frontend-domain>'}</code></td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Callback URL</td>
+                    <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://<your-frontend-domain>'}</code></td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Expire user authorization tokens</td>
+                    <td className="py-2 pr-4">Checked (enabled)</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Request user authorization (OAuth) during installation</td>
+                    <td className="py-2 pr-4">Unchecked</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Enable Device Flow</td>
+                    <td className="py-2 pr-4">Unchecked</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">2. Configure Webhook</p>
+            <p className="text-sm text-foreground/80">In the "Webhook" section of the creation form:</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="py-2 pr-4 text-left font-medium">Field</th>
+                    <th className="py-2 pr-4 text-left font-medium">Value</th>
+                  </tr>
+                </thead>
+                <tbody className="text-foreground/80">
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Active</td>
+                    <td className="py-2 pr-4">Checked</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Webhook URL</td>
+                    <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://<your-api-domain>/api/webhooks/github'}</code></td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Webhook secret</td>
+                    <td className="py-2 pr-4">A random string. Generate with: <code className="rounded bg-muted px-1.5 py-0.5 text-xs">openssl rand -hex 32</code> — save this as <code className="rounded bg-muted px-1.5 py-0.5 text-xs">GITHUB_APP_WEBHOOK_SECRET</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">3. Set Permissions</p>
+            <p className="text-sm text-foreground/80">Under "Permissions" → "Repository permissions":</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="py-2 pr-4 text-left font-medium">Permission</th>
+                    <th className="py-2 pr-4 text-left font-medium">Access</th>
+                    <th className="py-2 pr-4 text-left font-medium">Purpose</th>
+                  </tr>
+                </thead>
+                <tbody className="text-foreground/80">
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Contents</td>
+                    <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">Read-only</code></td>
+                    <td className="py-2 pr-4">Read repository files for deployment</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Metadata</td>
+                    <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">Read-only</code></td>
+                    <td className="py-2 pr-4">List repositories and basic info</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Webhooks</td>
+                    <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">Read and write</code></td>
+                    <td className="py-2 pr-4">Create/manage per-repo webhooks for auto-deploy</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Step 4 */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">4. Subscribe to Events</p>
+            <p className="text-sm text-foreground/80">Under "Subscribe to events", check the following:</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="py-2 pr-4 text-left font-medium">Event</th>
+                    <th className="py-2 pr-4 text-left font-medium">Triggers deployment when</th>
+                  </tr>
+                </thead>
+                <tbody className="text-foreground/80">
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Push</td>
+                    <td className="py-2 pr-4">Code is pushed to a matching branch</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Pull request</td>
+                    <td className="py-2 pr-4">A PR is merged (closed + merged)</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Release</td>
+                    <td className="py-2 pr-4">A new release is published</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Create</td>
+                    <td className="py-2 pr-4">A branch or tag is created</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 pr-4">Delete</td>
+                    <td className="py-2 pr-4">A branch or tag is deleted</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Step 5 */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">5. Installation Access</p>
+            <p className="text-sm text-foreground/80">Under "Where can this GitHub App be installed?":</p>
+            <ul className="list-disc list-inside text-sm text-foreground/80 space-y-1">
+              <li><strong>Only on this account</strong> — if only you will use Ship Dock</li>
+              <li><strong>Any account</strong> — if others will install your app on their repos</li>
+            </ul>
+          </div>
+
+          {/* Step 6 */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">6. After Creation — Collect Credentials</p>
+            <p className="text-sm text-foreground/80">
+              After clicking "Create GitHub App", you'll be redirected to the app settings page at{' '}
+              <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://github.com/settings/apps/<your-app-slug>'}</code>.
+              Collect the following:
+            </p>
+            <ol className="list-decimal list-inside text-sm text-foreground/80 space-y-2">
+              <li>
+                <strong>App ID</strong> and <strong>Client ID</strong> — shown on the General page under "About"
+              </li>
+              <li>
+                <strong>Client Secret</strong> — click "Generate a new client secret" and copy the value immediately (it won't be shown again)
+              </li>
+              <li>
+                <strong>Private Key</strong> — scroll down to "Private keys", click "Generate a private key". A <code className="rounded bg-muted px-1.5 py-0.5 text-xs">.pem</code> file will be downloaded. Encode it:
+                <pre className="mt-1 rounded-lg border bg-muted/50 p-3 text-xs">{'base64 -i <your-app-name>.pem | tr -d \'\\n\''}</pre>
+                The output is your <code className="rounded bg-muted px-1.5 py-0.5 text-xs">GITHUB_APP_PRIVATE_KEY</code> value.
+              </li>
+              <li>
+                <strong>Slug</strong> — the URL-friendly name in <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'github.com/apps/<slug>'}</code>
+              </li>
+            </ol>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+          <strong>How it works:</strong> After configuration, users can go to <strong>Project Settings → Webhooks</strong> to connect a GitHub repository. When events matching the configured filters (branch, path, event type) are received, Ship Dock automatically triggers a new deployment.
         </div>
       </section>
 
@@ -277,7 +473,7 @@ export default function EnvironmentVariablesDocsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold border-b pb-2">Google Analytics (GA4)</h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          OAuth credentials for connecting Google Analytics accounts. See the <strong>Analytics Integration</strong> doc for the full setup guide.
+          OAuth credentials for connecting Google Analytics accounts. Enables GA4 property management and report building directly in Ship Dock.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -290,7 +486,7 @@ export default function EnvironmentVariablesDocsPage() {
             <tbody className="text-foreground/80">
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">GOOGLE_CLIENT_ID</code></td>
-                <td className="py-2 pr-4">OAuth 2.0 Client ID from Google Cloud Console</td>
+                <td className="py-2 pr-4">OAuth 2.0 Client ID</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">GOOGLE_CLIENT_SECRET</code></td>
@@ -298,10 +494,42 @@ export default function EnvironmentVariablesDocsPage() {
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">GOOGLE_REDIRECT_URI</code></td>
-                <td className="py-2 pr-4">OAuth callback URL, e.g. <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://<api-domain>/api/analytics/callback/google'}</code></td>
+                <td className="py-2 pr-4">OAuth callback URL: <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://<your-api-domain>/api/analytics/callback/google'}</code></td>
               </tr>
             </tbody>
           </table>
+        </div>
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-foreground">Setup Steps:</p>
+          <ol className="list-decimal list-inside text-sm text-foreground/80 space-y-2">
+            <li>
+              Go to{' '}
+              <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4 hover:text-foreground/70">
+                Google Cloud Console → Credentials
+              </a>
+              , click <strong>Create Credentials → OAuth client ID</strong>
+            </li>
+            <li>Application type: <strong>Web application</strong></li>
+            <li>Authorized redirect URIs: add <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://<your-api-domain>/api/analytics/callback/google'}</code></li>
+            <li>
+              Enable the following APIs in{' '}
+              <a href="https://console.cloud.google.com/apis/library" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4 hover:text-foreground/70">
+                API Library
+              </a>
+              :
+              <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                <li>Google Analytics Admin API</li>
+                <li>Google Analytics Data API</li>
+              </ul>
+            </li>
+            <li>
+              Go to{' '}
+              <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4 hover:text-foreground/70">
+                Google Auth Platform → Audience
+              </a>
+              {' '}and either add test users (for testing) or publish the app (for production, requires Google review)
+            </li>
+          </ol>
         </div>
       </section>
 
@@ -309,7 +537,7 @@ export default function EnvironmentVariablesDocsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold border-b pb-2">Microsoft Clarity</h2>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          OAuth credentials for connecting Microsoft Clarity accounts.
+          OAuth credentials for connecting Microsoft Clarity accounts. Enables Clarity project management and linking to deployed projects.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -322,18 +550,41 @@ export default function EnvironmentVariablesDocsPage() {
             <tbody className="text-foreground/80">
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">MICROSOFT_CLIENT_ID</code></td>
-                <td className="py-2 pr-4">Application (client) ID from Azure App Registration (the <code className="rounded bg-muted px-1.5 py-0.5 text-xs">appId</code> in the manifest, not the secret's keyId)</td>
+                <td className="py-2 pr-4">Application (client) ID — the <code className="rounded bg-muted px-1.5 py-0.5 text-xs">appId</code> from the manifest, not the secret's keyId</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">MICROSOFT_CLIENT_SECRET</code></td>
-                <td className="py-2 pr-4">Client secret value from Azure App Registration → Certificates & secrets</td>
+                <td className="py-2 pr-4">Client secret value (not the secret ID)</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4"><code className="rounded bg-muted px-1.5 py-0.5 text-xs">MICROSOFT_REDIRECT_URI</code></td>
-                <td className="py-2 pr-4">OAuth callback URL, e.g. <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://<api-domain>/api/analytics/callback/microsoft'}</code></td>
+                <td className="py-2 pr-4">OAuth callback URL: <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://<your-api-domain>/api/analytics/callback/microsoft'}</code></td>
               </tr>
             </tbody>
           </table>
+        </div>
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-foreground">Setup Steps:</p>
+          <ol className="list-decimal list-inside text-sm text-foreground/80 space-y-2">
+            <li>
+              Go to{' '}
+              <a href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4 hover:text-foreground/70">
+                Azure Portal → App Registrations
+              </a>
+              , click <strong>New registration</strong>
+            </li>
+            <li>Supported account types: <strong>Accounts in any organizational directory and personal Microsoft accounts</strong></li>
+            <li>Redirect URI (Web): <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'https://<your-api-domain>/api/analytics/callback/microsoft'}</code></li>
+            <li>After registration, go to <strong>Certificates & secrets → New client secret</strong>, copy the <strong>Value</strong> (not the Secret ID)</li>
+            <li>
+              Go to <strong>Manifest</strong> and verify:
+              <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                <li><code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'"signInAudience": "AzureADandPersonalMicrosoftAccount"'}</code></li>
+                <li><code className="rounded bg-muted px-1.5 py-0.5 text-xs">{'"accessTokenAcceptedVersion": 2'}</code></li>
+              </ul>
+            </li>
+            <li>The <code className="rounded bg-muted px-1.5 py-0.5 text-xs">MICROSOFT_CLIENT_ID</code> is the <code className="rounded bg-muted px-1.5 py-0.5 text-xs">appId</code> from the Overview page or manifest</li>
+          </ol>
         </div>
       </section>
 
