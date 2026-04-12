@@ -6,7 +6,7 @@ import { useGitHubInstallations, useGitHubRepositories } from '@/hooks/use-githu
 import { GitBranch, Search, Lock, Globe, Loader2, Check, RefreshCw } from 'lucide-react';
 
 interface RepoSelectorProps {
-  onSelect: (repoUrl: string, defaultBranch: string) => void;
+  onSelect: (repoUrl: string, defaultBranch: string, installationDbId?: string) => void;
   onSwitchToManual: () => void;
 }
 
@@ -120,7 +120,8 @@ export function RepoSelector({ onSelect, onSwitchToManual }: RepoSelectorProps) 
               className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
               onClick={() => {
                 setSelectedRepo({ fullName: repo.full_name, branch: repo.default_branch, isPrivate: repo.private });
-                onSelect(`https://github.com/${repo.full_name}`, repo.default_branch);
+                const inst = installations?.find((i: any) => i.installationId === activeInstallationId);
+                onSelect(`https://github.com/${repo.full_name}`, repo.default_branch, inst?.id);
               }}
             >
               <div className="flex items-center gap-2">

@@ -1,20 +1,67 @@
-import * as React from "react"
-import { cn } from "@/lib/utils"
+'use client';
 
-function Select({ className, children, ...props }: React.ComponentProps<"select">) {
+import * as React from "react"
+import { useState, useRef, useEffect } from "react"
+import { cn } from "@/lib/utils"
+import { ChevronDown, Check } from "lucide-react"
+
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
+interface SelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: SelectOption[];
+  placeholder?: string;
+  className?: string;
+}
+
+function Select({ value, onChange, options, placeholder = "Select...", className }: SelectProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selected = options.find((o) => o.value === value);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
   return (
-    <select
-      data-slot="select"
-      className={cn(
-        "h-9 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-[13px] outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 dark:bg-input/30",
-        "bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23888%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat pr-8",
-        className
+    <div ref={ref} className={cn("relative", className)}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex h-9 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-[13px] outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30"
+      >
+        <span className={selected ? '' : 'text-foreground-muted'}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-lg border bg-background shadow-lg">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className="flex w-full items-center justify-between px-2.5 py-2 text-[13px] hover:bg-foreground/[0.04] first:rounded-t-lg last:rounded-b-lg"
+              onClick={() => { onChange(option.value); setOpen(false); }}
+            >
+              <span>{option.label}</span>
+              {value === option.value && <Check className="h-3.5 w-3.5" />}
+            </button>
+          ))}
+        </div>
       )}
-      {...props}
-    >
-      {children}
-    </select>
-  )
+    </div>
+  );
 }
 
 export { Select }
+export type { SelectOption }

@@ -44,6 +44,10 @@ export class CreateProjectDto {
   @IsOptional()
   nodeVersion?: string;
 
+  @IsString()
+  @IsOptional()
+  githubInstallationId?: string;
+
   @IsBoolean()
   @IsOptional()
   useLocalDb?: boolean;

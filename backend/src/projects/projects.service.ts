@@ -232,6 +232,9 @@ export class ProjectsService {
         data.sourceType = 'GITHUB';
         data.repoUrl = dto.repoUrl;
         data.branch = dto.branch || 'main';
+        if (dto.githubInstallationId) {
+          data.githubInstallationId = dto.githubInstallationId;
+        }
       } else {
         // Disconnect: switch to UPLOAD
         data.sourceType = 'UPLOAD';

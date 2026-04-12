@@ -69,6 +69,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [repoMode, setRepoMode] = useState<'select' | 'manual'>('select');
   const [repoUrl, setRepoUrl] = useState('');
   const [repoBranch, setRepoBranch] = useState('main');
+  const [repoInstallationId, setRepoInstallationId] = useState<string | undefined>();
   const [repoConnecting, setRepoConnecting] = useState(false);
   const [showRepoDisconnect, setShowRepoDisconnect] = useState(false);
 
@@ -302,13 +303,15 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           <Label>Select Node.js version for this project</Label>
           <Select
             value={nodeVersion}
-            onChange={(e) => setNodeVersion(e.target.value)}
-          >
-            <option value="">System default</option>
-            <option value="20">Node.js 20 (LTS)</option>
-            <option value="22">Node.js 22 (LTS)</option>
-            <option value="24">Node.js 24</option>
-          </Select>
+            onChange={setNodeVersion}
+            options={[
+              { value: '', label: 'System default' },
+              { value: '20', label: 'Node.js 20 (LTS)' },
+              { value: '22', label: 'Node.js 22 (LTS)' },
+              { value: '24', label: 'Node.js 24' },
+            ]}
+            placeholder="System default"
+          />
           <p className="text-xs text-muted-foreground">
             Each project can use a different Node.js version. The selected version will be used for <code className="bg-muted px-1 rounded">npm install</code>, <code className="bg-muted px-1 rounded">npm run build</code>, and PM2 runtime.
           </p>
@@ -676,9 +679,10 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           </DialogHeader>
           {repoMode === 'select' && !repoUrl ? (
             <RepoSelector
-              onSelect={(url, defaultBranch) => {
+              onSelect={(url, defaultBranch, installationDbId) => {
                 setRepoUrl(url);
                 setRepoBranch(defaultBranch);
+                setRepoInstallationId(installationDbId);
               }}
               onSwitchToManual={() => setRepoMode('manual')}
             />
@@ -726,7 +730,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
                   try {
                     await api(`/projects/${projectId}`, {
                       method: 'PATCH',
-                      body: JSON.stringify({ repoUrl, branch: repoBranch || 'main' }),
+                      body: JSON.stringify({ repoUrl, branch: repoBranch || 'main', githubInstallationId: repoInstallationId }),
                     });
                     toast.success('Repository connected', {
                       description: 'Redeploy to pull from GitHub.',
