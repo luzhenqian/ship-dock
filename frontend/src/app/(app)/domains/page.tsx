@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Loading } from '@/components/ui/loading';
+import { Select } from '@/components/ui/select';
 
 interface DnsRecord { name: string; type: string; value: string; ttl?: number }
 
@@ -249,23 +250,18 @@ export default function DomainsPage() {
                                           <div className="flex items-end gap-2">
                                             <div className="w-20">
                                               <Label className="text-xs">Type</Label>
-                                              <select
-                                                className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                                              <Select
                                                 value={editRecordForm.type}
-                                                onChange={(e) => setEditRecordForm((f) => ({ ...f, type: e.target.value }))}
-                                              >
-                                                <option value="A">A</option>
-                                                <option value="A+DDNS">A + Dynamic DNS</option>
-                                                <option value="AAAA">AAAA</option>
-                                                <option value="ALIAS">ALIAS</option>
-                                                <option value="CAA">CAA</option>
-                                                <option value="CNAME">CNAME</option>
-                                                <option value="MX">MX</option>
-                                                <option value="NS">NS</option>
-                                                <option value="SRV">SRV</option>
-                                                <option value="TXT">TXT</option>
-                                                <option value="URL">URL Redirect</option>
-                                              </select>
+                                                onChange={(v) => setEditRecordForm((f) => ({ ...f, type: v }))}
+                                                options={[
+                                                  { value: 'A', label: 'A' }, { value: 'A+DDNS', label: 'A + Dynamic DNS' },
+                                                  { value: 'AAAA', label: 'AAAA' }, { value: 'ALIAS', label: 'ALIAS' },
+                                                  { value: 'CAA', label: 'CAA' }, { value: 'CNAME', label: 'CNAME' },
+                                                  { value: 'MX', label: 'MX' }, { value: 'NS', label: 'NS' },
+                                                  { value: 'SRV', label: 'SRV' }, { value: 'TXT', label: 'TXT' },
+                                                  { value: 'URL', label: 'URL Redirect' },
+                                                ]}
+                                              />
                                             </div>
                                             <div className="w-32">
                                               <Label className="text-xs">Name</Label>
@@ -346,16 +342,14 @@ export default function DomainsPage() {
                                 <div className="flex items-end gap-2">
                                   <div className="w-20">
                                     <Label className="text-xs">Type</Label>
-                                    <select
-                                      className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                                    <Select
                                       value={recordForm.type}
-                                      onChange={(e) => setRecordForm((f) => ({ ...f, type: e.target.value }))}
-                                    >
-                                      <option value="A">A</option>
-                                      <option value="CNAME">CNAME</option>
-                                      <option value="TXT">TXT</option>
-                                      <option value="MX">MX</option>
-                                    </select>
+                                      onChange={(v) => setRecordForm((f) => ({ ...f, type: v }))}
+                                      options={[
+                                        { value: 'A', label: 'A' }, { value: 'CNAME', label: 'CNAME' },
+                                        { value: 'TXT', label: 'TXT' }, { value: 'MX', label: 'MX' },
+                                      ]}
+                                    />
                                   </div>
                                   <div className="w-32">
                                     <Label className="text-xs">Name</Label>

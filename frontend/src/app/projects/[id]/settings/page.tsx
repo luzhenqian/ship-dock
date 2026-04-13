@@ -602,15 +602,15 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           <div className="space-y-3">
             <div>
               <Label>Type</Label>
-              <select
+              <Select
                 value={newService.type}
-                onChange={(e) => setNewService({ ...newService, type: e.target.value })}
-                className="w-full h-9 rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="POSTGRESQL">PostgreSQL</option>
-                <option value="REDIS">Redis</option>
-                <option value="MINIO">MinIO</option>
-              </select>
+                onChange={(v) => setNewService({ ...newService, type: v })}
+                options={[
+                  { value: 'POSTGRESQL', label: 'PostgreSQL' },
+                  { value: 'REDIS', label: 'Redis' },
+                  { value: 'MINIO', label: 'MinIO' },
+                ]}
+              />
             </div>
             <div>
               <Label>Name</Label>

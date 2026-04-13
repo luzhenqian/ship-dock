@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Loading } from '@/components/ui/loading';
 import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
 
 export default function RedisPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -139,16 +140,16 @@ export default function RedisPage({ params }: { params: Promise<{ id: string }> 
             </div>
             <div>
               <Label>Type</Label>
-              <select
+              <Select
                 value={newKey.type}
-                onChange={(e) => setNewKey({ ...newKey, type: e.target.value })}
-                className="w-full h-9 rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="string">String</option>
-                <option value="hash">Hash (JSON)</option>
-                <option value="list">List (comma-separated)</option>
-                <option value="set">Set (comma-separated)</option>
-              </select>
+                onChange={(v) => setNewKey({ ...newKey, type: v })}
+                options={[
+                  { value: 'string', label: 'String' },
+                  { value: 'hash', label: 'Hash (JSON)' },
+                  { value: 'list', label: 'List (comma-separated)' },
+                  { value: 'set', label: 'Set (comma-separated)' },
+                ]}
+              />
             </div>
             <div>
               <Label>Value</Label>

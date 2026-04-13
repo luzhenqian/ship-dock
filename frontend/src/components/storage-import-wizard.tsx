@@ -13,6 +13,7 @@ import {
 import { useStorageImportProgress } from '@/hooks/use-storage-import-progress';
 import { Cloud, Upload, Link, Check, X, Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { Select } from '@/components/ui/select';
 
 type Step = 'source' | 'conflict' | 'execute';
 type SourceMode = 'REMOTE' | 'UPLOAD' | 'URL' | '';
@@ -317,14 +318,12 @@ export function StorageImportWizard({ projectId, bucket, prefix, onClose }: Stor
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label>Bucket</Label>
-                      <select
-                        className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                      <Select
                         value={selectedRemoteBucket}
-                        onChange={(e) => { setSelectedRemoteBucket(e.target.value); setBrowsed(false); }}
-                      >
-                        <option value="">Select a bucket</option>
-                        {remoteBuckets.map((b) => <option key={b} value={b}>{b}</option>)}
-                      </select>
+                        onChange={(v) => { setSelectedRemoteBucket(v); setBrowsed(false); }}
+                        placeholder="Select a bucket"
+                        options={remoteBuckets.map((b) => ({ value: b, label: b }))}
+                      />
                     </div>
                     <div>
                       <Label>Prefix (optional)</Label>

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Select } from '@/components/ui/select';
 
 interface ItemConfig {
   itemId: string;
@@ -179,21 +180,20 @@ export default function ConfigurePage({ params }: { params: Promise<{ id: string
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="conflict">Database Conflict Strategy</Label>
-              <select
-                id="conflict"
+              <Select
                 value={current.dbConflictStrategy}
-                onChange={(e) =>
+                onChange={(v) =>
                   updateConfig(currentIndex, {
-                    dbConflictStrategy: e.target.value as ItemConfig['dbConflictStrategy'],
+                    dbConflictStrategy: v as ItemConfig['dbConflictStrategy'],
                   })
                 }
-                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-[13px] outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
-              >
-                <option value="SKIP">Skip if exists</option>
-                <option value="OVERWRITE">Overwrite</option>
-                <option value="APPEND">Append data</option>
-                <option value="ERROR">Error on conflict</option>
-              </select>
+                options={[
+                  { value: 'SKIP', label: 'Skip if exists' },
+                  { value: 'OVERWRITE', label: 'Overwrite' },
+                  { value: 'APPEND', label: 'Append data' },
+                  { value: 'ERROR', label: 'Error on conflict' },
+                ]}
+              />
             </div>
           </CardContent>
         </Card>

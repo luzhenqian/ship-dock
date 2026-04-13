@@ -10,6 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Loading } from '@/components/ui/loading';
+import { Select } from '@/components/ui/select';
 import {
   useWebhookConfig, useCreateWebhook, useUpdateWebhook, useDeleteWebhook,
   useRegenerateSecret, useWebhookEvents, useReplayWebhookEvent,
@@ -325,17 +326,18 @@ export default function WebhooksPage({ params }: { params: Promise<{ id: string 
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Webhook Events</CardTitle>
-              <select
+              <Select
                 value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); setEventsPage(1); }}
-                className="h-8 rounded-md border bg-background px-2 text-sm"
-              >
-                <option value="">All statuses</option>
-                <option value="TRIGGERED">Triggered</option>
-                <option value="FILTERED">Filtered</option>
-                <option value="FAILED">Failed</option>
-                <option value="REPLAYED">Replayed</option>
-              </select>
+                onChange={(v) => { setStatusFilter(v); setEventsPage(1); }}
+                options={[
+                  { value: '', label: 'All statuses' },
+                  { value: 'TRIGGERED', label: 'Triggered' },
+                  { value: 'FILTERED', label: 'Filtered' },
+                  { value: 'FAILED', label: 'Failed' },
+                  { value: 'REPLAYED', label: 'Replayed' },
+                ]}
+                className="w-40"
+              />
             </div>
           </CardHeader>
           <CardContent>

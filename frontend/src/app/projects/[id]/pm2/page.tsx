@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { codeToHtml } from 'shiki';
 import { Loading } from '@/components/ui/loading';
+import { Select } from '@/components/ui/select';
 
 function useHighlightedCode(code: string, lang: string) {
   const [html, setHtml] = useState('');
@@ -148,14 +149,15 @@ export default function Pm2ConfigPage({ params }: { params: Promise<{ id: string
             </div>
             <div>
               <Label>Exec Mode</Label>
-              <select
+              <Select
                 value={form.execMode}
-                onChange={(e) => setField('execMode', e.target.value)}
-                className="flex h-9 w-32 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-              >
-                <option value="fork">fork</option>
-                <option value="cluster">cluster</option>
-              </select>
+                onChange={(v) => setField('execMode', v)}
+                options={[
+                  { value: 'fork', label: 'fork' },
+                  { value: 'cluster', label: 'cluster' },
+                ]}
+                className="w-32"
+              />
             </div>
           </div>
           {form.instances > 1 && form.execMode === 'cluster' && (
