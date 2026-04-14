@@ -105,6 +105,16 @@ export class ProjectsService {
     const envVars = Object.keys(envVarsObj).length > 0 ? this.encryption.encrypt(JSON.stringify(envVarsObj)) : '';
     const directory = dto.directory ? this.validateDirectory(dto.directory) : dto.slug;
 
+    // Auto-match GitHub App installation if repoUrl is GitHub and no installationId provided
+    let githubInstallationId = dto.githubInstallationId || null;
+    if (!githubInstallationId && dto.repoUrl?.includes('github.com')) {
+      const match = dto.repoUrl.replace(/\.git$/, '').match(/github\.com\/([^/]+)\//);
+      if (match) {
+        const installation = await this.prisma.gitHubInstallation.findFirst({ where: { accountLogin: match[1] } });
+        if (installation) githubInstallationId = installation.id;
+      }
+    }
+
     // Create project first with a temporary port of 0
     const project = await this.prisma.project.create({
       data: {
@@ -116,6 +126,7 @@ export class ProjectsService {
         useLocalDb: dto.useLocalDb || false, dbName,
         useLocalRedis: dto.useLocalRedis || false, redisDbIndex,
         useLocalMinio: dto.useLocalMinio || false, minioBucket,
+        githubInstallationId,
       },
     });
 
@@ -239,6 +250,13 @@ export class ProjectsService {
         data.branch = dto.branch || 'main';
         if (dto.githubInstallationId) {
           data.githubInstallationId = dto.githubInstallationId;
+        } else if (dto.repoUrl?.includes('github.com')) {
+          // Auto-match GitHub App installation by account name
+          const match = dto.repoUrl.replace(/\.git$/, '').match(/github\.com\/([^/]+)\//);
+          if (match) {
+            const installation = await this.prisma.gitHubInstallation.findFirst({ where: { accountLogin: match[1] } });
+            if (installation) data.githubInstallationId = installation.id;
+          }
         }
       } else {
         // Disconnect: switch to UPLOAD
