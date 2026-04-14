@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ServicesService } from '../services/services.service';
 import { ConnectionPoolService } from '../services/connection-pool.service';
+import { PrismaService } from '../common/prisma.service';
 import { Readable } from 'stream';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class StorageBrowserService {
   constructor(
     private servicesService: ServicesService,
     private pool: ConnectionPoolService,
+    private prisma: PrismaService,
   ) {}
 
   private async getClient(projectId: string) {
@@ -15,9 +17,19 @@ export class StorageBrowserService {
     return this.pool.getMinioClient(service.id, config);
   }
 
+  private async getProjectBucketName(projectId: string): Promise<string | null> {
+    const project = await this.prisma.project.findUnique({ where: { id: projectId }, select: { minioBucket: true } });
+    return project?.minioBucket || null;
+  }
+
   async listBuckets(projectId: string) {
     const client = await this.getClient(projectId);
-    return client.listBuckets();
+    const allBuckets = await client.listBuckets();
+    const projectBucket = await this.getProjectBucketName(projectId);
+    if (projectBucket) {
+      return allBuckets.filter((b: any) => b.name === projectBucket);
+    }
+    return allBuckets;
   }
 
   async listObjects(
@@ -202,7 +214,9 @@ export class StorageBrowserService {
 
   async getOverview(projectId: string) {
     const client = await this.getClient(projectId);
-    const buckets = await client.listBuckets();
+    const allBuckets = await client.listBuckets();
+    const projectBucket = await this.getProjectBucketName(projectId);
+    const buckets = projectBucket ? allBuckets.filter((b: any) => b.name === projectBucket) : allBuckets;
 
     const results = await Promise.all(
       buckets.map(async (b) => {
