@@ -65,7 +65,7 @@ export function EnvVarEditor({ value, onChange }: { value: Record<string, string
 
   function handlePasteMultiline(e: React.ClipboardEvent<HTMLInputElement>, oldKey: string) {
     const text = e.clipboardData.getData('text');
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
     if (lines.length > 1 && lines.every(l => l.includes('='))) {
       e.preventDefault();
       const newVars = { ...value };
