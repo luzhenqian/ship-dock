@@ -21,6 +21,9 @@ export class DeployController {
     return this.deployService.getHistory(projectId, cursor, limit ? parseInt(limit) : undefined);
   }
 
+  @Get('check-remote') @MinRole('VIEWER')
+  checkRemote(@Param('projectId') projectId: string) { return this.deployService.checkRemoteCommit(projectId); }
+
   @Get(':id') @MinRole('VIEWER')
   getOne(@Param('id') id: string) { return this.deployService.getOne(id); }
 

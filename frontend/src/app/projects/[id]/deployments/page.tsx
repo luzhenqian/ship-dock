@@ -3,10 +3,12 @@
 import { use, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { useDeployments, useTriggerDeploy } from '@/hooks/use-deployments';
 import { useProject, useStopProject, useRestartProject } from '@/hooks/use-projects';
+import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { GitBranch, GitCommit, MoreHorizontal, Webhook, User } from 'lucide-react';
+import { GitBranch, GitCommit, MoreHorizontal, Webhook, User, AlertTriangle } from 'lucide-react';
 
 const statusConfig: Record<string, { dot: string; label: string }> = {
   SUCCESS: { dot: 'bg-status-ready shadow-[0_0_6px_rgba(80,227,194,0.4)]', label: 'Ready' },
@@ -54,6 +56,12 @@ export default function DeploymentsPage({ params }: { params: Promise<{ id: stri
   const triggerDeploy = useTriggerDeploy(projectId);
   const stopProject = useStopProject(projectId);
   const restartProject = useRestartProject(projectId);
+
+  const { data: remoteCheck } = useQuery({
+    queryKey: ['deploy-remote-check', projectId],
+    queryFn: () => api<{ remoteHash: string; remoteMessage: string; deployedHash: string; behind: boolean }>(`/projects/${projectId}/deployments/check-remote`),
+    refetchInterval: 30000,
+  });
 
   const isStopped = project?.status === 'STOPPED';
   const deployments = data?.pages.flatMap((p) => p.items) ?? [];
@@ -119,6 +127,20 @@ export default function DeploymentsPage({ params }: { params: Promise<{ id: stri
           </Button>
         </div>
       </div>
+
+      {remoteCheck?.behind && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-status-building/30 bg-status-building/[0.06] px-4 py-3">
+          <div className="flex items-center gap-2.5 text-sm">
+            <AlertTriangle className="h-4 w-4 text-status-building shrink-0" />
+            <span>
+              New commit <code className="font-mono text-xs bg-foreground/[0.06] px-1.5 py-0.5 rounded">{remoteCheck.remoteHash}</code> available: {remoteCheck.remoteMessage}
+            </span>
+          </div>
+          <Button size="sm" onClick={handleDeploy} disabled={triggerDeploy.isPending}>
+            {triggerDeploy.isPending ? 'Deploying...' : 'Deploy'}
+          </Button>
+        </div>
+      )}
 
       {isLoading && (
         <div className="space-y-0 border rounded-xl overflow-hidden">

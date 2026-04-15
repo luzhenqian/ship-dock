@@ -1,6 +1,8 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { ConfigService } from '@nestjs/config';
+import { sign } from 'jsonwebtoken';
 import { PrismaService } from '../common/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
 
@@ -10,6 +12,7 @@ export class DeployService {
     private prisma: PrismaService,
     @Inject(forwardRef(() => ProjectsService)) private projectsService: ProjectsService,
     @InjectQueue('deploy') private deployQueue: Queue,
+    private config: ConfigService,
   ) {}
 
   async trigger(projectId: string, userId: string, resumeFromStage?: number, commit?: { hash?: string | null; message?: string | null }) {
@@ -79,6 +82,64 @@ export class DeployService {
       })),
       nextCursor: hasMore ? items[items.length - 1].id : null,
     };
+  }
+
+  async checkRemoteCommit(projectId: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: { repoUrl: true, branch: true, githubInstallationId: true },
+    });
+    if (!project?.repoUrl?.includes('github.com')) return null;
+
+    const match = project.repoUrl.replace(/\.git$/, '').match(/github\.com\/([^/]+\/[^/]+)/);
+    if (!match) return null;
+    const repo = match[1];
+
+    let token: string | undefined;
+    if (project.githubInstallationId) {
+      try {
+        const installation = await this.prisma.gitHubInstallation.findUnique({ where: { id: project.githubInstallationId } });
+        if (installation) token = await this.getInstallationToken(installation.installationId);
+      } catch {}
+    }
+
+    try {
+      const headers: Record<string, string> = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+      if (token) headers.Authorization = `token ${token}`;
+      const res = await fetch(`https://api.github.com/repos/${repo}/commits/${project.branch || 'main'}`, { headers });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const remoteHash = data.sha?.slice(0, 7);
+      const remoteMessage = data.commit?.message?.split('\n')[0] || '';
+
+      const lastDeploy = await this.prisma.deployment.findFirst({
+        where: { projectId, status: 'SUCCESS' },
+        orderBy: { version: 'desc' },
+        select: { commitHash: true },
+      });
+
+      const deployedHash = lastDeploy?.commitHash?.slice(0, 7);
+      const behind = !!deployedHash && !!remoteHash && deployedHash !== remoteHash;
+
+      return { remoteHash, remoteMessage, deployedHash, behind };
+    } catch {
+      return null;
+    }
+  }
+
+  private async getInstallationToken(installationId: number): Promise<string> {
+    const appId = this.config.get('GITHUB_APP_ID');
+    const privateKey = Buffer.from(this.config.get('GITHUB_APP_PRIVATE_KEY', ''), 'base64').toString('utf-8');
+    if (!appId || !privateKey) throw new Error('GitHub App not configured');
+    const now = Math.floor(Date.now() / 1000);
+    const jwt = sign({ iat: now - 60, exp: now + 600, iss: appId }, privateKey, { algorithm: 'RS256' });
+    const res = await fetch(`https://api.github.com/app/installations/${installationId}/access_tokens`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${jwt}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    });
+    if (!res.ok) throw new Error(`GitHub token request failed: ${res.status}`);
+    const data = await res.json();
+    return data.token;
   }
 
   async getOne(deploymentId: string) {
