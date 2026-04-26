@@ -2,8 +2,6 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
-import { existsSync } from 'fs';
-import { join } from 'path';
 import { PrismaService } from '../common/prisma.service';
 import { ProjectTasksGateway } from './project-tasks.gateway';
 import { CreateProjectTaskDto } from './dto/create-task.dto';
@@ -17,6 +15,7 @@ export class ProjectTasksService {
     private gateway: ProjectTasksGateway,
     private config: ConfigService,
   ) {}
+  // `config`, `queue`, and `gateway` are unused in CRUD; needed for Task 7 (triggerRun) and Task 9 (cancelRun).
 
   private validateWorkDir(dir: string): string {
     const sanitized = dir.replace(/\\/g, '/').trim();
@@ -86,11 +85,11 @@ export class ProjectTasksService {
   async remove(projectId: string, taskId: string) {
     const existing = await this.prisma.projectTask.findFirst({ where: { id: taskId, projectId } });
     if (!existing) throw new NotFoundException('Task not found');
-    const running = await this.prisma.projectTaskRun.findFirst({
-      where: { taskId, status: 'RUNNING' },
+    const active = await this.prisma.projectTaskRun.findFirst({
+      where: { taskId, status: { in: ['QUEUED', 'RUNNING'] } },
       select: { id: true, status: true },
     });
-    if (running) throw new ConflictException('Task has a running execution, cancel it first');
+    if (active) throw new ConflictException('Task has a queued or running execution, cancel it first');
     return this.prisma.projectTask.delete({ where: { id: taskId } });
   }
 }

@@ -1,13 +1,10 @@
 import { Test } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
-import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { existsSync } from 'fs';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ProjectTasksService } from './project-tasks.service';
 import { PrismaService } from '../common/prisma.service';
 import { ProjectTasksGateway } from './project-tasks.gateway';
-
-jest.mock('fs', () => ({ existsSync: jest.fn() }));
 
 describe('ProjectTasksService', () => {
   let service: ProjectTasksService;
@@ -32,7 +29,6 @@ describe('ProjectTasksService', () => {
       getJob: jest.fn(),
     };
     gateway = { emitToTaskRun: jest.fn(), server: { sockets: { adapter: { rooms: new Map() } } } };
-    (existsSync as jest.Mock).mockReturnValue(true);
 
     const module = await Test.createTestingModule({
       providers: [
@@ -109,6 +105,12 @@ describe('ProjectTasksService', () => {
     it('refuses to delete while a run is RUNNING', async () => {
       prisma.projectTask.findFirst.mockResolvedValue({ id: 't1', projectId: 'p1' });
       prisma.projectTaskRun.findFirst.mockResolvedValue({ id: 'r1', status: 'RUNNING' });
+      await expect(service.remove('p1', 't1')).rejects.toThrow(ConflictException);
+    });
+
+    it('refuses to delete while a run is QUEUED', async () => {
+      prisma.projectTask.findFirst.mockResolvedValue({ id: 't1', projectId: 'p1' });
+      prisma.projectTaskRun.findFirst.mockResolvedValue({ id: 'r1', status: 'QUEUED' });
       await expect(service.remove('p1', 't1')).rejects.toThrow(ConflictException);
     });
 
