@@ -531,4 +531,5 @@ model ProjectTaskRun {
   createdAt     DateTime              @default(now())
 
   @@index([taskId, createdAt])
+  @@index([status])
 }
