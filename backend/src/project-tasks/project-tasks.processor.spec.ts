@@ -45,11 +45,30 @@ describe('ProjectTasksProcessor', () => {
     );
   });
 
-  it('signalCancel kills the tracked child process', () => {
-    const child: any = { killed: false, kill: jest.fn(() => { child.killed = true; }) };
+  it('signalCancel sends SIGTERM to the child process group', () => {
+    const child: any = { pid: 12345, killed: false };
     (processor as any).children.set('r1', child);
-    processor.signalCancel('r1');
-    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
-    expect((processor as any).cancelRequested.has('r1')).toBe(true);
+    const killSpy = jest.spyOn(process, 'kill').mockImplementation(() => true);
+    try {
+      processor.signalCancel('r1');
+      // Negative PID == process group, so the whole tree dies, not just `sh`.
+      expect(killSpy).toHaveBeenCalledWith(-12345, 'SIGTERM');
+      expect((processor as any).cancelRequested.has('r1')).toBe(true);
+    } finally {
+      killSpy.mockRestore();
+    }
+  });
+
+  it('signalCancel swallows ESRCH if the group is already gone', () => {
+    const child: any = { pid: 12345, killed: false };
+    (processor as any).children.set('r1', child);
+    const err: any = new Error('no such process');
+    err.code = 'ESRCH';
+    const killSpy = jest.spyOn(process, 'kill').mockImplementation(() => { throw err; });
+    try {
+      expect(() => processor.signalCancel('r1')).not.toThrow();
+    } finally {
+      killSpy.mockRestore();
+    }
   });
 });

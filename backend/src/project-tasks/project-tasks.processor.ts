@@ -148,10 +148,18 @@ export class ProjectTasksProcessor extends WorkerHost {
   signalCancel(taskRunId: string) {
     this.cancelRequested.add(taskRunId);
     const child = this.children.get(taskRunId);
-    if (child && !child.killed) {
-      child.kill('SIGTERM');
-      setTimeout(() => { if (!child.killed) child.kill('SIGKILL'); }, 5000).unref();
-    }
+    if (!child || child.killed || child.pid === undefined) return;
+    // Negative PID kills the whole process group, not just `sh`. Without this,
+    // multi-step commands like `echo a && sleep 30` leave `sleep` orphaned and
+    // `child.on('close')` waits for the orphan to exit before firing.
+    const pgid = -child.pid;
+    const killGroup = (signal: NodeJS.Signals) => {
+      try { process.kill(pgid, signal); } catch (err: any) {
+        if (err?.code !== 'ESRCH') throw err;
+      }
+    };
+    killGroup('SIGTERM');
+    setTimeout(() => { if (!child.killed) killGroup('SIGKILL'); }, 5000).unref();
   }
 
   private runShell(
@@ -165,6 +173,9 @@ export class ProjectTasksProcessor extends WorkerHost {
       const child = spawn('sh', ['-c', command], {
         cwd,
         env: { ...process.env, ...envVars },
+        // detached:true gives the child its own process group so signalCancel
+        // can SIGTERM the whole tree, not just the outer shell.
+        detached: true,
       });
       this.children.set(taskRunId, child);
 
