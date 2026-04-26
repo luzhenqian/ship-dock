@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
@@ -8,6 +8,7 @@ import { PrismaService } from '../common/prisma.service';
 import { ProjectTasksGateway } from './project-tasks.gateway';
 import { CreateProjectTaskDto } from './dto/create-task.dto';
 import { UpdateProjectTaskDto } from './dto/update-task.dto';
+import { ProjectTasksProcessor } from './project-tasks.processor';
 
 @Injectable()
 export class ProjectTasksService {
@@ -16,6 +17,7 @@ export class ProjectTasksService {
     @InjectQueue('tasks') private queue: Queue,
     private gateway: ProjectTasksGateway,
     private config: ConfigService,
+    @Inject(forwardRef(() => ProjectTasksProcessor)) private processor: ProjectTasksProcessor,
   ) {}
 
   private validateWorkDir(dir: string): string {
@@ -156,6 +158,29 @@ export class ProjectTasksService {
     });
     if (!run) throw new NotFoundException('Run not found');
     return run;
+  }
+
+  async cancelRun(projectId: string, taskId: string, runId: string) {
+    const run = await this.prisma.projectTaskRun.findFirst({
+      where: { id: runId, taskId },
+      include: { task: { select: { projectId: true } } },
+    });
+    if (!run || run.task.projectId !== projectId) throw new NotFoundException('Run not found');
+
+    if (run.status === 'QUEUED') {
+      const job = await this.queue.getJob(runId);
+      if (job) { try { await job.remove(); } catch {} }
+      return this.prisma.projectTaskRun.update({
+        where: { id: runId },
+        data: { status: 'CANCELLED', finishedAt: new Date() },
+      });
+    }
+    if (run.status === 'RUNNING') {
+      this.processor.signalCancel(runId);
+      this.gateway.emitToTaskRun(runId, 'cancel-requested', { runId });
+      return run;
+    }
+    throw new BadRequestException(`Cannot cancel a run in status ${run.status}`);
   }
 
   async recoverStuckRuns() {

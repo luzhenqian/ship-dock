@@ -68,5 +68,12 @@ export class ProjectTasksController {
     return this.service.getRun(projectId, taskId, runId);
   }
 
-  // Cancel endpoint is added in Task 9 once service.cancelRun + processor exist.
+  @Post(':taskId/runs/:runId/cancel') @MinRole('DEVELOPER')
+  cancelRun(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+    @Param('runId') runId: string,
+  ) {
+    return this.service.cancelRun(projectId, taskId, runId);
+  }
 }

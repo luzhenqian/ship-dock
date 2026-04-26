@@ -6,6 +6,7 @@ import { existsSync } from 'fs';
 import { ProjectTasksService } from './project-tasks.service';
 import { PrismaService } from '../common/prisma.service';
 import { ProjectTasksGateway } from './project-tasks.gateway';
+import { ProjectTasksProcessor } from './project-tasks.processor';
 
 jest.mock('fs', () => ({ existsSync: jest.fn() }));
 
@@ -40,6 +41,7 @@ describe('ProjectTasksService', () => {
         { provide: getQueueToken('tasks'), useValue: queue },
         { provide: ProjectTasksGateway, useValue: gateway },
         { provide: ConfigService, useValue: { get: (_k: string, d?: any) => d ?? '/var/www' } },
+        { provide: ProjectTasksProcessor, useValue: { signalCancel: jest.fn() } },
       ],
     }).compile();
     service = module.get(ProjectTasksService);
@@ -200,6 +202,37 @@ describe('ProjectTasksService', () => {
       expect(firstCallData.status).toBe('FAILED');
       expect(firstCallData.finishedAt).toBeInstanceOf(Date);
       expect(JSON.stringify(firstCallData.logs)).toContain('Worker restarted');
+    });
+  });
+
+  describe('cancelRun', () => {
+    it('marks a QUEUED run cancelled and removes the job', async () => {
+      prisma.projectTaskRun.findFirst.mockResolvedValue({
+        id: 'r1', taskId: 't1', status: 'QUEUED', task: { projectId: 'p1' },
+      });
+      const job = { remove: jest.fn() };
+      queue.getJob.mockResolvedValue(job);
+      prisma.projectTaskRun.update.mockResolvedValue({ id: 'r1', status: 'CANCELLED' });
+      const r = await service.cancelRun('p1', 't1', 'r1');
+      expect(job.remove).toHaveBeenCalled();
+      expect(r.status).toBe('CANCELLED');
+    });
+
+    it('signals processor cancellation when RUNNING', async () => {
+      prisma.projectTaskRun.findFirst.mockResolvedValue({
+        id: 'r1', taskId: 't1', status: 'RUNNING', task: { projectId: 'p1' },
+      });
+      const result = await service.cancelRun('p1', 't1', 'r1');
+      const proc = (service as any).processor;
+      expect(proc.signalCancel).toHaveBeenCalledWith('r1');
+      expect(result.id).toBe('r1');
+    });
+
+    it('rejects cancelling a finished run', async () => {
+      prisma.projectTaskRun.findFirst.mockResolvedValue({
+        id: 'r1', status: 'SUCCESS', task: { projectId: 'p1' },
+      });
+      await expect(service.cancelRun('p1', 't1', 'r1')).rejects.toThrow(BadRequestException);
     });
   });
 });
