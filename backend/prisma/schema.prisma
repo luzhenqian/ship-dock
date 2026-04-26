@@ -56,6 +56,14 @@ enum WebhookEventStatus {
   REPLAYED
 }
 
+enum ProjectTaskRunStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
 model GitHubInstallation {
   id             String   @id @default(uuid())
   userId         String
@@ -87,6 +95,7 @@ model User {
   analyticsConnections AnalyticsConnection[]
   githubInstallations  GitHubInstallation[]
   imports              Import[]
+  taskRuns             ProjectTaskRun[]
 }
 
 model Project {
@@ -131,6 +140,7 @@ model Project {
   analyticsIntegrations AnalyticsIntegration[]
   importItems           ImportItem[]
   storageImports        StorageImport[]
+  tasks                 ProjectTask[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -490,4 +500,35 @@ model ImportItem {
   updatedAt    DateTime         @updatedAt
 
   @@index([importId])
+}
+
+model ProjectTask {
+  id        String   @id @default(uuid())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  name      String
+  command   String
+  workDir   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  runs ProjectTaskRun[]
+
+  @@unique([projectId, name])
+}
+
+model ProjectTaskRun {
+  id            String                @id @default(uuid())
+  task          ProjectTask           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId        String
+  status        ProjectTaskRunStatus  @default(QUEUED)
+  exitCode      Int?
+  logs          Json                  @default("[]")
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  triggeredBy   User                  @relation(fields: [triggeredById], references: [id])
+  triggeredById String
+  createdAt     DateTime              @default(now())
+
+  @@index([taskId, createdAt])
 }
