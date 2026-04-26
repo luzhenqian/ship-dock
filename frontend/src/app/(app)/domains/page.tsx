@@ -301,7 +301,7 @@ export default function DomainsPage() {
                                         <div className="flex items-center justify-between px-3 py-1.5 text-sm group">
                                           <div className="flex items-center gap-3 min-w-0">
                                             <Badge variant="secondary" className="shrink-0 font-mono text-xs w-14 justify-center">{r.type}</Badge>
-                                            <span className="font-mono w-28 truncate shrink-0">{r.name}</span>
+                                            <span className="font-mono w-48 truncate shrink-0" title={r.name}>{r.name}</span>
                                             <span className="text-muted-foreground font-mono truncate">{r.value}</span>
                                             {r.ttl != null && <span className="text-xs text-muted-foreground shrink-0">TTL {r.ttl}</span>}
                                           </div>
