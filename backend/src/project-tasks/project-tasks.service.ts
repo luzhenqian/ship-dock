@@ -128,7 +128,8 @@ export class ProjectTasksService {
     const where: any = { taskId };
     if (cursor) {
       const c = await this.prisma.projectTaskRun.findUnique({ where: { id: cursor }, select: { createdAt: true } });
-      if (c) where.createdAt = { lt: c.createdAt };
+      if (!c) throw new BadRequestException('Invalid cursor');
+      where.createdAt = { lt: c.createdAt };
     }
     const items = await this.prisma.projectTaskRun.findMany({
       where,
@@ -164,8 +165,8 @@ export class ProjectTasksService {
     });
     const now = new Date();
     for (const r of stuck) {
-      const logs = Array.isArray(r.logs) ? (r.logs as any[]) : [];
-      logs.push({ t: now.getTime(), m: '[system] Worker restarted, run aborted' });
+      const prevLogs = Array.isArray(r.logs) ? (r.logs as any[]) : [];
+      const logs = [...prevLogs, { t: now.getTime(), m: '[system] Worker restarted, run aborted' }];
       await this.prisma.projectTaskRun.update({
         where: { id: r.id },
         data: { status: 'FAILED', finishedAt: now, logs },

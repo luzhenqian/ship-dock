@@ -163,6 +163,31 @@ describe('ProjectTasksService', () => {
       expect(result.items[0].duration).toBe(5);
       expect(result.items[0]).not.toHaveProperty('logs');
     });
+
+    it('throws on invalid cursor', async () => {
+      prisma.projectTask.findFirst.mockResolvedValue({ id: 't1', projectId: 'p1' });
+      prisma.projectTaskRun.findUnique.mockResolvedValue(null);
+      await expect(service.listRuns('p1', 't1', 'invalid-cursor')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('getRun', () => {
+    it('returns the run when it belongs to the project/task', async () => {
+      const run = { id: 'r1', taskId: 't1', triggeredBy: { id: 'u1', name: 'a' } };
+      prisma.projectTaskRun.findFirst.mockResolvedValue(run);
+      const result = await service.getRun('p1', 't1', 'r1');
+      expect(prisma.projectTaskRun.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'r1', taskId: 't1', task: { projectId: 'p1' } }),
+        }),
+      );
+      expect(result).toEqual(run);
+    });
+
+    it('404s when the run does not belong to the project', async () => {
+      prisma.projectTaskRun.findFirst.mockResolvedValue(null);
+      await expect(service.getRun('p1', 't1', 'r1')).rejects.toThrow(NotFoundException);
+    });
   });
 
   describe('crash recovery', () => {
