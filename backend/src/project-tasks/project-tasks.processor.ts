@@ -114,22 +114,33 @@ export class ProjectTasksProcessor extends WorkerHost {
         }
       };
 
-      const result = await this.runShell(taskRunId, run.task.command, cwd, envVars, onLog);
+      try {
+        if (this.cancelRequested.has(taskRunId)) {
+          await this.prisma.projectTaskRun.update({
+            where: { id: taskRunId },
+            data: { status: 'CANCELLED', finishedAt: new Date(), logs: logs as any },
+          });
+          this.gateway.emitToTaskRun(taskRunId, 'status', { status: 'CANCELLED' });
+          return;
+        }
 
-      const finalStatus = result.cancelled ? 'CANCELLED' : (result.exitCode === 0 ? 'SUCCESS' : 'FAILED');
-      await this.prisma.projectTaskRun.update({
-        where: { id: taskRunId },
-        data: {
-          status: finalStatus,
-          exitCode: result.exitCode,
-          finishedAt: new Date(),
-          logs: logs as any,
-        },
-      });
-      this.gateway.emitToTaskRun(taskRunId, 'status', { status: finalStatus, exitCode: result.exitCode });
+        const result = await this.runShell(taskRunId, run.task.command, cwd, envVars, onLog);
 
-      this.children.delete(taskRunId);
-      this.cancelRequested.delete(taskRunId);
+        const finalStatus = result.cancelled ? 'CANCELLED' : (result.exitCode === 0 ? 'SUCCESS' : 'FAILED');
+        await this.prisma.projectTaskRun.update({
+          where: { id: taskRunId },
+          data: {
+            status: finalStatus,
+            exitCode: result.exitCode,
+            finishedAt: new Date(),
+            logs: logs as any,
+          },
+        });
+        this.gateway.emitToTaskRun(taskRunId, 'status', { status: finalStatus, exitCode: result.exitCode });
+      } finally {
+        this.children.delete(taskRunId);
+        this.cancelRequested.delete(taskRunId);
+      }
     });
   }
 
@@ -173,7 +184,7 @@ export class ProjectTasksProcessor extends WorkerHost {
       });
       child.on('error', (err) => {
         onLog(`\x1b[31m[error] ${err.message}\x1b[0m`);
-        resolve({ exitCode: null, cancelled: false });
+        resolve({ exitCode: null, cancelled: this.cancelRequested.has(taskRunId) });
       });
     });
   }
