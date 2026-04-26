@@ -20,6 +20,7 @@ import { DataMigrationModule } from './data-migration/data-migration.module';
 import { ImportModule } from './import/import.module';
 import { NginxConfigModule } from './nginx-config/nginx-config.module';
 import { Pm2ConfigModule } from './pm2-config/pm2-config.module';
+import { ProjectTasksModule } from './project-tasks/project-tasks.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AppController } from './app.controller';
 
@@ -46,6 +47,7 @@ import { AppController } from './app.controller';
     ImportModule,
     NginxConfigModule,
     Pm2ConfigModule,
+    ProjectTasksModule,
     AnalyticsModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
