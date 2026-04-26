@@ -63,4 +63,11 @@ describe('ProjectLockService', () => {
     expect(result).toBe('done');
     expect(redisMock.set).toHaveBeenCalledTimes(3);
   });
+
+  it('withLock throws after maxWaitMs', async () => {
+    redisMock.set.mockResolvedValue(null);
+    await expect(
+      service.withLock('p1', async () => 'x', { retryDelayMs: 1, maxWaitMs: 5 }),
+    ).rejects.toThrow(/Timed out/);
+  });
 });

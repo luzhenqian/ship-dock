@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { randomUUID } from 'crypto';
@@ -12,14 +12,19 @@ end
 `;
 
 interface WithLockOptions {
-  ttlMs?: number;        // lock TTL; auto-expires if holder dies (default 10min)
+  /**
+   * Lock TTL — Redis auto-expires the key after this duration so a crashed holder
+   * doesn't leak the lock forever. Pick a value comfortably greater than the longest
+   * expected duration of `fn`. If `fn` exceeds the TTL, a second waiter may acquire
+   * the lock concurrently. Default: 60 minutes.
+   */
+  ttlMs?: number;
   maxWaitMs?: number;    // total time to wait for the lock (default 1h)
   retryDelayMs?: number; // poll interval while waiting (default 500)
 }
 
 @Injectable()
 export class ProjectLockService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(ProjectLockService.name);
   private client!: Redis;
 
   constructor(private config: ConfigService) {}
@@ -31,7 +36,6 @@ export class ProjectLockService implements OnModuleInit, OnModuleDestroy {
       password: this.config.get('REDIS_PASSWORD'),
       lazyConnect: true,
     });
-    this.client.connect().catch((err) => this.logger.error(`Redis connect failed: ${err.message}`));
   }
 
   async onModuleDestroy() {
@@ -42,7 +46,7 @@ export class ProjectLockService implements OnModuleInit, OnModuleDestroy {
     return `project-lock:${projectId}`;
   }
 
-  async acquire(projectId: string, ttlMs = 10 * 60 * 1000): Promise<string | null> {
+  async acquire(projectId: string, ttlMs = 60 * 60 * 1000): Promise<string | null> {
     const token = randomUUID();
     const result = await this.client.set(this.key(projectId), token, 'PX', ttlMs, 'NX');
     return result === 'OK' ? token : null;
@@ -57,7 +61,7 @@ export class ProjectLockService implements OnModuleInit, OnModuleDestroy {
     fn: () => Promise<T>,
     opts: WithLockOptions = {},
   ): Promise<T> {
-    const ttl = opts.ttlMs ?? 10 * 60 * 1000;
+    const ttl = opts.ttlMs ?? 60 * 60 * 1000;
     const maxWait = opts.maxWaitMs ?? 60 * 60 * 1000;
     const retry = opts.retryDelayMs ?? 500;
     const deadline = Date.now() + maxWait;
