@@ -1,10 +1,13 @@
 import { Test } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { existsSync } from 'fs';
 import { ProjectTasksService } from './project-tasks.service';
 import { PrismaService } from '../common/prisma.service';
 import { ProjectTasksGateway } from './project-tasks.gateway';
+
+jest.mock('fs', () => ({ existsSync: jest.fn() }));
 
 describe('ProjectTasksService', () => {
   let service: ProjectTasksService;
@@ -40,6 +43,7 @@ describe('ProjectTasksService', () => {
       ],
     }).compile();
     service = module.get(ProjectTasksService);
+    (existsSync as jest.Mock).mockReturnValue(true);
   });
 
   describe('create', () => {
@@ -120,6 +124,57 @@ describe('ProjectTasksService', () => {
       prisma.projectTask.delete.mockResolvedValue({ id: 't1' });
       const result = await service.remove('p1', 't1');
       expect(result).toEqual({ id: 't1' });
+    });
+  });
+
+  describe('triggerRun', () => {
+    it('rejects when project never deployed (workDir missing on disk)', async () => {
+      prisma.projectTask.findFirst.mockResolvedValue({ id: 't1', projectId: 'p1', command: 'x', workDir: null });
+      prisma.project.findUnique.mockResolvedValue({ id: 'p1', slug: 'app', workDir: null, directory: 'app' });
+      (existsSync as jest.Mock).mockReturnValue(false);
+      await expect(service.triggerRun('p1', 't1', 'u1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates a QUEUED run and enqueues a job (jobId = runId)', async () => {
+      prisma.projectTask.findFirst.mockResolvedValue({ id: 't1', projectId: 'p1', command: 'x', workDir: null });
+      prisma.project.findUnique.mockResolvedValue({ id: 'p1', slug: 'app', workDir: null, directory: 'app' });
+      (existsSync as jest.Mock).mockReturnValue(true);
+      prisma.projectTaskRun.create.mockResolvedValue({ id: 'r1', status: 'QUEUED' });
+      const run = await service.triggerRun('p1', 't1', 'u1');
+      expect(prisma.projectTaskRun.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ taskId: 't1', triggeredById: 'u1', status: 'QUEUED' }),
+        }),
+      );
+      expect(queue.add).toHaveBeenCalledWith('run', { taskRunId: 'r1' }, { jobId: 'r1' });
+      expect(run.id).toBe('r1');
+    });
+  });
+
+  describe('listRuns', () => {
+    it('omits logs and returns duration when finished', async () => {
+      prisma.projectTask.findFirst.mockResolvedValue({ id: 't1', projectId: 'p1' });
+      const start = new Date('2026-04-27T10:00:00Z');
+      const end = new Date('2026-04-27T10:00:05Z');
+      prisma.projectTaskRun.findMany.mockResolvedValue([
+        { id: 'r1', startedAt: start, finishedAt: end, createdAt: end, status: 'SUCCESS', triggeredBy: { id: 'u1', name: 'a' } },
+      ]);
+      const result = await service.listRuns('p1', 't1');
+      expect(result.items[0].duration).toBe(5);
+      expect(result.items[0]).not.toHaveProperty('logs');
+    });
+  });
+
+  describe('crash recovery', () => {
+    it('marks RUNNING runs as FAILED on init', async () => {
+      prisma.projectTaskRun.findMany.mockResolvedValue([{ id: 'r1', logs: [] }, { id: 'r2', logs: [{ t: 1, m: 'hello' }] }]);
+      prisma.projectTaskRun.update.mockResolvedValue({});
+      await service.recoverStuckRuns();
+      expect(prisma.projectTaskRun.update).toHaveBeenCalledTimes(2);
+      const firstCallData = prisma.projectTaskRun.update.mock.calls[0][0].data;
+      expect(firstCallData.status).toBe('FAILED');
+      expect(firstCallData.finishedAt).toBeInstanceOf(Date);
+      expect(JSON.stringify(firstCallData.logs)).toContain('Worker restarted');
     });
   });
 });
