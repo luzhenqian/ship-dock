@@ -14,6 +14,7 @@ import {
   Cpu,
   Webhook,
   Settings,
+  Play,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -35,6 +36,7 @@ const groups: { label: string; items: { href: string; label: string; icon: Lucid
     items: [
       { href: 'deployments', label: 'Deployments', icon: Shield },
       { href: 'pipeline', label: 'Pipeline', icon: GitBranch },
+      { href: 'tasks', label: 'Tasks', icon: Play },
       { href: 'logs', label: 'Logs', icon: ScrollText },
       { href: 'analytics', label: 'Analytics', icon: BarChart3 },
     ],
