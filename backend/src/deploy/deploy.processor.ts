@@ -13,6 +13,7 @@ import { CommandStage } from './stages/command.stage';
 import { DeployGateway } from './deploy.gateway';
 import { DomainsService } from '../domains/domains.service';
 import { DatabaseProvisionerService } from '../common/database-provisioner.service';
+import { ProjectLockService } from '../common/project-lock.service';
 import { sign } from 'jsonwebtoken';
 import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
@@ -31,7 +32,7 @@ export class DeployProcessor extends WorkerHost {
     private prisma: PrismaService, @Inject(forwardRef(() => ProjectsService)) private projectsService: ProjectsService,
     private encryption: EncryptionService, private config: ConfigService,
     private gateway: DeployGateway, private domainsService: DomainsService,
-    private dbProvisioner: DatabaseProvisionerService,
+    private dbProvisioner: DatabaseProvisionerService, private projectLock: ProjectLockService,
   ) { super(); }
 
   private async getGitHubInstallationToken(installationId: number): Promise<string> {
@@ -53,144 +54,146 @@ export class DeployProcessor extends WorkerHost {
 
   async process(job: Job<{ deploymentId: string; projectId: string; resumeFromStage?: number }>) {
     const { deploymentId, projectId, resumeFromStage } = job.data;
-    const project = await this.projectsService.findOne(projectId);
-    const projectsDir = this.config.get('PROJECTS_DIR', '/var/www');
-    const repoDir = join(projectsDir, project.directory || project.slug);
-    const isFirstDeploy = !existsSync(repoDir);
-    // workDir is the subdirectory where commands run (e.g. "apps/web" in a monorepo)
-    const projectDir = project.workDir ? join(repoDir, project.workDir) : repoDir;
+    return this.projectLock.withLock(projectId, async () => {
+      const project = await this.projectsService.findOne(projectId);
+      const projectsDir = this.config.get('PROJECTS_DIR', '/var/www');
+      const repoDir = join(projectsDir, project.directory || project.slug);
+      const isFirstDeploy = !existsSync(repoDir);
+      // workDir is the subdirectory where commands run (e.g. "apps/web" in a monorepo)
+      const projectDir = project.workDir ? join(repoDir, project.workDir) : repoDir;
 
-    await this.prisma.deployment.update({ where: { id: deploymentId }, data: { status: 'RUNNING', startedAt: new Date() } });
-    this.gateway.emitToDeployment(deploymentId, 'status', { status: 'RUNNING' });
+      await this.prisma.deployment.update({ where: { id: deploymentId }, data: { status: 'RUNNING', startedAt: new Date() } });
+      this.gateway.emitToDeployment(deploymentId, 'status', { status: 'RUNNING' });
 
-    // Decrypt project env vars for command stages
-    let projectEnvVars: Record<string, string> = {};
-    if (project.envVars) {
-      try { projectEnvVars = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
-    }
+      // Decrypt project env vars for command stages
+      let projectEnvVars: Record<string, string> = {};
+      if (project.envVars) {
+        try { projectEnvVars = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
+      }
 
-    // Prepend Node.js version bin to PATH if configured
-    if (project.nodeVersion) {
-      try {
-        const { readdirSync } = require('fs');
-        const versions: string[] = readdirSync('/usr/local/n/versions/node/');
-        const match = versions.find((v: string) => v.startsWith(project.nodeVersion + '.'));
-        if (match) {
-          const nodeBin = `/usr/local/n/versions/node/${match}/bin`;
-          projectEnvVars.PATH = `${nodeBin}:${process.env.PATH || ''}`;
-        }
-      } catch {}
-    }
-
-    // Install system dependencies if configured
-    const systemDeps = (project.systemDeps as string[]) || [];
-    if (systemDeps.length > 0) {
-      const packagesToInstall: string[] = [];
-      for (const depId of systemDeps) {
-        const entry = SYSTEM_DEPS_WHITELIST.find((d) => d.id === depId);
-        if (!entry) continue;
-        for (const pkg of entry.packages) {
-          try {
-            execFileSync('dpkg', ['-s', pkg], { stdio: 'pipe' });
-          } catch {
-            packagesToInstall.push(pkg);
+      // Prepend Node.js version bin to PATH if configured
+      if (project.nodeVersion) {
+        try {
+          const { readdirSync } = require('fs');
+          const versions: string[] = readdirSync('/usr/local/n/versions/node/');
+          const match = versions.find((v: string) => v.startsWith(project.nodeVersion + '.'));
+          if (match) {
+            const nodeBin = `/usr/local/n/versions/node/${match}/bin`;
+            projectEnvVars.PATH = `${nodeBin}:${process.env.PATH || ''}`;
           }
-        }
-      }
-      if (packagesToInstall.length > 0) {
-        this.gateway.emitToDeployment(deploymentId, 'log', { index: -1, stage: 'system-deps', line: `Installing system dependencies: ${packagesToInstall.join(', ')}`, t: Date.now() });
-        try {
-          execFileSync('sudo', ['apt-get', 'install', '-y', '--no-install-recommends', ...packagesToInstall], { stdio: 'pipe', timeout: 120000 });
-          this.gateway.emitToDeployment(deploymentId, 'log', { index: -1, stage: 'system-deps', line: 'System dependencies installed', t: Date.now() });
-        } catch (err: any) {
-          this.gateway.emitToDeployment(deploymentId, 'log', { index: -1, stage: 'system-deps', line: `\x1b[31mFailed to install system dependencies: ${err.message}\x1b[0m`, t: Date.now() });
-        }
-      }
-    }
-
-    const stages = (project.pipeline as any).stages;
-    let allSuccess = true;
-
-    for (let i = 0; i < stages.length; i++) {
-      if (resumeFromStage !== undefined && i < resumeFromStage) continue;
-      const stage = stages[i];
-      this.gateway.emitToDeployment(deploymentId, 'stage-start', { index: i, name: stage.name });
-      await this.updateStageStatus(deploymentId, i, 'RUNNING');
-
-      // Collect logs in memory, persist once when stage finishes
-      const stageLogs: Array<{ t: number; m: string }> = [];
-      const onLog = (line: string) => {
-        const stageName = stage.name;
-        const entry = { t: Date.now(), m: line };
-        this.gateway.emitToDeployment(deploymentId, 'log', { index: i, stage: stageName, line, t: entry.t });
-        stageLogs.push(entry);
-      };
-
-      // Write .env file after clone stage
-      if (stages[i - 1]?.name === 'clone' || (i === 0 && stage.name !== 'clone')) {
-        try {
-          let envVars: Record<string, string> = {};
-          if (project.envVars) {
-            try { envVars = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
-          }
-          if (Object.keys(envVars).length > 0) {
-            const envPath = join(projectDir, '.env');
-            mkdirSync(dirname(envPath), { recursive: true });
-            const envContent = Object.entries(envVars).map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
-            writeFileSync(envPath, envContent);
-            onLog(`Wrote .env file (${Object.keys(envVars).length} variables)`);
-          }
-        } catch (err: any) {
-          onLog(`\x1b[33m[warning] Failed to write .env: ${err.message}\x1b[0m`);
-        }
-      }
-
-      // Auto-ensure database exists before migrate stage
-      if (stage.name === 'migrate' && project.useLocalDb && project.dbName) {
-        try {
-          onLog(`Ensuring database "${project.dbName}" exists...`);
-          await this.dbProvisioner.ensureDatabase(project.dbName);
-          onLog(`Database "${project.dbName}" ready`);
-        } catch (err: any) {
-          onLog(`\x1b[31mFailed to ensure database: ${err.message}\x1b[0m`);
-        }
-      }
-
-      let result: { success: boolean; error?: string };
-      if (stage.type === 'builtin') {
-        result = await this.executeBuiltinStage(stage.name, project, repoDir, projectDir, isFirstDeploy && i === 0, deploymentId, onLog, projectEnvVars);
-      } else {
-        result = await this.commandStage.execute(stage, { projectDir, onLog, envVars: projectEnvVars });
-      }
-
-      // Optional stages: log warning but continue on failure
-      if (!result.success && stage.optional) {
-        onLog(`\x1b[33m[warning] Stage "${stage.name}" failed but is marked as optional, skipping\x1b[0m`);
-        await this.updateStageStatus(deploymentId, i, 'SKIPPED', result.error, stageLogs);
-        this.gateway.emitToDeployment(deploymentId, 'stage-end', { index: i, success: true });
-        continue;
-      }
-
-      // After clone succeeds, capture latest git commit info
-      if (stage.name === 'clone' && result.success) {
-        try {
-          const hash = execSync('git rev-parse HEAD', { cwd: repoDir, encoding: 'utf8' }).trim();
-          const message = execSync('git log -1 --pretty=%s', { cwd: repoDir, encoding: 'utf8' }).trim();
-          await this.prisma.deployment.update({ where: { id: deploymentId }, data: { commitHash: hash, commitMessage: message } });
         } catch {}
       }
 
-      // Persist logs + status in one atomic write
-      await this.updateStageStatus(deploymentId, i, result.success ? 'SUCCESS' : 'FAILED', result.error, stageLogs);
-      this.gateway.emitToDeployment(deploymentId, 'stage-end', { index: i, success: result.success });
-      if (!result.success) { allSuccess = false; break; }
-    }
+      // Install system dependencies if configured
+      const systemDeps = (project.systemDeps as string[]) || [];
+      if (systemDeps.length > 0) {
+        const packagesToInstall: string[] = [];
+        for (const depId of systemDeps) {
+          const entry = SYSTEM_DEPS_WHITELIST.find((d) => d.id === depId);
+          if (!entry) continue;
+          for (const pkg of entry.packages) {
+            try {
+              execFileSync('dpkg', ['-s', pkg], { stdio: 'pipe' });
+            } catch {
+              packagesToInstall.push(pkg);
+            }
+          }
+        }
+        if (packagesToInstall.length > 0) {
+          this.gateway.emitToDeployment(deploymentId, 'log', { index: -1, stage: 'system-deps', line: `Installing system dependencies: ${packagesToInstall.join(', ')}`, t: Date.now() });
+          try {
+            execFileSync('sudo', ['apt-get', 'install', '-y', '--no-install-recommends', ...packagesToInstall], { stdio: 'pipe', timeout: 120000 });
+            this.gateway.emitToDeployment(deploymentId, 'log', { index: -1, stage: 'system-deps', line: 'System dependencies installed', t: Date.now() });
+          } catch (err: any) {
+            this.gateway.emitToDeployment(deploymentId, 'log', { index: -1, stage: 'system-deps', line: `\x1b[31mFailed to install system dependencies: ${err.message}\x1b[0m`, t: Date.now() });
+          }
+        }
+      }
 
-    const finalStatus = allSuccess ? 'SUCCESS' : 'FAILED';
-    await this.prisma.deployment.update({ where: { id: deploymentId }, data: { status: finalStatus, finishedAt: new Date() } });
-    if (allSuccess) await this.prisma.project.update({ where: { id: projectId }, data: { status: 'ACTIVE' } });
-    this.gateway.emitToDeployment(deploymentId, 'status', { status: finalStatus });
-    this.gateway.emitToDashboard('project-status', { projectId, status: allSuccess ? 'ACTIVE' : 'ERROR' });
+      const stages = (project.pipeline as any).stages;
+      let allSuccess = true;
+
+      for (let i = 0; i < stages.length; i++) {
+        if (resumeFromStage !== undefined && i < resumeFromStage) continue;
+        const stage = stages[i];
+        this.gateway.emitToDeployment(deploymentId, 'stage-start', { index: i, name: stage.name });
+        await this.updateStageStatus(deploymentId, i, 'RUNNING');
+
+        // Collect logs in memory, persist once when stage finishes
+        const stageLogs: Array<{ t: number; m: string }> = [];
+        const onLog = (line: string) => {
+          const stageName = stage.name;
+          const entry = { t: Date.now(), m: line };
+          this.gateway.emitToDeployment(deploymentId, 'log', { index: i, stage: stageName, line, t: entry.t });
+          stageLogs.push(entry);
+        };
+
+        // Write .env file after clone stage
+        if (stages[i - 1]?.name === 'clone' || (i === 0 && stage.name !== 'clone')) {
+          try {
+            let envVars: Record<string, string> = {};
+            if (project.envVars) {
+              try { envVars = JSON.parse(this.encryption.decrypt(project.envVars)); } catch {}
+            }
+            if (Object.keys(envVars).length > 0) {
+              const envPath = join(projectDir, '.env');
+              mkdirSync(dirname(envPath), { recursive: true });
+              const envContent = Object.entries(envVars).map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
+              writeFileSync(envPath, envContent);
+              onLog(`Wrote .env file (${Object.keys(envVars).length} variables)`);
+            }
+          } catch (err: any) {
+            onLog(`\x1b[33m[warning] Failed to write .env: ${err.message}\x1b[0m`);
+          }
+        }
+
+        // Auto-ensure database exists before migrate stage
+        if (stage.name === 'migrate' && project.useLocalDb && project.dbName) {
+          try {
+            onLog(`Ensuring database "${project.dbName}" exists...`);
+            await this.dbProvisioner.ensureDatabase(project.dbName);
+            onLog(`Database "${project.dbName}" ready`);
+          } catch (err: any) {
+            onLog(`\x1b[31mFailed to ensure database: ${err.message}\x1b[0m`);
+          }
+        }
+
+        let result: { success: boolean; error?: string };
+        if (stage.type === 'builtin') {
+          result = await this.executeBuiltinStage(stage.name, project, repoDir, projectDir, isFirstDeploy && i === 0, deploymentId, onLog, projectEnvVars);
+        } else {
+          result = await this.commandStage.execute(stage, { projectDir, onLog, envVars: projectEnvVars });
+        }
+
+        // Optional stages: log warning but continue on failure
+        if (!result.success && stage.optional) {
+          onLog(`\x1b[33m[warning] Stage "${stage.name}" failed but is marked as optional, skipping\x1b[0m`);
+          await this.updateStageStatus(deploymentId, i, 'SKIPPED', result.error, stageLogs);
+          this.gateway.emitToDeployment(deploymentId, 'stage-end', { index: i, success: true });
+          continue;
+        }
+
+        // After clone succeeds, capture latest git commit info
+        if (stage.name === 'clone' && result.success) {
+          try {
+            const hash = execSync('git rev-parse HEAD', { cwd: repoDir, encoding: 'utf8' }).trim();
+            const message = execSync('git log -1 --pretty=%s', { cwd: repoDir, encoding: 'utf8' }).trim();
+            await this.prisma.deployment.update({ where: { id: deploymentId }, data: { commitHash: hash, commitMessage: message } });
+          } catch {}
+        }
+
+        // Persist logs + status in one atomic write
+        await this.updateStageStatus(deploymentId, i, result.success ? 'SUCCESS' : 'FAILED', result.error, stageLogs);
+        this.gateway.emitToDeployment(deploymentId, 'stage-end', { index: i, success: result.success });
+        if (!result.success) { allSuccess = false; break; }
+      }
+
+      const finalStatus = allSuccess ? 'SUCCESS' : 'FAILED';
+      await this.prisma.deployment.update({ where: { id: deploymentId }, data: { status: finalStatus, finishedAt: new Date() } });
+      if (allSuccess) await this.prisma.project.update({ where: { id: projectId }, data: { status: 'ACTIVE' } });
+      this.gateway.emitToDeployment(deploymentId, 'status', { status: finalStatus });
+      this.gateway.emitToDashboard('project-status', { projectId, status: allSuccess ? 'ACTIVE' : 'ERROR' });
+    });
   }
 
   private async executeBuiltinStage(
