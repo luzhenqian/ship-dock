@@ -10,22 +10,21 @@ Self-hosted deployment platform (like Vercel, but self-managed).
 
 ## Deployment
 
-### Frontend
-Push to `main` branch → Vercel auto-deploys. No manual steps needed.
+### Dashboard (frontend + backend)
+The Ship Dock admin dashboard runs on the self-hosted server at `178.104.154.165`. **Both the frontend (`ship-dock-web` PM2 process) and the backend (`ship-dock-api`) are rebuilt by the upgrade script** — pushing to `main` alone does NOT redeploy the dashboard.
 
-### Backend
-Push to `main`, then SSH into the production server and run:
+Push to `main`, then run:
 ```bash
 ssh root@178.104.154.165 'ship-dock upgrade --edge --force'
 ```
 (SSH key is already in the local agent — no `-i` needed.)
 
-This pulls latest `main`, installs deps, runs Prisma migrations, builds, and reloads PM2. Includes automatic backup and rollback on failure.
+This pulls latest `main`, installs deps, runs Prisma migrations, builds backend + frontend, reloads nginx, reloads PM2 (api + web). Includes automatic backup and rollback on failure.
 
 **Default server.** When the user says "升级服务器" / "upgrade the server" / "deploy to the server" without specifying, this is the server. (Note: `scripts/deploy.config.sh` references an older IP `54.174.82.13` and `ubuntu` user — those are stale, ignore them.)
 
-### Deploying both
-Push to `main` (triggers Vercel for frontend), then run `ssh root@178.104.154.165 'ship-dock upgrade --edge --force'` for backend.
+### Vercel (separate landing site)
+The DNS A record `ship-dock` points to Vercel (`76.76.21.21`); pushing to `main` triggers a Vercel build. This serves a marketing/landing site, **not the admin dashboard**. UI changes to the dashboard require the upgrade above, not just a Vercel rebuild.
 
 ## Development
 
