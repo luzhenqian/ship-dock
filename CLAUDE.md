@@ -76,6 +76,16 @@ cd frontend && npm run dev
 
 **Note:** The `MICROSOFT_CLIENT_ID` is the `appId` from the manifest, not the secret's keyId.
 
+## Project Tasks
+
+Each project has a list of named one-off commands ("tasks") for operational
+actions like seeding or cache clearing. Tasks live separately from the deploy
+pipeline — they do not run on `git push`. Trigger them from the project's
+**Tasks** sidebar entry (`/projects/<id>/tasks`) or via
+`POST /api/projects/<id>/tasks/<taskId>/run`. Tasks and deploys share a
+per-project Redis mutex (`project-lock:<projectId>`), so they never run
+concurrently against the same project.
+
 ## Key conventions
 
 - UI style: Vercel-inspired — minimal, black/white, theme-aware (light/dark via next-themes)
