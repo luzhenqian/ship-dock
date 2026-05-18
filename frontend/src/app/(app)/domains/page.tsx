@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -16,6 +16,10 @@ import { Select } from '@/components/ui/select';
 interface DnsRecord { name: string; type: string; value: string; ttl?: number }
 
 export default function DomainsPage() {
+  return <Suspense><DomainsContent /></Suspense>;
+}
+
+function DomainsContent() {
   const qc = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
