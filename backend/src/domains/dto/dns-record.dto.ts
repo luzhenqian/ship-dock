@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Min, ValidateNested, IsDefined } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateDnsRecordDto {
@@ -18,9 +18,13 @@ export class CreateDnsRecordDto {
 }
 
 export class UpdateDnsRecordDto {
+  @IsDefined()
+  @ValidateNested()
   @Type(() => CreateDnsRecordDto)
   original: CreateDnsRecordDto;
 
+  @IsDefined()
+  @ValidateNested()
   @Type(() => CreateDnsRecordDto)
   updated: CreateDnsRecordDto;
 }

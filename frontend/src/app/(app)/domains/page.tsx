@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -16,16 +17,32 @@ interface DnsRecord { name: string; type: string; value: string; ttl?: number }
 
 export default function DomainsPage() {
   const qc = useQueryClient();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const { data: providers } = useQuery({ queryKey: ['providers'], queryFn: () => api<any[]>('/domains/providers') });
   const [form, setForm] = useState({ provider: 'NAMECHEAP', apiKey: '', apiSecret: '' });
   const [showAddForm, setShowAddForm] = useState(false);
-  const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
-  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const [expandedProvider, setExpandedProviderRaw] = useState<string | null>(() => searchParams.get('provider'));
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(() => searchParams.get('domain'));
   const [recordForm, setRecordForm] = useState({ name: '', type: 'A', value: '', ttl: '600' });
   const [editingProvider, setEditingProvider] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ apiKey: '', apiSecret: '' });
   const [editingRecord, setEditingRecord] = useState<number | null>(null);
   const [editRecordForm, setEditRecordForm] = useState({ name: '', type: '', value: '', ttl: '' });
+
+  const setExpandedProvider = useCallback((id: string | null) => {
+    setExpandedProviderRaw(id);
+    setSelectedDomain(null);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (expandedProvider) params.set('provider', expandedProvider);
+    if (selectedDomain) params.set('domain', selectedDomain);
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [expandedProvider, selectedDomain, pathname, router]);
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -47,7 +64,7 @@ export default function DomainsPage() {
   });
   const deleteProvider = useMutation({
     mutationFn: (id: string) => api(`/domains/providers/${id}`, { method: 'DELETE' }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['providers'] }); setExpandedProvider(null); setSelectedDomain(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['providers'] }); setExpandedProvider(null); },
   });
   const updateProvider = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => api(`/domains/providers/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
@@ -91,8 +108,6 @@ export default function DomainsPage() {
     onError: (e: Error) => toast.error(e.message || 'Failed to update record'),
   });
 
-  // Reset selected domain when provider changes
-  useEffect(() => { setSelectedDomain(null); }, [expandedProvider]);
 
   const providerLabel = (provider: string, field: 'key' | 'secret') => {
     if (provider === 'NAMECHEAP') return field === 'key' ? 'Username' : 'API Key';
@@ -263,7 +278,7 @@ export default function DomainsPage() {
                                                 ]}
                                               />
                                             </div>
-                                            <div className="w-32">
+                                            <div className="w-48">
                                               <Label className="text-xs">Name</Label>
                                               <Input className="h-8 font-mono" value={editRecordForm.name} onChange={(e) => setEditRecordForm((f) => ({ ...f, name: e.target.value }))} />
                                             </div>
@@ -351,7 +366,7 @@ export default function DomainsPage() {
                                       ]}
                                     />
                                   </div>
-                                  <div className="w-32">
+                                  <div className="w-48">
                                     <Label className="text-xs">Name</Label>
                                     <Input className="h-8 font-mono" value={recordForm.name} onChange={(e) => setRecordForm((f) => ({ ...f, name: e.target.value }))} placeholder="@" />
                                   </div>
