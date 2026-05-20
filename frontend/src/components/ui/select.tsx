@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from "react"
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react"
-import { createPortal } from "react-dom"
+import { useState, useRef, useEffect } from "react"
+import { useFloating, offset, flip, shift, size } from "@floating-ui/react-dom"
 import { cn } from "@/lib/utils"
 import { ChevronDown, Check } from "lucide-react"
 
@@ -21,62 +21,41 @@ interface SelectProps {
 
 function Select({ value, onChange, options, placeholder = "Select...", className }: SelectProps) {
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const { refs, floatingStyles } = useFloating({
+    open,
+    placement: 'bottom-start',
+    middleware: [
+      offset(4),
+      flip({ fallbackAxisSideDirection: 'end' }),
+      shift({ padding: 8 }),
+      size({
+        apply({ availableHeight, elements }) {
+          elements.floating.style.maxHeight = `${Math.max(availableHeight - 8, 80)}px`;
+        },
+      }),
+    ],
+  });
 
   const selected = options.find((o) => o.value === value);
 
-  const updatePosition = useCallback(() => {
-    const trigger = triggerRef.current;
-    const dropdown = dropdownRef.current;
-    if (!trigger || !dropdown) return;
-
-    const rect = trigger.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom - 8;
-    const spaceAbove = rect.top - 8;
-    const openAbove = spaceBelow < dropdown.scrollHeight && spaceAbove > spaceBelow;
-    const maxH = Math.max(openAbove ? spaceAbove : spaceBelow, 80);
-
-    dropdown.style.left = `${rect.left}px`;
-    dropdown.style.width = `${rect.width}px`;
-    dropdown.style.maxHeight = `${maxH}px`;
-    dropdown.style.overflowY = maxH < dropdown.scrollHeight ? 'auto' : '';
-
-    if (openAbove) {
-      dropdown.style.top = 'auto';
-      dropdown.style.bottom = `${window.innerHeight - rect.top + 4}px`;
-    } else {
-      dropdown.style.bottom = 'auto';
-      dropdown.style.top = `${rect.bottom + 4}px`;
-    }
-
-    dropdown.style.visibility = 'visible';
-  }, []);
-
   useEffect(() => {
+    if (!open) return;
     const handleClick = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (triggerRef.current?.contains(target) || dropdownRef.current?.contains(target)) return;
+      const reference = refs.reference.current as HTMLElement | null;
+      if (reference?.contains(target) || listRef.current?.contains(target)) return;
       setOpen(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    updatePosition();
-    window.addEventListener('scroll', updatePosition, true);
-    window.addEventListener('resize', updatePosition);
-    return () => {
-      window.removeEventListener('scroll', updatePosition, true);
-      window.removeEventListener('resize', updatePosition);
-    };
-  }, [open, updatePosition]);
+  }, [open, refs.reference]);
 
   return (
-    <div ref={triggerRef} className={cn("relative", className)}>
+    <div className={cn("relative", className)}>
       <button
+        ref={refs.setReference as React.Ref<HTMLButtonElement>}
         type="button"
         onClick={() => setOpen(!open)}
         className="flex h-9 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-[13px] outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30"
@@ -86,11 +65,14 @@ function Select({ value, onChange, options, placeholder = "Select...", className
         </span>
         <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
-      {open && createPortal(
+      {open && (
         <div
-          ref={dropdownRef}
-          style={{ position: 'fixed', zIndex: 9999, visibility: 'hidden' }}
-          className="rounded-lg border bg-background shadow-lg"
+          ref={(node) => {
+            refs.setFloating(node);
+            (listRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+          }}
+          style={{ ...floatingStyles, zIndex: 9999, width: (refs.reference.current as HTMLElement)?.offsetWidth }}
+          className="overflow-y-auto rounded-lg border bg-background shadow-lg"
         >
           {options.map((option) => (
             <button
@@ -103,8 +85,7 @@ function Select({ value, onChange, options, placeholder = "Select...", className
               {value === option.value && <Check className="h-3.5 w-3.5" />}
             </button>
           ))}
-        </div>,
-        document.body
+        </div>
       )}
     </div>
   );
