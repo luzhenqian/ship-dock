@@ -21,33 +21,39 @@ interface SelectProps {
 
 function Select({ value, onChange, options, placeholder = "Select...", className }: SelectProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
   const selected = options.find((o) => o.value === value);
 
   const updatePosition = useCallback(() => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const dropdownHeight = dropdownRef.current?.offsetHeight ?? options.length * 36 + 2;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openAbove = spaceBelow < dropdownHeight + 8 && rect.top > spaceBelow;
-    setDropdownStyle({
+    const trigger = triggerRef.current;
+    const dropdown = dropdownRef.current;
+    if (!trigger || !dropdown) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - 8;
+    const spaceAbove = rect.top - 8;
+    const openAbove = spaceBelow < dropdown.scrollHeight && spaceAbove > spaceBelow;
+    const maxH = Math.max(openAbove ? spaceAbove : spaceBelow, 80);
+
+    Object.assign(dropdown.style, {
       position: 'fixed',
-      ...(openAbove
-        ? { bottom: window.innerHeight - rect.top + 4 }
-        : { top: rect.bottom + 4 }),
-      left: rect.left,
-      width: rect.width,
-      zIndex: 9999,
+      left: `${rect.left}px`,
+      width: `${rect.width}px`,
+      zIndex: '9999',
+      maxHeight: `${maxH}px`,
+      overflowY: maxH < dropdown.scrollHeight ? 'auto' : '',
+      top: openAbove ? '' : `${rect.bottom + 4}px`,
+      bottom: openAbove ? `${window.innerHeight - rect.top + 4}px` : '',
     });
-  }, [options.length]);
+  }, []);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (ref.current && !ref.current.contains(target) && dropdownRef.current && !dropdownRef.current.contains(target)) setOpen(false);
+      if (triggerRef.current?.contains(target) || dropdownRef.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -55,7 +61,7 @@ function Select({ value, onChange, options, placeholder = "Select...", className
 
   useEffect(() => {
     if (!open) return;
-    updatePosition();
+    requestAnimationFrame(updatePosition);
     window.addEventListener('scroll', updatePosition, true);
     window.addEventListener('resize', updatePosition);
     return () => {
@@ -65,7 +71,7 @@ function Select({ value, onChange, options, placeholder = "Select...", className
   }, [open, updatePosition]);
 
   return (
-    <div ref={ref} className={cn("relative", className)}>
+    <div ref={triggerRef} className={cn("relative", className)}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -77,7 +83,7 @@ function Select({ value, onChange, options, placeholder = "Select...", className
         <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
       {open && createPortal(
-        <div ref={dropdownRef} style={dropdownStyle} className="rounded-lg border bg-background shadow-lg">
+        <div ref={dropdownRef} className="rounded-lg border bg-background shadow-lg">
           {options.map((option) => (
             <button
               key={option.value}

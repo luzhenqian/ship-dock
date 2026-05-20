@@ -260,7 +260,7 @@ function DomainsContent() {
                             ) : (
                               <>
                                 {/* Records Table */}
-                                <div className="rounded-md border divide-y">
+                                <div className="rounded-md border divide-y max-h-[60vh] overflow-y-auto">
                                   {records?.map((r, i) => (
                                     <div key={i}>
                                       {editingRecord === i ? (
