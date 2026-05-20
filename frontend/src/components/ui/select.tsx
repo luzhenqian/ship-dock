@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useState, useRef, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { useFloating, offset, flip, shift, size } from "@floating-ui/react-dom"
 import { cn } from "@/lib/utils"
 import { ChevronDown, Check } from "lucide-react"
@@ -25,6 +26,7 @@ function Select({ value, onChange, options, placeholder = "Select...", className
 
   const { refs, floatingStyles } = useFloating({
     open,
+    strategy: 'fixed',
     placement: 'bottom-start',
     middleware: [
       offset(4),
@@ -65,7 +67,7 @@ function Select({ value, onChange, options, placeholder = "Select...", className
         </span>
         <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
-      {open && (
+      {open && createPortal(
         <div
           ref={(node) => {
             refs.setFloating(node);
@@ -85,7 +87,8 @@ function Select({ value, onChange, options, placeholder = "Select...", className
               {value === option.value && <Check className="h-3.5 w-3.5" />}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
