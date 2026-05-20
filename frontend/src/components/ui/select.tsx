@@ -30,14 +30,19 @@ function Select({ value, onChange, options, placeholder = "Select...", className
   const updatePosition = useCallback(() => {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
+    const dropdownHeight = dropdownRef.current?.offsetHeight ?? options.length * 36 + 2;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openAbove = spaceBelow < dropdownHeight + 8 && rect.top > spaceBelow;
     setDropdownStyle({
       position: 'fixed',
-      top: rect.bottom + 4,
+      ...(openAbove
+        ? { bottom: window.innerHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
       left: rect.left,
       width: rect.width,
       zIndex: 9999,
     });
-  }, []);
+  }, [options.length]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
