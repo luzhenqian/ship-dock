@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from "react"
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { ChevronDown, Check } from "lucide-react"
@@ -37,16 +37,20 @@ function Select({ value, onChange, options, placeholder = "Select...", className
     const openAbove = spaceBelow < dropdown.scrollHeight && spaceAbove > spaceBelow;
     const maxH = Math.max(openAbove ? spaceAbove : spaceBelow, 80);
 
-    Object.assign(dropdown.style, {
-      position: 'fixed',
-      left: `${rect.left}px`,
-      width: `${rect.width}px`,
-      zIndex: '9999',
-      maxHeight: `${maxH}px`,
-      overflowY: maxH < dropdown.scrollHeight ? 'auto' : '',
-      top: openAbove ? '' : `${rect.bottom + 4}px`,
-      bottom: openAbove ? `${window.innerHeight - rect.top + 4}px` : '',
-    });
+    dropdown.style.left = `${rect.left}px`;
+    dropdown.style.width = `${rect.width}px`;
+    dropdown.style.maxHeight = `${maxH}px`;
+    dropdown.style.overflowY = maxH < dropdown.scrollHeight ? 'auto' : '';
+
+    if (openAbove) {
+      dropdown.style.top = 'auto';
+      dropdown.style.bottom = `${window.innerHeight - rect.top + 4}px`;
+    } else {
+      dropdown.style.bottom = 'auto';
+      dropdown.style.top = `${rect.bottom + 4}px`;
+    }
+
+    dropdown.style.visibility = 'visible';
   }, []);
 
   useEffect(() => {
@@ -59,9 +63,9 @@ function Select({ value, onChange, options, placeholder = "Select...", className
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
-    requestAnimationFrame(updatePosition);
+    updatePosition();
     window.addEventListener('scroll', updatePosition, true);
     window.addEventListener('resize', updatePosition);
     return () => {
@@ -83,7 +87,11 @@ function Select({ value, onChange, options, placeholder = "Select...", className
         <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
       {open && createPortal(
-        <div ref={dropdownRef} className="rounded-lg border bg-background shadow-lg">
+        <div
+          ref={dropdownRef}
+          style={{ position: 'fixed', zIndex: 9999, visibility: 'hidden' }}
+          className="rounded-lg border bg-background shadow-lg"
+        >
           {options.map((option) => (
             <button
               key={option.value}
