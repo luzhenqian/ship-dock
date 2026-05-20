@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { ChevronDown, Check } from "lucide-react"
 
@@ -21,16 +22,42 @@ interface SelectProps {
 function Select({ value, onChange, options, placeholder = "Select...", className }: SelectProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
   const selected = options.find((o) => o.value === value);
 
+  const updatePosition = useCallback(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    setDropdownStyle({
+      position: 'fixed',
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+      zIndex: 9999,
+    });
+  }, []);
+
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (ref.current && !ref.current.contains(target) && dropdownRef.current && !dropdownRef.current.contains(target)) setOpen(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [open, updatePosition]);
 
   return (
     <div ref={ref} className={cn("relative", className)}>
@@ -44,8 +71,8 @@ function Select({ value, onChange, options, placeholder = "Select...", className
         </span>
         <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
-      {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg border bg-background shadow-lg">
+      {open && createPortal(
+        <div ref={dropdownRef} style={dropdownStyle} className="rounded-lg border bg-background shadow-lg">
           {options.map((option) => (
             <button
               key={option.value}
@@ -57,7 +84,8 @@ function Select({ value, onChange, options, placeholder = "Select...", className
               {value === option.value && <Check className="h-3.5 w-3.5" />}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
