@@ -291,7 +291,11 @@ export class ProjectsService {
         for (const extId of newExtensions) {
           const entry = DB_EXTENSIONS_WHITELIST.find((e) => e.id === extId);
           if (entry) {
-            await this.dbProvisioner.installExtension(project.dbName, entry.extension);
+            try {
+              await this.dbProvisioner.installExtension(project.dbName, entry.extension);
+            } catch (err: any) {
+              throw new BadRequestException(err.message);
+            }
           }
         }
       }
