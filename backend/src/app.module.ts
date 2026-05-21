@@ -22,6 +22,7 @@ import { NginxConfigModule } from './nginx-config/nginx-config.module';
 import { Pm2ConfigModule } from './pm2-config/pm2-config.module';
 import { ProjectTasksModule } from './project-tasks/project-tasks.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { ProjectFilesModule } from './project-files/project-files.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -49,6 +50,7 @@ import { AppController } from './app.controller';
     Pm2ConfigModule,
     ProjectTasksModule,
     AnalyticsModule,
+    ProjectFilesModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
