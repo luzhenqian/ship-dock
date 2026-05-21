@@ -777,22 +777,30 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           </p>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Per-file limit (MB)</Label>
-              <Input
-                type="number"
-                min={1}
-                value={fileSizeLimit}
-                onChange={(e) => setFileSizeLimit(Number(e.target.value))}
-              />
+              <Label>Per-file limit</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <Input
+                  type="number"
+                  min={1}
+                  value={fileSizeLimit}
+                  onChange={(e) => setFileSizeLimit(Number(e.target.value))}
+                />
+                <span className="text-sm text-foreground-muted shrink-0">MB</span>
+              </div>
+              <p className="text-xs text-foreground-muted mt-1">Maximum size for a single uploaded file.</p>
             </div>
             <div>
-              <Label>Total storage limit (MB)</Label>
-              <Input
-                type="number"
-                min={1}
-                value={fileTotalLimit}
-                onChange={(e) => setFileTotalLimit(Number(e.target.value))}
-              />
+              <Label>Total storage limit</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <Input
+                  type="number"
+                  min={1}
+                  value={fileTotalLimit}
+                  onChange={(e) => setFileTotalLimit(Number(e.target.value))}
+                />
+                <span className="text-sm text-foreground-muted shrink-0">MB</span>
+              </div>
+              <p className="text-xs text-foreground-muted mt-1">Maximum total storage for all files in the project directory.</p>
             </div>
           </div>
         </CardContent>
