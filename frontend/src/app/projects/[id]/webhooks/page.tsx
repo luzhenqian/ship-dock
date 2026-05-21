@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Loading } from '@/components/ui/loading';
 import { Select } from '@/components/ui/select';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import {
   useWebhookConfig, useCreateWebhook, useUpdateWebhook, useDeleteWebhook,
   useRegenerateSecret, useWebhookEvents, useReplayWebhookEvent,
@@ -57,6 +58,8 @@ export default function WebhooksPage({ params }: { params: Promise<{ id: string 
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [eventsPage, setEventsPage] = useState(1);
+  const [showDeleteWebhookConfirm, setShowDeleteWebhookConfirm] = useState(false);
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
   const { data: eventsData } = useWebhookEvents(projectId, statusFilter || undefined, eventsPage);
 
@@ -97,7 +100,6 @@ export default function WebhooksPage({ params }: { params: Promise<{ id: string 
   }
 
   async function handleDelete() {
-    if (!confirm('Delete webhook? This will also unregister it from GitHub.')) return;
     try {
       await deleteWebhook.mutateAsync();
       toast.success('Webhook deleted');
@@ -107,7 +109,6 @@ export default function WebhooksPage({ params }: { params: Promise<{ id: string 
   }
 
   async function handleRegenerateSecret() {
-    if (!confirm('Regenerate secret? The old secret will stop working immediately.')) return;
     try {
       const result = await regenerateSecret.mutateAsync();
       setShowSecret(result.secret);
@@ -217,8 +218,8 @@ export default function WebhooksPage({ params }: { params: Promise<{ id: string 
               </div>
             )}
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={handleRegenerateSecret}>Regenerate Secret</Button>
-              <Button variant="destructive" size="sm" onClick={handleDelete}>Delete Webhook</Button>
+              <Button variant="outline" size="sm" onClick={() => setShowRegenerateConfirm(true)}>Regenerate Secret</Button>
+              <Button variant="destructive" size="sm" onClick={() => setShowDeleteWebhookConfirm(true)}>Delete Webhook</Button>
             </div>
           </CardContent>
         </Card>
@@ -427,6 +428,23 @@ export default function WebhooksPage({ params }: { params: Promise<{ id: string 
           </CardContent>
         </Card>
       )}
+      <ConfirmDialog
+        open={showDeleteWebhookConfirm}
+        onOpenChange={setShowDeleteWebhookConfirm}
+        title="Delete webhook"
+        description="Delete webhook? This will also unregister it from GitHub."
+        onConfirm={handleDelete}
+        destructive
+      />
+
+      <ConfirmDialog
+        open={showRegenerateConfirm}
+        onOpenChange={setShowRegenerateConfirm}
+        title="Regenerate secret"
+        description="Regenerate secret? The old secret will stop working immediately."
+        onConfirm={handleRegenerateSecret}
+        destructive={false}
+      />
     </div>
   );
 }

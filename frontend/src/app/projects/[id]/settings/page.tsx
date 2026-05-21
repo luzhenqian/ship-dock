@@ -15,7 +15,7 @@ import { Loading } from '@/components/ui/loading';
 import { useServices, useCreateService, useDeleteService, useDetectServices, useTestService } from '@/hooks/use-services';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { RepoSelector } from '@/components/repo-selector';
 import { ExternalLink } from 'lucide-react';
@@ -60,10 +60,8 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [dbDeleting, setDbDeleting] = useState(false);
   const [dbExporting, setDbExporting] = useState(false);
   const [redisProvisioning, setRedisProvisioning] = useState(false);
-  const [redisDeleting, setRedisDeleting] = useState(false);
   const [showRedisDeleteConfirm, setShowRedisDeleteConfirm] = useState(false);
   const [minioProvisioning, setMinioProvisioning] = useState(false);
-  const [minioDeleting, setMinioDeleting] = useState(false);
   const [showMinioDeleteConfirm, setShowMinioDeleteConfirm] = useState(false);
   const [showRepoConnect, setShowRepoConnect] = useState(false);
   const [repoMode, setRepoMode] = useState<'select' | 'manual'>('select');
@@ -72,6 +70,8 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [repoInstallationId, setRepoInstallationId] = useState<string | undefined>();
   const [repoConnecting, setRepoConnecting] = useState(false);
   const [showRepoDisconnect, setShowRepoDisconnect] = useState(false);
+  const [showDeleteProject, setShowDeleteProject] = useState(false);
+  const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
   const [systemDeps, setSystemDeps] = useState<string[]>([]);
 
   const { data: systemDepsWhitelist } = useQuery({
@@ -156,7 +156,6 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   }
 
   async function handleDelete() {
-    if (!confirm('Are you sure? This will stop the PM2 process and remove nginx config.')) return;
     await deleteProject.mutateAsync(projectId);
     router.push('/dashboard');
   }
@@ -487,7 +486,6 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
                 <Button
                   size="sm"
                   variant="destructive"
-                  disabled={redisDeleting}
                   onClick={() => setShowRedisDeleteConfirm(true)}
                 >
                   Disable & Delete
@@ -538,7 +536,6 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
                 <Button
                   size="sm"
                   variant="destructive"
-                  disabled={minioDeleting}
                   onClick={() => setShowMinioDeleteConfirm(true)}
                 >
                   Disable & Delete
@@ -645,11 +642,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => {
-                        if (confirm(`Delete "${svc.name}"?`)) {
-                          deleteService.mutate(svc.id);
-                        }
-                      }}
+                      onClick={() => setDeleteServiceId(svc.id)}
                     >
                       Delete
                     </Button>
@@ -778,7 +771,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           <p className="text-[13px] text-foreground-secondary mb-4">
             Permanently delete this project. This will stop the process and remove all configuration.
           </p>
-          <Button variant="destructive" onClick={handleDelete}>Delete Project</Button>
+          <Button variant="destructive" onClick={() => setShowDeleteProject(true)}>Delete Project</Button>
         </CardContent>
       </Card>
 
@@ -881,81 +874,71 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
         destructive
       />
 
-      <Dialog open={showRedisDeleteConfirm} onOpenChange={setShowRedisDeleteConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Platform Redis?</DialogTitle>
-            <DialogDescription>
-              This will flush all data in Redis database {project.redisDbIndex} and remove REDIS_URL from environment variables. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRedisDeleteConfirm(false)}>Cancel</Button>
-            <Button
-              variant="destructive"
-              disabled={redisDeleting}
-              onClick={async () => {
-                setRedisDeleting(true);
-                try {
-                  await api(`/projects/${projectId}/provision-redis`, { method: 'DELETE' });
-                  toast.success('Redis deleted');
-                  setShowRedisDeleteConfirm(false);
-                  refetch();
-                  const newEnv = await api<Record<string, string>>(`/projects/${projectId}/env`);
-                  setEnvVars(newEnv);
-                } catch (err: any) {
-                  toast.error(`Failed: ${err.message}`);
-                } finally {
-                  setRedisDeleting(false);
-                }
-              }}
-            >
-              {redisDeleting ? 'Deleting...' : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={showDeleteProject}
+        onOpenChange={setShowDeleteProject}
+        title="Delete project"
+        description="Are you sure? This will stop the PM2 process and remove nginx config. This action cannot be undone."
+        confirmText="delete"
+        onConfirm={handleDelete}
+        destructive
+      />
 
-      <Dialog open={showMinioDeleteConfirm} onOpenChange={setShowMinioDeleteConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Platform Storage?</DialogTitle>
-            <DialogDescription>
-              This will delete all files in bucket &quot;{project.minioBucket}&quot; and remove MinIO env vars. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowMinioDeleteConfirm(false)}>Cancel</Button>
-            <Button
-              variant="destructive"
-              disabled={minioDeleting}
-              onClick={async () => {
-                setMinioDeleting(true);
-                try {
-                  await api(`/projects/${projectId}/provision-minio`, { method: 'DELETE' });
-                  toast.success('Storage deleted');
-                  setShowMinioDeleteConfirm(false);
-                  refetch();
-                  const newEnv = await api<Record<string, string>>(`/projects/${projectId}/env`);
-                  setEnvVars(newEnv);
-                } catch (err: any) {
-                  toast.error(`Failed: ${err.message}`);
-                } finally {
-                  setMinioDeleting(false);
-                }
-              }}
-            >
-              {minioDeleting ? 'Deleting...' : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!!deleteServiceId}
+        onOpenChange={(open) => { if (!open) setDeleteServiceId(null); }}
+        title="Delete service"
+        description={`Delete "${services?.find((s: any) => s.id === deleteServiceId)?.name ?? 'this service'}"?`}
+        onConfirm={() => { if (deleteServiceId) deleteService.mutate(deleteServiceId); }}
+        destructive
+      />
+
+      <ConfirmDialog
+        open={showRedisDeleteConfirm}
+        onOpenChange={setShowRedisDeleteConfirm}
+        title="Delete Platform Redis"
+        description={`This will flush all data in Redis database ${project.redisDbIndex} and remove REDIS_URL from environment variables. This action cannot be undone.`}
+        confirmText="delete"
+        onConfirm={async () => {
+          try {
+            await api(`/projects/${projectId}/provision-redis`, { method: 'DELETE' });
+            toast.success('Redis deleted');
+            refetch();
+            const newEnv = await api<Record<string, string>>(`/projects/${projectId}/env`);
+            setEnvVars(newEnv);
+          } catch (err: any) {
+            toast.error(`Failed: ${err.message}`);
+          }
+        }}
+        destructive
+      />
+
+      <ConfirmDialog
+        open={showMinioDeleteConfirm}
+        onOpenChange={setShowMinioDeleteConfirm}
+        title="Delete Platform Storage"
+        description={`This will delete all files in bucket "${project.minioBucket}" and remove MinIO env vars. This action cannot be undone.`}
+        confirmText="delete"
+        onConfirm={async () => {
+          try {
+            await api(`/projects/${projectId}/provision-minio`, { method: 'DELETE' });
+            toast.success('Storage deleted');
+            refetch();
+            const newEnv = await api<Record<string, string>>(`/projects/${projectId}/env`);
+            setEnvVars(newEnv);
+          } catch (err: any) {
+            toast.error(`Failed: ${err.message}`);
+          }
+        }}
+        destructive
+      />
 
       <ConfirmDialog
         open={showDbDeleteConfirm}
         onOpenChange={setShowDbDeleteConfirm}
         title="Delete platform database"
         description={`This will permanently delete the database "${project.dbName}" and all its data. This action cannot be undone. Consider exporting your data first.`}
+        confirmText="delete"
         onConfirm={async () => {
           setDbDeleting(true);
           try {

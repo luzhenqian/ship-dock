@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Plus, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TaskFormDialog } from '@/components/task-form-dialog';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import {
   useProjectTasks, useCreateProjectTask, useTriggerTaskRun, useDeleteProjectTask, useUpdateProjectTask,
   type ProjectTask,
@@ -102,6 +103,7 @@ export default function TasksPage({ params }: { params: Promise<{ id: string }> 
   const del = useDeleteProjectTask(projectId);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<ProjectTask | null>(null);
+  const [deletingTask, setDeletingTask] = useState<ProjectTask | null>(null);
 
   return (
     <div>
@@ -141,10 +143,7 @@ export default function TasksPage({ params }: { params: Promise<{ id: string }> 
               projectId={projectId}
               task={t}
               onEdit={() => setEditing(t)}
-              onDelete={async () => {
-                if (!confirm(`Delete task "${t.name}"?\nThis will also delete all of its run history.`)) return;
-                await del.mutateAsync(t.id);
-              }}
+              onDelete={() => setDeletingTask(t)}
               onRun={(runId) => router.push(`/projects/${projectId}/tasks/${t.id}/runs/${runId}`)}
             />
           ))}
@@ -166,6 +165,15 @@ export default function TasksPage({ params }: { params: Promise<{ id: string }> 
           onClose={() => setEditing(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={!!deletingTask}
+        onOpenChange={(open) => { if (!open) setDeletingTask(null); }}
+        title="Delete task"
+        description={`Delete task "${deletingTask?.name}"? This will also delete all of its run history.`}
+        onConfirm={async () => { if (deletingTask) await del.mutateAsync(deletingTask.id); }}
+        destructive
+      />
     </div>
   );
 }
