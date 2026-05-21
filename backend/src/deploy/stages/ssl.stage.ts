@@ -41,16 +41,26 @@ export class SslStage {
           // Found the matching provider + root domain
           const subdomain = domain === rootDomain ? '@' : domain.slice(0, -(rootDomain.length + 1));
           onLog(`Found DNS provider "${provider.provider}" managing ${rootDomain}`);
-          onLog(`Adding A record: ${subdomain} → ${serverIp}`);
-
           try {
-            await domainsService.addRecord(provider.id, rootDomain, {
-              name: subdomain, type: 'A', value: serverIp, ttl: 600,
-            });
-            onLog('DNS record added successfully');
+            const records = await domainsService.getRecords(provider.id, rootDomain);
+            const existing = records.find((r) => r.name === subdomain && r.type === 'A');
+            if (existing && existing.value === serverIp) {
+              onLog(`A record already points to ${serverIp}, skipping`);
+              return true;
+            }
+            const newRecord = { name: subdomain, type: 'A', value: serverIp, ttl: 600 };
+            if (existing) {
+              onLog(`Updating A record: ${subdomain} ${existing.value} → ${serverIp}`);
+              await domainsService.updateRecord(provider.id, rootDomain, { name: subdomain, type: 'A' }, newRecord);
+              onLog('DNS record updated successfully');
+            } else {
+              onLog(`Adding A record: ${subdomain} → ${serverIp}`);
+              await domainsService.addRecord(provider.id, rootDomain, newRecord);
+              onLog('DNS record added successfully');
+            }
             return true;
           } catch (err: any) {
-            onLog(`Failed to add DNS record: ${err.message}`);
+            onLog(`Failed to configure DNS record: ${err.message}`);
             return false;
           }
         }
