@@ -11,6 +11,8 @@ import { MigrationWizard } from '@/components/migration-wizard';
 import { GitBranch, Upload, ChevronRight, Loader2, Check, Database, Globe, Terminal, File, X, AlertCircle, CheckCircle2, Server, HardDrive } from 'lucide-react';
 import { RepoSelector } from '@/components/repo-selector';
 import { useGitHubInstallations } from '@/hooks/use-github-app';
+import { useDomainCheck } from '@/hooks/use-domain-check';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 
 type Step = 'source' | 'basic' | 'env' | 'confirm' | 'import';
 const STEPS: { key: Step; label: string }[] = [
@@ -80,6 +82,7 @@ export default function NewProjectPage() {
   const [uploadFile, setUploadFile] = useState<globalThis.File | null>(null);
   const [uploadFileError, setUploadFileError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const domainCheck = useDomainCheck();
 
   const { data: githubInstallations } = useGitHubInstallations();
   const hasGitHubConnection = (githubInstallations?.length ?? 0) > 0;
@@ -275,6 +278,10 @@ export default function NewProjectPage() {
 
   async function handleCreate() {
     setCreateError('');
+    if (form.domain) {
+      const ok = await domainCheck.checkAndConfirm(form.domain);
+      if (!ok) return;
+    }
     try {
       const result = await createProject.mutateAsync({
         name: form.name,
@@ -823,6 +830,15 @@ export default function NewProjectPage() {
           </Button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={domainCheck.dialogProps.open}
+        onOpenChange={domainCheck.dialogProps.onOpenChange}
+        title="域名已被使用"
+        description={`该域名当前指向 ${domainCheck.dialogProps.currentIp}，与本服务器 IP 不同。是否仍要使用此域名？`}
+        onConfirm={domainCheck.dialogProps.onConfirm}
+        destructive={false}
+      />
     </div>
   );
 }

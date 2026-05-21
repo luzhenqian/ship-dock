@@ -14,6 +14,7 @@ import { EnvVarEditor } from '@/components/env-var-editor';
 import { Loading } from '@/components/ui/loading';
 import { useServices, useCreateService, useDeleteService, useDetectServices, useTestService } from '@/hooks/use-services';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { useDomainCheck } from '@/hooks/use-domain-check';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -75,6 +76,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [systemDeps, setSystemDeps] = useState<string[]>([]);
   const [fileSizeLimit, setFileSizeLimit] = useState(100);
   const [fileTotalLimit, setFileTotalLimit] = useState(1024);
+  const domainCheck = useDomainCheck();
 
   const { data: systemDepsWhitelist } = useQuery({
     queryKey: ['system-deps-whitelist'],
@@ -118,6 +120,10 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   }, [savedEnvVars]);
 
   async function handleSave() {
+    if (domain && domain !== (project?.domain || '')) {
+      const ok = await domainCheck.checkAndConfirm(domain);
+      if (!ok) return;
+    }
     setSaving(true);
     try {
       await api(`/projects/${projectId}`, {
@@ -997,6 +1003,15 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           }
         }}
         destructive
+      />
+
+      <ConfirmDialog
+        open={domainCheck.dialogProps.open}
+        onOpenChange={domainCheck.dialogProps.onOpenChange}
+        title="域名已被使用"
+        description={`该域名当前指向 ${domainCheck.dialogProps.currentIp}，与本服务器 IP 不同。是否仍要使用此域名？`}
+        onConfirm={domainCheck.dialogProps.onConfirm}
+        destructive={false}
       />
     </div>
   );
