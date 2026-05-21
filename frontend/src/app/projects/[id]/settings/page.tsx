@@ -79,6 +79,14 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
     queryFn: () => api<Array<{ id: string; name: string; description: string }>>('/projects/settings/system-deps'),
   });
 
+  const [dbExtensions, setDbExtensions] = useState<string[]>([]);
+  const [dbExtSaving, setDbExtSaving] = useState<string | null>(null);
+
+  const { data: dbExtensionsWhitelist } = useQuery({
+    queryKey: ['db-extensions-whitelist'],
+    queryFn: () => api<Array<{ id: string; name: string; description: string; extension: string }>>('/projects/settings/db-extensions'),
+  });
+
   const { data: services, refetch: refetchServices } = useServices(projectId);
   const createService = useCreateService(projectId);
   const deleteService = useDeleteService(projectId);
@@ -95,6 +103,7 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
       setStartCommand(project.startCommand || '');
       setNodeVersion(project.nodeVersion || '');
       setSystemDeps((project as any).systemDeps || []);
+      setDbExtensions((project as any).dbExtensions || []);
     }
   }, [project]);
 
@@ -375,6 +384,64 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
                   Disable & Delete
                 </Button>
               </div>
+              {dbExtensionsWhitelist && dbExtensionsWhitelist.length > 0 && (
+                <>
+                  <hr className="border-border" />
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Extensions</h4>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Select PostgreSQL extensions to install. Changes apply immediately.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {dbExtensionsWhitelist.map((ext) => (
+                        <label
+                          key={ext.id}
+                          className="flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer hover:bg-foreground/[0.04] transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={dbExtensions.includes(ext.id)}
+                            disabled={dbExtSaving === ext.id}
+                            onChange={async (e) => {
+                              const checked = e.target.checked;
+                              const next = checked
+                                ? [...dbExtensions, ext.id]
+                                : dbExtensions.filter((d) => d !== ext.id);
+                              setDbExtensions(next);
+                              setDbExtSaving(ext.id);
+                              try {
+                                await api(`/projects/${projectId}`, {
+                                  method: 'PATCH',
+                                  body: JSON.stringify({ dbExtensions: next }),
+                                });
+                                toast.success(
+                                  checked
+                                    ? `Extension "${ext.name}" installed`
+                                    : `Extension "${ext.name}" removed from configuration`,
+                                );
+                                refetch();
+                              } catch (err: any) {
+                                setDbExtensions(checked
+                                  ? dbExtensions.filter((d) => d !== ext.id)
+                                  : [...dbExtensions, ext.id],
+                                );
+                                toast.error(err.message || 'Failed to update extension');
+                              } finally {
+                                setDbExtSaving(null);
+                              }
+                            }}
+                            className="h-4 w-4 mt-0.5 rounded border shrink-0"
+                          />
+                          <div>
+                            <span className="text-sm font-medium">{ext.name}</span>
+                            <p className="text-xs text-muted-foreground">{ext.description}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <div className="space-y-2">

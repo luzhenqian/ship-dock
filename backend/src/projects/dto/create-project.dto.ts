@@ -72,4 +72,9 @@ export class CreateProjectDto {
   @IsString({ each: true })
   @IsOptional()
   systemDeps?: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  dbExtensions?: string[];
 }

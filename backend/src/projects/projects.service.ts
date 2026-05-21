@@ -9,6 +9,7 @@ import { EncryptionService } from '../common/encryption.service';
 import { DatabaseProvisionerService } from '../common/database-provisioner.service';
 import { RedisProvisionerService } from '../common/redis-provisioner.service';
 import { SYSTEM_DEPS_IDS } from './system-deps.const';
+import { DB_EXTENSIONS_IDS, DB_EXTENSIONS_WHITELIST } from './db-extensions.const';
 import { MinioProvisionerService } from '../common/minio-provisioner.service';
 import { PortAllocationService } from './port-allocation.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -277,6 +278,23 @@ export class ProjectsService {
     if (data.systemDeps) {
       const invalid = (data.systemDeps as string[]).filter((d) => !SYSTEM_DEPS_IDS.has(d));
       if (invalid.length) throw new BadRequestException(`Invalid system dependencies: ${invalid.join(', ')}`);
+    }
+
+    if (data.dbExtensions) {
+      const invalid = (data.dbExtensions as string[]).filter((d) => !DB_EXTENSIONS_IDS.has(d));
+      if (invalid.length) throw new BadRequestException(`Invalid database extensions: ${invalid.join(', ')}`);
+
+      const project = await this.prisma.project.findUnique({ where: { id } });
+      if (project?.useLocalDb && project.dbName) {
+        const oldExtensions = (project.dbExtensions as string[]) || [];
+        const newExtensions = (data.dbExtensions as string[]).filter((d) => !oldExtensions.includes(d));
+        for (const extId of newExtensions) {
+          const entry = DB_EXTENSIONS_WHITELIST.find((e) => e.id === extId);
+          if (entry) {
+            await this.dbProvisioner.installExtension(project.dbName, entry.extension);
+          }
+        }
+      }
     }
 
     if (data.envVars) {

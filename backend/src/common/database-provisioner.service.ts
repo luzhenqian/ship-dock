@@ -40,13 +40,12 @@ export class DatabaseProvisionerService {
       await client.end();
     }
 
-    // Enable common extensions
+    // Enable uuid-ossp by default
     const databaseUrl = this.buildUrl(dbName);
     const extClient = new Client({ connectionString: databaseUrl });
     await extClient.connect();
     try {
       await extClient.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
-      await extClient.query('CREATE EXTENSION IF NOT EXISTS "vector"').catch(() => {});
     } finally {
       await extClient.end();
     }
@@ -57,12 +56,37 @@ export class DatabaseProvisionerService {
   /**
    * Ensure a database exists before migration. Called during deploy.
    */
-  async ensureDatabase(dbName: string): Promise<void> {
+  async ensureDatabase(dbName: string, extensions?: string[]): Promise<void> {
     const client = await this.getAdminClient();
     try {
       if (!(await this.dbExists(client, dbName))) {
         await client.query(`CREATE DATABASE "${dbName}"`);
       }
+    } finally {
+      await client.end();
+    }
+
+    const allExtensions = ['uuid-ossp', ...(extensions || [])];
+    const databaseUrl = this.buildUrl(dbName);
+    const extClient = new Client({ connectionString: databaseUrl });
+    await extClient.connect();
+    try {
+      for (const ext of allExtensions) {
+        await extClient.query(`CREATE EXTENSION IF NOT EXISTS "${ext}"`).catch(() => {});
+      }
+    } finally {
+      await extClient.end();
+    }
+  }
+
+  async installExtension(dbName: string, extensionName: string): Promise<void> {
+    const databaseUrl = this.buildUrl(dbName);
+    const client = new Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+      await client.query(`CREATE EXTENSION IF NOT EXISTS "${extensionName}"`);
+    } catch (err: any) {
+      throw new Error(`Failed to install extension "${extensionName}": ${err.message}`);
     } finally {
       await client.end();
     }

@@ -19,6 +19,7 @@ import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
 import { join, dirname } from 'path';
 import { SYSTEM_DEPS_WHITELIST } from '../projects/system-deps.const';
+import { DB_EXTENSIONS_WHITELIST } from '../projects/db-extensions.const';
 
 @Processor('deploy')
 export class DeployProcessor extends WorkerHost {
@@ -151,8 +152,12 @@ export class DeployProcessor extends WorkerHost {
         if (stage.name === 'migrate' && project.useLocalDb && project.dbName) {
           try {
             onLog(`Ensuring database "${project.dbName}" exists...`);
-            await this.dbProvisioner.ensureDatabase(project.dbName);
-            onLog(`Database "${project.dbName}" ready`);
+            const extIds = (project.dbExtensions as string[]) || [];
+            const pgExtNames = extIds
+              .map((id) => DB_EXTENSIONS_WHITELIST.find((e) => e.id === id)?.extension)
+              .filter(Boolean) as string[];
+            await this.dbProvisioner.ensureDatabase(project.dbName, pgExtNames);
+            onLog(`Database "${project.dbName}" ready${pgExtNames.length ? ` (extensions: ${pgExtNames.join(', ')})` : ''}`);
           } catch (err: any) {
             onLog(`\x1b[31mFailed to ensure database: ${err.message}\x1b[0m`);
           }

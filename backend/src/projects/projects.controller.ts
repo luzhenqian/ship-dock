@@ -7,6 +7,7 @@ import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { SYSTEM_DEPS_WHITELIST } from './system-deps.const';
+import { DB_EXTENSIONS_WHITELIST } from './db-extensions.const';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -61,6 +62,12 @@ export class ProjectsController {
   @MinRole('VIEWER')
   getSystemDepsWhitelist() {
     return SYSTEM_DEPS_WHITELIST;
+  }
+
+  @Get('settings/db-extensions')
+  @MinRole('VIEWER')
+  getDbExtensionsWhitelist() {
+    return DB_EXTENSIONS_WHITELIST;
   }
 
   @Post() @MinRole('ADMIN')

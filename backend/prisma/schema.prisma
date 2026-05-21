@@ -116,6 +116,7 @@ model Project {
   pm2Name      String
   useLocalDb    Boolean       @default(false)
   dbName        String?
+  dbExtensions  Json          @default("[]")
   useLocalRedis Boolean       @default(false)
   redisDbIndex  Int?
   useLocalMinio Boolean       @default(false)
