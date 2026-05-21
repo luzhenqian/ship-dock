@@ -62,6 +62,28 @@ export function useUploadProjectFile(projectId: string) {
   });
 }
 
+export function useUploadProjectFolder(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ files, targetDir }: { files: File[]; targetDir: string }) => {
+      const formData = new FormData();
+      for (const file of files) {
+        formData.append('files', file);
+        formData.append('paths', (file as any).webkitRelativePath || file.name);
+      }
+      if (targetDir) formData.append('targetDir', targetDir);
+      return apiRaw(`/projects/${projectId}/files/upload-batch`, {
+        method: 'POST',
+        body: formData,
+      }).then((res) => res.json());
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-files', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-file-stats', projectId] });
+    },
+  });
+}
+
 export function useMkdir(projectId: string) {
   const qc = useQueryClient();
   return useMutation({

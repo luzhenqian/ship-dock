@@ -134,6 +134,48 @@ export class ProjectFilesService {
     return { message: 'File uploaded', extracted: false };
   }
 
+  async uploadBatch(
+    projectId: string,
+    files: Express.Multer.File[],
+    targetDir: string,
+    relativePaths: string[],
+  ) {
+    const project = await this.prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) throw new NotFoundException('Project not found');
+
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    const projectDir = await this.getProjectDir(projectId);
+    const currentUsage = this.calculateDirSize(projectDir);
+    const totalLimit = Number(project.fileTotalLimit);
+
+    if (currentUsage + totalSize > totalLimit) {
+      throw new BadRequestException(
+        `Upload would exceed total storage limit of ${this.formatBytes(totalLimit)}. Currently using ${this.formatBytes(currentUsage)}, upload is ${this.formatBytes(totalSize)}.`,
+      );
+    }
+
+    const baseDir = targetDir ? this.validatePath(projectDir, targetDir) : projectDir;
+    let uploaded = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const relativePath = relativePaths[i] || file.originalname;
+
+      if (file.size > project.fileSizeLimit) continue;
+
+      const fileDest = join(baseDir, relativePath);
+      const resolvedDest = resolve(fileDest);
+      if (!resolvedDest.startsWith(projectDir)) continue;
+
+      const destDir = dirname(resolvedDest);
+      if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
+      writeFileSync(resolvedDest, file.buffer);
+      uploaded++;
+    }
+
+    return { message: `Uploaded ${uploaded} files`, count: uploaded };
+  }
+
   async createDirectory(projectId: string, path: string) {
     const projectDir = await this.getProjectDir(projectId);
     const targetDir = this.validatePath(projectDir, path);

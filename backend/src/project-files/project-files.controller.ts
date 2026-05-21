@@ -1,8 +1,8 @@
 import {
   Controller, Get, Post, Delete, Query, Body, Param, Res,
-  UploadedFile, UseGuards, UseInterceptors, BadRequestException,
+  UploadedFile, UploadedFiles, UseGuards, UseInterceptors, BadRequestException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -54,6 +54,19 @@ export class ProjectFilesController {
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
     return this.filesService.uploadFile(projectId, file, targetDir, extract === 'true');
+  }
+
+  @Post('upload-batch') @MinRole('DEVELOPER')
+  @UseInterceptors(FilesInterceptor('files', 2000, { limits: { fileSize: 500 * 1024 * 1024 } }))
+  uploadBatch(
+    @Param('projectId') projectId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('targetDir') targetDir: string = '',
+    @Body('paths') paths: string | string[] = [],
+  ) {
+    if (!files || files.length === 0) throw new BadRequestException('No files uploaded');
+    const pathsArr = Array.isArray(paths) ? paths : [paths];
+    return this.filesService.uploadBatch(projectId, files, targetDir, pathsArr);
   }
 
   @Post('mkdir') @MinRole('DEVELOPER')
