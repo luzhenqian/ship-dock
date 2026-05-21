@@ -15,6 +15,7 @@ import {
   Webhook,
   Settings,
   Play,
+  FolderOpen,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -39,6 +40,7 @@ const groups: { label: string; items: { href: string; label: string; icon: Lucid
       { href: 'tasks', label: 'Tasks', icon: Play },
       { href: 'logs', label: 'Logs', icon: ScrollText },
       { href: 'analytics', label: 'Analytics', icon: BarChart3 },
+      { href: 'files', label: 'Files', icon: FolderOpen },
     ],
   },
   {

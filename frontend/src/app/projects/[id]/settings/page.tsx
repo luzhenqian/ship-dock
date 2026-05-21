@@ -73,6 +73,8 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
   const [showDeleteProject, setShowDeleteProject] = useState(false);
   const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
   const [systemDeps, setSystemDeps] = useState<string[]>([]);
+  const [fileSizeLimit, setFileSizeLimit] = useState(100);
+  const [fileTotalLimit, setFileTotalLimit] = useState(1024);
 
   const { data: systemDepsWhitelist } = useQuery({
     queryKey: ['system-deps-whitelist'],
@@ -104,6 +106,8 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
       setNodeVersion(project.nodeVersion || '');
       setSystemDeps((project as any).systemDeps || []);
       setDbExtensions((project as any).dbExtensions || []);
+      if (project.fileSizeLimit) setFileSizeLimit(Math.round(project.fileSizeLimit / 1048576));
+      if (project.fileTotalLimit) setFileTotalLimit(Math.round(Number(project.fileTotalLimit) / 1048576));
     }
   }, [project]);
 
@@ -128,6 +132,8 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           nodeVersion: nodeVersion || null,
           envVars: Object.keys(envVars).length > 0 ? envVars : undefined,
           systemDeps,
+          fileSizeLimit: fileSizeLimit * 1048576,
+          fileTotalLimit: fileTotalLimit * 1048576,
         }),
       });
     } catch (err: any) {
@@ -762,6 +768,35 @@ export default function ProjectSettingsPage({ params }: { params: Promise<{ id: 
           {saving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle>File Limits</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-[13px] text-foreground-secondary">
+            Configure size limits for files uploaded to this project&apos;s deployment directory.
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Per-file limit (MB)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={fileSizeLimit}
+                onChange={(e) => setFileSizeLimit(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <Label>Total storage limit (MB)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={fileTotalLimit}
+                onChange={(e) => setFileTotalLimit(Number(e.target.value))}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-status-error/30">
         <CardHeader>
