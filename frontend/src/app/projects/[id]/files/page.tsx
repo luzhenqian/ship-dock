@@ -63,9 +63,8 @@ export default function ProjectFilesPage({ params }: { params: Promise<{ id: str
   const [newDirName, setNewDirName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ name: string; path: string } | null>(null);
 
-  const [uploadMode, setUploadMode] = useState<'file' | 'folder'>('file');
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadIsFolder, setUploadIsFolder] = useState(false);
   const [uploadTargetDir, setUploadTargetDir] = useState('');
   const [uploadExtract, setUploadExtract] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,27 +94,31 @@ export default function ProjectFilesPage({ params }: { params: Promise<{ id: str
     }
   };
 
+  const resetUpload = () => {
+    setUploadFiles([]);
+    setUploadIsFolder(false);
+    setUploadTargetDir('');
+    setUploadExtract(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (folderInputRef.current) folderInputRef.current.value = '';
+  };
+
   const handleUpload = async () => {
+    if (uploadFiles.length === 0) return;
     try {
-      if (uploadMode === 'folder') {
-        if (uploadFiles.length === 0) return;
+      if (uploadIsFolder || uploadFiles.length > 1) {
         await folderMutation.mutateAsync({ files: uploadFiles, targetDir: uploadTargetDir });
         toast.success(`Uploaded ${uploadFiles.length} files`);
       } else {
-        if (!uploadFile) return;
         await uploadMutation.mutateAsync({
-          file: uploadFile,
+          file: uploadFiles[0],
           targetDir: uploadTargetDir,
           extract: uploadExtract,
         });
         toast.success(uploadExtract ? 'File uploaded and extracted' : 'File uploaded');
       }
       setShowUpload(false);
-      setUploadFile(null);
-      setUploadFiles([]);
-      setUploadTargetDir('');
-      setUploadExtract(false);
-      setUploadMode('file');
+      resetUpload();
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -265,75 +268,75 @@ export default function ProjectFilesPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
+      {/* Hidden file inputs */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) { setUploadFiles([f]); setUploadIsFolder(false); setUploadExtract(false); }
+        }}
+      />
+      <input
+        ref={folderInputRef}
+        type="file"
+        className="hidden"
+        /* @ts-expect-error webkitdirectory is non-standard */
+        webkitdirectory=""
+        multiple
+        onChange={(e) => {
+          const files = Array.from(e.target.files || []);
+          if (files.length > 0) { setUploadFiles(files); setUploadIsFolder(true); setUploadExtract(false); }
+        }}
+      />
+
       {/* Upload Dialog */}
-      <Dialog open={showUpload} onOpenChange={(open) => {
-        setShowUpload(open);
-        if (!open) { setUploadFile(null); setUploadFiles([]); setUploadExtract(false); setUploadMode('file'); }
-      }}>
+      <Dialog open={showUpload} onOpenChange={(open) => { setShowUpload(open); if (!open) resetUpload(); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Upload</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Mode toggle */}
-            <div className="flex gap-1 p-1 bg-muted/50 rounded-lg">
-              <button
-                className={`flex-1 text-sm py-1.5 rounded-md transition-colors ${uploadMode === 'file' ? 'bg-background shadow-sm font-medium' : 'text-foreground-secondary'}`}
-                onClick={() => { setUploadMode('file'); setUploadFiles([]); }}
-              >
-                File
-              </button>
-              <button
-                className={`flex-1 text-sm py-1.5 rounded-md transition-colors ${uploadMode === 'folder' ? 'bg-background shadow-sm font-medium' : 'text-foreground-secondary'}`}
-                onClick={() => { setUploadMode('folder'); setUploadFile(null); setUploadExtract(false); }}
-              >
-                Folder
-              </button>
+            {/* Pick buttons */}
+            <div>
+              <Label>Select content</Label>
+              <div className="flex gap-2 mt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <FileIcon className="h-4 w-4 mr-1.5" /> Choose File
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => folderInputRef.current?.click()}
+                >
+                  <FolderOpen className="h-4 w-4 mr-1.5" /> Choose Folder
+                </Button>
+              </div>
             </div>
 
-            {uploadMode === 'file' ? (
-              <div>
-                <Label>File</Label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="block w-full text-sm text-foreground-secondary mt-1
-                    file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-border
-                    file:text-sm file:font-medium file:bg-background file:text-foreground
-                    hover:file:bg-muted file:cursor-pointer file:transition-colors"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0] || null;
-                    setUploadFile(f);
-                    setUploadExtract(false);
-                  }}
-                />
-                {uploadFile && stats && uploadFile.size > stats.fileSizeLimit && (
-                  <p className="text-xs text-red-500 mt-1">
-                    File size ({formatBytes(uploadFile.size)}) exceeds limit ({formatBytes(stats.fileSizeLimit)})
-                  </p>
+            {/* Selection summary */}
+            {uploadFiles.length > 0 && (
+              <div className="rounded-md border px-3 py-2 text-sm">
+                {uploadIsFolder ? (
+                  <span className="text-foreground-secondary">
+                    {uploadFiles.length} files, {formatBytes(uploadFiles.reduce((s, f) => s + f.size, 0))}
+                  </span>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <span className="truncate">{uploadFiles[0].name}</span>
+                    <span className="text-foreground-muted text-xs shrink-0 ml-2">{formatBytes(uploadFiles[0].size)}</span>
+                  </div>
                 )}
-              </div>
-            ) : (
-              <div>
-                <Label>Folder</Label>
-                <input
-                  ref={folderInputRef}
-                  type="file"
-                  /* @ts-expect-error webkitdirectory is non-standard */
-                  webkitdirectory=""
-                  multiple
-                  className="block w-full text-sm text-foreground-secondary mt-1
-                    file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-border
-                    file:text-sm file:font-medium file:bg-background file:text-foreground
-                    hover:file:bg-muted file:cursor-pointer file:transition-colors"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    setUploadFiles(files);
-                  }}
-                />
-                {uploadFiles.length > 0 && (
-                  <p className="text-xs text-foreground-secondary mt-1">
-                    {uploadFiles.length} files, {formatBytes(uploadFiles.reduce((s, f) => s + f.size, 0))} total
+                {!uploadIsFolder && uploadFiles[0] && stats && uploadFiles[0].size > stats.fileSizeLimit && (
+                  <p className="text-xs text-red-500 mt-1">
+                    Exceeds per-file limit ({formatBytes(stats.fileSizeLimit)})
                   </p>
                 )}
               </div>
@@ -352,7 +355,7 @@ export default function ProjectFilesPage({ params }: { params: Promise<{ id: str
               </datalist>
               <p className="text-xs text-foreground-muted mt-1">Relative to project root. Leave empty for root.</p>
             </div>
-            {uploadMode === 'file' && uploadFile && isArchive(uploadFile.name) && (
+            {!uploadIsFolder && uploadFiles.length === 1 && isArchive(uploadFiles[0].name) && (
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -374,8 +377,8 @@ export default function ProjectFilesPage({ params }: { params: Promise<{ id: str
             <Button
               onClick={handleUpload}
               disabled={
-                (uploadMode === 'file' && (!uploadFile || (!!stats && !!uploadFile && uploadFile.size > stats.fileSizeLimit))) ||
-                (uploadMode === 'folder' && uploadFiles.length === 0) ||
+                uploadFiles.length === 0 ||
+                (!uploadIsFolder && uploadFiles[0] && !!stats && uploadFiles[0].size > stats.fileSizeLimit) ||
                 uploadMutation.isPending || folderMutation.isPending
               }
             >
