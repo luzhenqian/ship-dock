@@ -77,4 +77,14 @@ export class CreateProjectDto {
   @IsString({ each: true })
   @IsOptional()
   dbExtensions?: string[];
+
+  @IsInt()
+  @Min(1048576)
+  @IsOptional()
+  fileSizeLimit?: number;
+
+  @IsInt()
+  @Min(1048576)
+  @IsOptional()
+  fileTotalLimit?: number;
 }
