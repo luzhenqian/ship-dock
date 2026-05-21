@@ -71,6 +71,23 @@ export class ProjectsService {
     return { available: true };
   }
 
+  async checkDomain(domain: string): Promise<{ status: 'available' | 'conflict' | 'unknown'; currentIp?: string; message?: string }> {
+    const { resolve4 } = await import('dns/promises');
+    const serverIp = this.config.get('SERVER_IP');
+    try {
+      const addresses = await resolve4(domain);
+      if (!serverIp || addresses.includes(serverIp)) {
+        return { status: 'available' };
+      }
+      return { status: 'conflict', currentIp: addresses[0] };
+    } catch (err: any) {
+      if (err.code === 'ENOTFOUND' || err.code === 'ENODATA') {
+        return { status: 'available' };
+      }
+      return { status: 'unknown', message: err.message || 'DNS resolution failed' };
+    }
+  }
+
   async create(userId: string, dto: CreateProjectDto) {
     const envVarsObj: Record<string, string> = dto.envVars || {};
     let dbName: string | undefined;

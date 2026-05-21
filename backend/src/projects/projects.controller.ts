@@ -6,6 +6,7 @@ import { MinRole } from '../common/decorators/roles.decorator';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { CheckDomainDto } from './dto/check-domain.dto';
 import { SYSTEM_DEPS_WHITELIST } from './system-deps.const';
 import { DB_EXTENSIONS_WHITELIST } from './db-extensions.const';
 
@@ -69,6 +70,9 @@ export class ProjectsController {
   getDbExtensionsWhitelist() {
     return DB_EXTENSIONS_WHITELIST;
   }
+
+  @Post('check-domain') @MinRole('VIEWER')
+  checkDomain(@Body() dto: CheckDomainDto) { return this.projectsService.checkDomain(dto.domain); }
 
   @Post() @MinRole('ADMIN')
   create(@Req() req: any, @Body() dto: CreateProjectDto) { return this.projectsService.create(req.user.id, dto); }
