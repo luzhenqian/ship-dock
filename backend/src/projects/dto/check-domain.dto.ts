@@ -1,6 +1,6 @@
-import { IsString } from 'class-validator';
+import { IsFQDN } from 'class-validator';
 
 export class CheckDomainDto {
-  @IsString()
+  @IsFQDN()
   domain: string;
 }

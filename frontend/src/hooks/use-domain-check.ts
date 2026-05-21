@@ -32,20 +32,15 @@ export function useDomainCheck() {
     }
   }, []);
 
-  const onConfirm = useCallback(() => {
-    setDialogOpen(false);
-    resolveRef.current?.(true);
+  const settle = useCallback((value: boolean) => {
+    const resolve = resolveRef.current;
     resolveRef.current = null;
-  }, []);
-
-  const onCancel = useCallback(() => {
     setDialogOpen(false);
-    resolveRef.current?.(false);
-    resolveRef.current = null;
+    resolve?.(value);
   }, []);
 
   return {
     checkAndConfirm,
-    dialogProps: { open: dialogOpen, onOpenChange: (v: boolean) => { if (!v) onCancel(); }, currentIp, onConfirm, onCancel },
+    dialogProps: { open: dialogOpen, onOpenChange: (v: boolean) => { if (!v) settle(false); }, currentIp, onConfirm: () => settle(true), onCancel: () => settle(false) },
   };
 }
