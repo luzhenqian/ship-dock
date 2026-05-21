@@ -143,6 +143,9 @@ model Project {
   storageImports        StorageImport[]
   tasks                 ProjectTask[]
 
+  fileSizeLimit    Int    @default(104857600)
+  fileTotalLimit   BigInt @default(1073741824)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
