@@ -1,5 +1,5 @@
 import { StageContext, StageResult } from './command.stage';
-import { spawn } from 'child_process';
+import { spawnWithTimeout } from './command.stage';
 
 export interface CustomLocation {
   path: string;
@@ -140,12 +140,9 @@ ${serverBlock}
     const nginxConf = this.buildConfig(config);
     const command = `echo '${nginxConf.replace(/'/g, "'\\''")}' | sudo tee ${confPath} > /dev/null && sudo ln -sf ${confPath} ${enabledPath} && sudo nginx -t && sudo nginx -s reload`;
     ctx.onLog(`Writing nginx config to ${confPath}`);
-    return new Promise((resolve) => {
-      const child = spawn('sh', ['-c', command]);
-      child.stdout.on('data', (data) => { data.toString().split('\n').filter(Boolean).forEach((line: string) => ctx.onLog(line)); });
-      child.stderr.on('data', (data) => { data.toString().split('\n').filter(Boolean).forEach((line: string) => { const c = /\bwarn(ing)?\b/i.test(line) ? '\x1b[33m' : '\x1b[31m'; ctx.onLog(`${c}${line}\x1b[0m`); }); });
-      child.on('close', (code) => { resolve(code === 0 ? { success: true } : { success: false, error: `nginx config failed (code ${code})` }); });
-      child.on('error', (err) => resolve({ success: false, error: err.message }));
+    return spawnWithTimeout(command, ctx.onLog, {
+      timeoutMs: 30 * 1000,
+      label: 'nginx',
     });
   }
 }

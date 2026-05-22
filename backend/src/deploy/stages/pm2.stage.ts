@@ -1,7 +1,6 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
-import { StageContext, StageResult } from './command.stage';
-import { spawn } from 'child_process';
+import { StageContext, StageResult, spawnWithTimeout } from './command.stage';
 
 export interface Pm2Config {
   name: string; script: string; cwd: string; port: number; envVars: Record<string, string>;
@@ -56,12 +55,10 @@ ${envEntries}
     ctx.onLog(`Wrote ecosystem.config.js`);
     const command = this.buildCommand(config.cwd, isFirstDeploy);
     ctx.onLog(`$ ${command}`);
-    return new Promise((resolve) => {
-      const child = spawn('sh', ['-c', command], { env: { ...process.env, ...ctx.envVars } });
-      child.stdout.on('data', (data) => { data.toString().split('\n').filter(Boolean).forEach((line: string) => ctx.onLog(line)); });
-      child.stderr.on('data', (data) => { data.toString().split('\n').filter(Boolean).forEach((line: string) => { const c = /\bwarn(ing)?\b/i.test(line) ? '\x1b[33m' : '\x1b[31m'; ctx.onLog(`${c}${line}\x1b[0m`); }); });
-      child.on('close', (code) => { resolve(code === 0 ? { success: true } : { success: false, error: `pm2 exited with code ${code}` }); });
-      child.on('error', (err) => resolve({ success: false, error: err.message }));
+    return spawnWithTimeout(command, ctx.onLog, {
+      env: ctx.envVars,
+      timeoutMs: 2 * 60 * 1000,
+      label: 'pm2',
     });
   }
 }
