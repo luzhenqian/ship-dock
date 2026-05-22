@@ -25,7 +25,7 @@ export default function ProjectLayout({
         <ProjectSidebar
           projectId={id}
           projectName={project?.name || 'Loading...'}
-          status={project?.status || 'STOPPED'}
+          project={project}
         />
         <main className="flex-1 min-w-0 px-8 py-6">{children}</main>
       </div>

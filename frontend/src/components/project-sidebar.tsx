@@ -22,14 +22,25 @@ import type { LucideIcon } from 'lucide-react';
 interface ProjectSidebarProps {
   projectId: string;
   projectName: string;
-  status: string;
+  project?: any;
 }
 
 const statusColors: Record<string, string> = {
-  ACTIVE: 'bg-status-ready shadow-[0_0_6px_rgba(80,227,194,0.4)]',
-  STOPPED: 'bg-foreground-muted',
-  ERROR: 'bg-status-error shadow-[0_0_6px_rgba(238,0,0,0.3)]',
+  ready: 'bg-status-ready shadow-[0_0_6px_rgba(80,227,194,0.4)]',
+  failed: 'bg-status-error shadow-[0_0_6px_rgba(238,0,0,0.3)]',
+  idle: 'bg-foreground-muted',
+  stopped: 'bg-foreground-muted',
 };
+
+function getStatusKey(project: any): string {
+  if (!project) return 'idle';
+  if (project.status === 'STOPPED') return 'stopped';
+  if (project.status === 'ERROR') return 'failed';
+  const lastDeploy = project.deployments?.[0];
+  if (!lastDeploy) return 'idle';
+  if (lastDeploy.status === 'FAILED') return 'failed';
+  return 'ready';
+}
 
 const groups: { label: string; items: { href: string; label: string; icon: LucideIcon }[] }[] = [
   {
@@ -62,15 +73,16 @@ const groups: { label: string; items: { href: string; label: string; icon: Lucid
   },
 ];
 
-export function ProjectSidebar({ projectId, projectName, status }: ProjectSidebarProps) {
+export function ProjectSidebar({ projectId, projectName, project }: ProjectSidebarProps) {
   const pathname = usePathname();
+  const statusKey = getStatusKey(project);
 
   return (
     <aside className="w-[200px] shrink-0 border-r py-5 px-3">
       <div className="mb-5 px-2">
         <div className="flex items-center gap-2">
           <span
-            className={`h-2 w-2 rounded-full ${statusColors[status] || 'bg-foreground-muted'}`}
+            className={`h-2 w-2 rounded-full ${statusColors[statusKey]}`}
           />
           <span className="text-sm font-medium text-foreground truncate">
             {projectName}
