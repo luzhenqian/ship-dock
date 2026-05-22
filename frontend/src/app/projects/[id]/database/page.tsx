@@ -254,7 +254,11 @@ export default function DatabasePage({ params }: { params: Promise<{ id: string 
       {/* Main content */}
       <div className="flex-1 min-w-0">
         {showMigration ? (
-          <MigrationWizard projectId={id} onClose={() => setShowMigration(false)} />
+          <MigrationWizard projectId={id} onClose={() => {
+            setShowMigration(false);
+            queryClient.invalidateQueries({ queryKey: ['db-tables', id] });
+            queryClient.invalidateQueries({ queryKey: ['db-overview', id] });
+          }} />
         ) : !selectedTable ? (
           <div className="space-y-4">
             <div className="flex justify-end">
