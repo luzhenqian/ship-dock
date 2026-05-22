@@ -58,8 +58,13 @@ export function spawnWithTimeout(
 
     child.stderr!.on('data', (data) => {
       data.toString().split('\n').filter((l: string) => l).forEach((line: string) => {
-        const color = /\bwarn(ing)?\b/i.test(line) ? '\x1b[33m' : '\x1b[31m';
-        onLog(`${color}[stderr] ${line}\x1b[0m`);
+        if (/\bsyntax is ok\b|\btest is successful\b|\bsignal process started\b|\b\[notice\]\b/i.test(line)) {
+          onLog(line);
+        } else if (/\bwarn(ing)?\b/i.test(line)) {
+          onLog(`\x1b[33m${line}\x1b[0m`);
+        } else {
+          onLog(`\x1b[31m${line}\x1b[0m`);
+        }
       });
     });
 
