@@ -49,20 +49,23 @@ export function useMigrationLogs(projectId: string, migrationId: string) {
     socket.on('migration:progress', (data: MigrationProgress) => { setProgress(data); });
     socket.on('migration:status', (data: { status: string }) => { handleDone(data.status); });
 
-    // Polling fallback — covers cases where WebSocket can't connect
-    pollTimer = setInterval(async () => {
+    // Fetch full state once (covers fast completions before WS connects)
+    const fetchState = async () => {
       try {
         const data = await api<any>(`/projects/${projectId}/migrations/${migrationId}`);
-        if (data.status && data.status !== status) {
-          setProgress({
-            completedTables: data.completedTables ?? 0,
-            totalTables: data.totalTables ?? 0,
-            currentTable: '',
-          });
-          handleDone(data.status);
-        }
+        if (!data.status) return;
+        const total = data.totalTables ?? 0;
+        const completed = ['COMPLETED', 'FAILED', 'CANCELLED'].includes(data.status)
+          ? total
+          : (data.completedTables ?? 0);
+        setProgress({ completedTables: completed, totalTables: total, currentTable: '' });
+        handleDone(data.status);
       } catch {}
-    }, 3000);
+    };
+    fetchState();
+
+    // Polling fallback — covers cases where WebSocket can't connect
+    pollTimer = setInterval(fetchState, 3000);
 
     return () => {
       socket.emit('leave-migration', migrationId);
