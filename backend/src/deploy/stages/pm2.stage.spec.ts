@@ -12,12 +12,10 @@ describe('Pm2Stage', () => {
     expect(config).toContain("DB_HOST: 'localhost'");
   });
 
-  it('generates pm2 start command for first deploy', () => {
-    expect(stage.buildCommand('/var/www/my-app', true)).toContain('pm2 start ecosystem.config.js');
-  });
-
-  it('generates pm2 restart command for subsequent deploys', () => {
-    expect(stage.buildCommand('/var/www/my-app', false)).toContain('pm2 restart ecosystem.config.js');
+  it('generates pm2 delete + start command', () => {
+    const cmd = stage.buildCommand('/var/www/my-app', 'my-app');
+    expect(cmd).toContain('pm2 delete my-app');
+    expect(cmd).toContain('pm2 start ecosystem.config.js');
   });
 
   it('should include instances, exec_mode, and max_memory_restart when provided', () => {

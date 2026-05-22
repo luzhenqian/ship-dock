@@ -43,17 +43,15 @@ ${envEntries}
 };`;
   }
 
-  buildCommand(projectDir: string, isFirstDeploy: boolean): string {
-    return isFirstDeploy
-      ? `cd ${projectDir} && pm2 start ecosystem.config.js`
-      : `cd ${projectDir} && pm2 restart ecosystem.config.js`;
+  buildCommand(projectDir: string, name: string): string {
+    return `cd ${projectDir} && pm2 delete ${name} 2>/dev/null; pm2 start ecosystem.config.js`;
   }
 
   async execute(config: Pm2Config, isFirstDeploy: boolean, ctx: StageContext, isNpmStart = false): Promise<StageResult> {
     const ecosystemPath = join(config.cwd, 'ecosystem.config.js');
     writeFileSync(ecosystemPath, this.buildEcosystemConfig(config, isNpmStart));
     ctx.onLog(`Wrote ecosystem.config.js`);
-    const command = this.buildCommand(config.cwd, isFirstDeploy);
+    const command = this.buildCommand(config.cwd, config.name);
     ctx.onLog(`$ ${command}`);
     return spawnWithTimeout(command, ctx.onLog, {
       env: ctx.envVars,
