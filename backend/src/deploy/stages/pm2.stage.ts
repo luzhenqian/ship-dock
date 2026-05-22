@@ -27,7 +27,7 @@ export class Pm2Stage {
 
     const scriptLine = isNpmStart
       ? `    script: '${config.script}',\n    args: 'start',`
-      : `    script: '${config.script}',`;
+      : `    script: '${config.script}',\n    interpreter: 'node',`;
 
     return `module.exports = {
   apps: [{
