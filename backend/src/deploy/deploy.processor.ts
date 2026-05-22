@@ -167,7 +167,7 @@ export class DeployProcessor extends WorkerHost {
 
         let result: { success: boolean; error?: string };
         if (stage.type === 'builtin') {
-          result = await this.executeBuiltinStage(stage.name, project, repoDir, projectDir, isFirstDeploy && i === 0, deploymentId, onLog, projectEnvVars);
+          result = await this.executeBuiltinStage(stage.name, project, repoDir, projectDir, isFirstDeploy && i === 0, deploymentId, onLog, projectEnvVars, detectedPm);
         } else {
           result = await this.commandStage.execute(stage, { projectDir, onLog, envVars: projectEnvVars });
         }
@@ -220,6 +220,7 @@ export class DeployProcessor extends WorkerHost {
     name: string, project: any, repoDir: string, projectDir: string,
     isFirstDeploy: boolean, deploymentId: string,
     onLog: (line: string) => void, projectEnvVars: Record<string, string> = {},
+    packageManager: 'npm' | 'pnpm' | 'yarn' = 'npm',
   ) {
     const ctx = { projectDir, onLog, envVars: projectEnvVars };
 
@@ -248,7 +249,7 @@ export class DeployProcessor extends WorkerHost {
           try {
             const pkg = JSON.parse(require('fs').readFileSync(join(projectDir, 'package.json'), 'utf8'));
             if (pkg.scripts?.start) {
-              script = detectedPm;
+              script = packageManager;
             } else if (pkg.main) {
               script = pkg.main;
             }
