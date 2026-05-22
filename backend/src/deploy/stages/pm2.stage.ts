@@ -27,7 +27,7 @@ export class Pm2Stage {
     const optionalBlock = optionalLines.length > 0 ? '\n' + optionalLines.join('\n') : '';
 
     const scriptLine = isNpmStart
-      ? `    script: 'npm',\n    args: 'start',`
+      ? `    script: '${config.script}',\n    args: 'start',`
       : `    script: '${config.script}',`;
 
     return `module.exports = {

@@ -112,6 +112,8 @@ export class DeployProcessor extends WorkerHost {
       }
 
       const stages = (project.pipeline as any).stages;
+      let pmDetected = false;
+      let detectedPm: 'npm' | 'pnpm' | 'yarn' = 'npm';
       let allSuccess = true;
 
       for (let i = 0; i < stages.length; i++) {
@@ -178,13 +180,26 @@ export class DeployProcessor extends WorkerHost {
           continue;
         }
 
-        // After clone succeeds, capture latest git commit info
+        // After clone succeeds, capture latest git commit info + detect package manager
         if (stage.name === 'clone' && result.success) {
           try {
             const hash = execSync('git rev-parse HEAD', { cwd: repoDir, encoding: 'utf8' }).trim();
             const message = execSync('git log -1 --pretty=%s', { cwd: repoDir, encoding: 'utf8' }).trim();
             await this.prisma.deployment.update({ where: { id: deploymentId }, data: { commitHash: hash, commitMessage: message } });
           } catch {}
+
+          if (!pmDetected) {
+            pmDetected = true;
+            detectedPm = this.detectPackageManager(projectDir);
+            if (detectedPm !== 'npm') {
+              onLog(`Detected package manager: ${detectedPm}`);
+              for (const s of stages) {
+                if (s.type === 'command' && s.command) {
+                  s.command = this.rewriteCommand(s.command, detectedPm);
+                }
+              }
+            }
+          }
         }
 
         // Persist logs + status in one atomic write
@@ -233,13 +248,13 @@ export class DeployProcessor extends WorkerHost {
           try {
             const pkg = JSON.parse(require('fs').readFileSync(join(projectDir, 'package.json'), 'utf8'));
             if (pkg.scripts?.start) {
-              script = 'npm';
+              script = detectedPm;
             } else if (pkg.main) {
               script = pkg.main;
             }
           } catch {}
         }
-        const isNpmStart = script === 'npm';
+        const isNpmStart = ['npm', 'pnpm', 'yarn'].includes(script);
         return this.pm2Stage.execute(
           {
             name: project.pm2Name, script, cwd: projectDir, port: project.port, envVars,
@@ -298,6 +313,20 @@ export class DeployProcessor extends WorkerHost {
         onLog(`Unknown builtin stage: ${name}`);
         return { success: false, error: `Unknown builtin stage: ${name}` };
     }
+  }
+
+  private detectPackageManager(projectDir: string): 'npm' | 'pnpm' | 'yarn' {
+    if (existsSync(join(projectDir, 'pnpm-lock.yaml'))) return 'pnpm';
+    if (existsSync(join(projectDir, 'yarn.lock'))) return 'yarn';
+    return 'npm';
+  }
+
+  private rewriteCommand(command: string, pm: 'pnpm' | 'yarn'): string {
+    return command
+      .replace(/\bnpm install\b/g, pm === 'pnpm' ? 'pnpm install' : 'yarn install')
+      .replace(/\bnpm ci\b/g, pm === 'pnpm' ? 'pnpm install --frozen-lockfile' : 'yarn install --frozen-lockfile')
+      .replace(/\bnpm run\b/g, pm === 'pnpm' ? 'pnpm run' : 'yarn run')
+      .replace(/\bnpx\b/g, pm === 'pnpm' ? 'pnpm exec' : 'yarn exec');
   }
 
   private async updateStageStatus(deploymentId: string, index: number, status: string, error?: string, logs?: Array<{ t: number; m: string }>) {

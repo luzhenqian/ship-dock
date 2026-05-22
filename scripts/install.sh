@@ -82,6 +82,23 @@ n install 24 >/dev/null 2>&1 && echo -e "${GREEN}✓${NC} Node.js 24 installed"
 # Keep 22 as default
 n 22 >/dev/null 2>&1
 
+# ── Install pnpm & yarn ──
+if command -v pnpm &>/dev/null; then
+  echo -e "${GREEN}✓${NC} pnpm $(pnpm -v) already installed"
+else
+  echo "  Installing pnpm..."
+  npm install -g pnpm
+  echo -e "${GREEN}✓${NC} pnpm $(pnpm -v) installed"
+fi
+
+if command -v yarn &>/dev/null; then
+  echo -e "${GREEN}✓${NC} yarn $(yarn -v) already installed"
+else
+  echo "  Installing yarn..."
+  npm install -g yarn
+  echo -e "${GREEN}✓${NC} yarn $(yarn -v) installed"
+fi
+
 # ── Install Git ──
 if command -v git &>/dev/null; then
   echo -e "${GREEN}✓${NC} Git $(git --version | awk '{print $3}') already installed"
@@ -93,6 +110,22 @@ else
     $PM install -y git
   fi
   echo -e "${GREEN}✓${NC} Git installed"
+fi
+
+# ── Install MinIO Client (mc) ──
+if command -v mc &>/dev/null; then
+  echo -e "${GREEN}✓${NC} MinIO Client (mc) already installed"
+else
+  echo "  Installing MinIO Client (mc)..."
+  ARCH=$(uname -m)
+  case "$ARCH" in
+    x86_64)  MC_ARCH="amd64" ;;
+    aarch64) MC_ARCH="arm64" ;;
+    *)       MC_ARCH="amd64" ;;
+  esac
+  curl -fsSL "https://dl.min.io/client/mc/release/linux-${MC_ARCH}/mc" -o /usr/local/bin/mc
+  chmod +x /usr/local/bin/mc
+  echo -e "${GREEN}✓${NC} MinIO Client (mc) installed"
 fi
 
 # ── Clone repository ──
