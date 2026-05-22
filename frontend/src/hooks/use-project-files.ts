@@ -134,3 +134,23 @@ export function getFileDownloadUrl(projectId: string, path: string): string {
   const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
   return `${base}/projects/${projectId}/files/download?path=${encodeURIComponent(path)}`;
 }
+
+const MAX_PREVIEW_SIZE = 512 * 1024; // 512KB
+
+export function useFileContent(projectId: string, filePath: string | null) {
+  return useQuery<string>({
+    queryKey: ['project-file-content', projectId, filePath],
+    enabled: !!filePath,
+    queryFn: async () => {
+      const url = getFileDownloadUrl(projectId, filePath!);
+      const token = getAccessToken();
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error('Failed to load file');
+      const contentLength = res.headers.get('content-length');
+      if (contentLength && Number(contentLength) > MAX_PREVIEW_SIZE) {
+        throw new Error('File too large to preview');
+      }
+      return res.text();
+    },
+  });
+}

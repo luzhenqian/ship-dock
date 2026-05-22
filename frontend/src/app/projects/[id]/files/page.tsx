@@ -18,6 +18,7 @@ import {
   useUploadProjectFile, useUploadProjectFolder, useMkdir, useDeleteProjectFile, useExtractArchive,
   getFileDownloadUrl,
 } from '@/hooks/use-project-files';
+import { FilePreview } from '@/components/file-preview';
 import { getAccessToken } from '@/lib/api';
 
 function formatBytes(bytes: number): string {
@@ -57,6 +58,7 @@ export default function ProjectFilesPage({ params }: { params: Promise<{ id: str
   const deleteMutation = useDeleteProjectFile(projectId);
   const extractMutation = useExtractArchive(projectId);
 
+  const [previewFile, setPreviewFile] = useState<{ path: string; name: string } | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [showMkdir, setShowMkdir] = useState(false);
   const [newDirName, setNewDirName] = useState('');
@@ -70,6 +72,7 @@ export default function ProjectFilesPage({ params }: { params: Promise<{ id: str
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   const navigateTo = (path: string) => {
+    setPreviewFile(null);
     const p = path ? `?path=${encodeURIComponent(path)}` : '';
     router.replace(`/projects/${projectId}/files${p}`, { scroll: false });
   };
@@ -209,8 +212,17 @@ export default function ProjectFilesPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* File list */}
-      {isLoading ? (
+      {/* File preview */}
+      {previewFile ? (
+        <FilePreview
+          projectId={projectId}
+          filePath={previewFile.path}
+          fileName={previewFile.name}
+          onBack={() => setPreviewFile(null)}
+          onDownload={handleDownload}
+        />
+      ) : /* File list */
+      isLoading ? (
         <Loading className="py-20" />
       ) : listing && listing.items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 border rounded-xl">
@@ -236,8 +248,8 @@ export default function ProjectFilesPage({ params }: { params: Promise<{ id: str
               return (
                 <div key={item.name} className="flex items-center px-4 py-2.5 hover:bg-muted/30 transition-colors">
                   <div
-                    className={`flex items-center gap-3 min-w-0 flex-1 ${item.type === 'directory' ? 'cursor-pointer' : ''}`}
-                    onClick={() => item.type === 'directory' && navigateTo(itemPath)}
+                    className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                    onClick={() => item.type === 'directory' ? navigateTo(itemPath) : setPreviewFile({ path: itemPath, name: item.name })}
                   >
                     {item.type === 'directory' ? (
                       <FolderOpen className="h-4 w-4 text-foreground-secondary shrink-0" />
