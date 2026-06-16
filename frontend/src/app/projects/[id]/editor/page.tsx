@@ -44,6 +44,8 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   const [showNewFile, setShowNewFile] = useState(false);
 
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const upsertRef = useRef(upsert);
+  useEffect(() => { upsertRef.current = upsert; });
 
   // Select first file on load
   useEffect(() => {
@@ -53,6 +55,13 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
       setEditorContent(first.content);
     }
   }, [files, selectedPath]);
+
+  // Cleanup autosave timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    };
+  }, []);
 
   // Sync content when switching files
   function selectFile(path: string) {
@@ -71,14 +80,14 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
       autosaveTimer.current = setTimeout(async () => {
         if (!selectedPath) return;
         try {
-          await upsert.mutateAsync({ path: selectedPath, content: value });
+          await upsertRef.current.mutateAsync({ path: selectedPath, content: value });
           setSaveStatus('saved');
         } catch {
           setSaveStatus('unsaved');
         }
       }, 500);
     },
-    [selectedPath, upsert],
+    [selectedPath],
   );
 
   async function handleAddFile() {
