@@ -16,6 +16,7 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { Pm2Stage } from '../deploy/stages/pm2.stage';
+import { StaticFilesService } from '../static-files/static-files.service';
 
 const execFileAsync = promisify(execFile);
 
@@ -26,6 +27,14 @@ const DEFAULT_PIPELINE = {
     { name: 'migrate', type: 'command', command: 'npx prisma migrate deploy', optional: true },
     { name: 'build', type: 'command', command: 'npm run build' },
     { name: 'pm2', type: 'builtin', config: {} },
+    { name: 'nginx', type: 'builtin', config: {} },
+    { name: 'ssl', type: 'builtin', config: {} },
+  ],
+};
+
+const STATIC_PIPELINE = {
+  stages: [
+    { name: 'static-sync', type: 'builtin', config: {} },
     { name: 'nginx', type: 'builtin', config: {} },
     { name: 'ssl', type: 'builtin', config: {} },
   ],
@@ -43,6 +52,7 @@ export class ProjectsService {
     private minioProvisioner: MinioProvisionerService,
     @Inject(forwardRef(() => WebhooksService))
     private webhooksService: WebhooksService,
+    private staticFiles: StaticFilesService,
   ) {}
 
   private validateDirectory(dir: string): string {
@@ -139,7 +149,7 @@ export class ProjectsService {
         name: dto.name, slug: dto.slug,
         sourceType: dto.sourceType as any, repoUrl: dto.repoUrl,
         branch: dto.branch || 'main', domain: dto.domain,
-        port: 0, envVars, pipeline: dto.pipeline || DEFAULT_PIPELINE,
+        port: 0, envVars, pipeline: dto.pipeline || (dto.sourceType === 'STATIC' ? STATIC_PIPELINE : DEFAULT_PIPELINE),
         pm2Name: dto.slug, directory, createdById: userId,
         useLocalDb: dto.useLocalDb || false, dbName,
         useLocalRedis: dto.useLocalRedis || false, redisDbIndex,
@@ -205,6 +215,12 @@ export class ProjectsService {
           autoDetected: true,
         },
       });
+    }
+
+    // STATIC projects use no port — return immediately with port=0
+    if (dto.sourceType === 'STATIC') {
+      await this.staticFiles.seed(project.id);
+      return project;
     }
 
     // Now allocate port (project exists, FK is valid)
