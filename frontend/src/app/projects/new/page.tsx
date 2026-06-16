@@ -763,7 +763,7 @@ export default function NewProjectPage() {
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-[13px] text-foreground-muted">Source</span>
               <span className="text-[13px] font-medium font-mono">
-                {form.sourceType === 'GITHUB' ? 'Git' : 'Upload'}
+                {form.sourceType === 'STATIC' ? 'Static Site' : form.sourceType === 'GITHUB' ? 'Git' : 'Upload'}
                 {form.sourceType === 'GITHUB' && form.repoUrl && (
                   <span className="ml-1 text-foreground-secondary font-normal">{form.repoUrl.split('/').slice(-2).join('/')}</span>
                 )}
@@ -831,7 +831,7 @@ export default function NewProjectPage() {
           )}
 
           <div className="flex justify-between">
-            <Button variant="ghost" onClick={() => setStep('env')} className="h-9 text-foreground-secondary">
+            <Button variant="ghost" onClick={() => isStatic ? setStep('basic') : setStep('env')} className="h-9 text-foreground-secondary">
               Back
             </Button>
             <Button onClick={handleCreate} disabled={createProject.isPending || uploading} className="h-9 px-5">
