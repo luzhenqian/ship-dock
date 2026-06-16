@@ -123,7 +123,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     }
     setPublishing(true);
     try {
-      await api(`/projects/${projectId}/deploy`, { method: 'POST' });
+      await api(`/projects/${projectId}/deployments`, { method: 'POST' });
       toast.success('Deployment started');
       router.push(`/projects/${projectId}`);
     } catch (err: unknown) {

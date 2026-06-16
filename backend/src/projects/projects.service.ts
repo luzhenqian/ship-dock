@@ -657,6 +657,7 @@ export class ProjectsService {
   async stop(id: string) {
     const project = await this.prisma.project.findUnique({ where: { id } });
     if (!project) throw new NotFoundException('Project not found');
+    if (project.sourceType === 'STATIC') throw new BadRequestException('Static sites do not have a running process');
     if (project.status === 'STOPPED') throw new BadRequestException('Project is already stopped');
 
     try {
@@ -674,6 +675,7 @@ export class ProjectsService {
   async restart(id: string) {
     const project = await this.prisma.project.findUnique({ where: { id } });
     if (!project) throw new NotFoundException('Project not found');
+    if (project.sourceType === 'STATIC') throw new BadRequestException('Static sites do not have a running process');
 
     // Regenerate ecosystem.config.js with latest ENV and PM2 config before restarting
     let envVars: Record<string, string> = {};

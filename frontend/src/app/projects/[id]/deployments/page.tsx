@@ -108,20 +108,24 @@ export default function DeploymentsPage({ params }: { params: Promise<{ id: stri
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-medium tracking-tight">Deployments</h2>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={handleRestart}
-            disabled={restartProject.isPending}
-          >
-            {restartProject.isPending ? 'Restarting...' : isStopped ? 'Start' : 'Restart'}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => stopProject.mutate()}
-            disabled={stopProject.isPending || isStopped}
-          >
-            {stopProject.isPending ? 'Stopping...' : 'Stop'}
-          </Button>
+          {project?.sourceType !== 'STATIC' && (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleRestart}
+                disabled={restartProject.isPending}
+              >
+                {restartProject.isPending ? 'Restarting...' : isStopped ? 'Start' : 'Restart'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => stopProject.mutate()}
+                disabled={stopProject.isPending || isStopped}
+              >
+                {stopProject.isPending ? 'Stopping...' : 'Stop'}
+              </Button>
+            </>
+          )}
           <Button onClick={handleDeploy} disabled={triggerDeploy.isPending}>
             {triggerDeploy.isPending ? 'Deploying...' : 'Deploy Now'}
           </Button>
