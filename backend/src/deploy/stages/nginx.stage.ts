@@ -28,6 +28,13 @@ export interface NginxStageConfig {
   customLocations?: CustomLocation[];
 }
 
+export interface NginxStaticConfig {
+  domain: string;
+  slug: string;
+  rootDir: string;
+  hasSsl: boolean;
+}
+
 const DEFAULTS = {
   clientMaxBodySize: 10,
   proxyReadTimeout: 60,
@@ -132,6 +139,47 @@ ${serverBlock}
       const maxSize = loc.cacheMaxSize || '500m';
       return `proxy_cache_path /tmp/nginx-cache-${cacheName} levels=1:2 keys_zone=${cacheName}:10m max_size=${maxSize} inactive=${loc.cacheDuration || '7d'};`;
     }).join('\n');
+  }
+
+  buildStaticConfig(config: NginxStaticConfig): string {
+    const body = `
+    root ${config.rootDir};
+    index index.html;
+
+    gzip on;
+    gzip_types text/html text/css application/javascript image/svg+xml;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }`;
+
+    if (!config.hasSsl) {
+      return `server {\n    listen 80;\n    server_name ${config.domain};\n${body}\n}`;
+    }
+
+    return `server {
+    listen 80;
+    server_name ${config.domain};
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${config.domain};
+
+    ssl_certificate /etc/letsencrypt/live/${config.domain}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${config.domain}/privkey.pem;
+${body}
+}`;
+  }
+
+  async executeStatic(config: NginxStaticConfig, ctx: StageContext): Promise<StageResult> {
+    const confPath = `/etc/nginx/sites-available/${config.slug}.conf`;
+    const enabledPath = `/etc/nginx/sites-enabled/${config.slug}.conf`;
+    const nginxConf = this.buildStaticConfig(config);
+    const command = `echo '${nginxConf.replace(/'/g, "'\\''")}' | sudo tee ${confPath} > /dev/null && sudo ln -sf ${confPath} ${enabledPath} && sudo nginx -t && sudo nginx -s reload`;
+    ctx.onLog(`Writing static nginx config to ${confPath}`);
+    return spawnWithTimeout(command, ctx.onLog, { timeoutMs: 30 * 1000, label: 'nginx' });
   }
 
   async execute(config: NginxStageConfig, ctx: StageContext): Promise<StageResult> {
