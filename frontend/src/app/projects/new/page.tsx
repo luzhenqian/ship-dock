@@ -8,13 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EnvVarEditor } from '@/components/env-var-editor';
 import { MigrationWizard } from '@/components/migration-wizard';
-import { GitBranch, Upload, ChevronRight, Loader2, Check, Database, Globe, Terminal, File, X, AlertCircle, CheckCircle2, Server, HardDrive } from 'lucide-react';
+import { GitBranch, Upload, ChevronRight, Loader2, Check, Database, Globe, Terminal, File, FileCode, X, AlertCircle, CheckCircle2, Server, HardDrive } from 'lucide-react';
 import { RepoSelector } from '@/components/repo-selector';
 import { useGitHubInstallations } from '@/hooks/use-github-app';
 import { useDomainCheck } from '@/hooks/use-domain-check';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 
-type Step = 'source' | 'basic' | 'env' | 'confirm' | 'import';
+type Step = 'source' | 'basic' | 'env' | 'confirm' | 'import' | 'static-ready';
 const STEPS: { key: Step; label: string }[] = [
   { key: 'source', label: 'Import' },
   { key: 'basic', label: 'Configure' },
@@ -93,7 +93,7 @@ export default function NewProjectPage() {
   const [portMessage, setPortMessage] = useState('');
 
   const [form, setForm] = useState({
-    sourceType: '' as 'GITHUB' | 'UPLOAD' | '',
+    sourceType: '' as 'GITHUB' | 'UPLOAD' | 'STATIC' | '',
     repoUrl: '',
     branch: '',
     name: '',
@@ -118,6 +118,7 @@ export default function NewProjectPage() {
     if (!uploadFile) sourceErrors.file = 'Please select a file to upload';
   }
   const canContinueFromSource = form.sourceType !== '' && Object.keys(sourceErrors).length === 0;
+  const isStatic = form.sourceType === 'STATIC';
 
   const basicErrors: Record<string, string> = {};
   if (!form.name.trim()) basicErrors.name = 'Project name is required';
@@ -126,7 +127,7 @@ export default function NewProjectPage() {
   if (form.domain && !isValidDomain(form.domain)) basicErrors.domain = 'Enter a valid domain (e.g. app.example.com)';
   if (form.port && !isValidPort(form.port)) basicErrors.port = 'Port must be between 3001 and 3999';
   if (form.port && isValidPort(form.port) && portStatus === 'taken') basicErrors.port = portMessage;
-  const canContinueFromBasic = Object.keys(basicErrors).length === 0 && form.name.trim() !== '' && form.slug.trim() !== '' && portStatus !== 'checking';
+  const canContinueFromBasic = Object.keys(basicErrors).length === 0 && form.name.trim() !== '' && form.slug.trim() !== '' && (isStatic || portStatus !== 'checking');
 
   const envError = getEnvVarErrors(form.envVars);
   const canContinueFromEnv = envError === null;
@@ -274,6 +275,10 @@ export default function NewProjectPage() {
     b.toLowerCase().includes(branchFilter.toLowerCase())
   );
 
+  function goToConfirmOrSkipEnv() {
+    if (isStatic) { setStep('confirm'); } else { setStep('env'); }
+  }
+
   /* ── Create & upload ── */
 
   async function handleCreate() {
@@ -319,7 +324,10 @@ export default function NewProjectPage() {
         }
       }
 
-      if (form.useLocalDb) {
+      if (form.sourceType === 'STATIC') {
+        setCreatedProjectId(result.id);
+        setStep('static-ready');
+      } else if (form.useLocalDb) {
         setCreatedProjectId(result.id);
         setStep('import');
       } else {
@@ -347,7 +355,7 @@ export default function NewProjectPage() {
       </div>
 
       {/* Step indicator */}
-      {step !== 'import' && (
+      {step !== 'import' && step !== 'static-ready' && (
         <div className="mb-8 flex items-center gap-1">
           {STEPS.map((s, i) => {
             const isActive = s.key === step;
@@ -380,7 +388,7 @@ export default function NewProjectPage() {
       {/* Step: Source */}
       {step === 'source' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => { update({ sourceType: 'GITHUB' }); removeFile(); }}
               className={`group flex flex-col items-center gap-3 rounded-xl border px-4 py-6 transition-all ${
@@ -415,6 +423,24 @@ export default function NewProjectPage() {
               <div className="text-center">
                 <p className="text-sm font-medium">Upload Files</p>
                 <p className="mt-0.5 text-xs text-foreground-muted">Deploy from archive</p>
+              </div>
+            </button>
+            <button
+              onClick={() => { update({ sourceType: 'STATIC' }); removeFile(); }}
+              className={`group flex flex-col items-center gap-3 rounded-xl border px-4 py-6 transition-all ${
+                form.sourceType === 'STATIC'
+                  ? 'border-foreground bg-foreground/[0.03] ring-1 ring-foreground'
+                  : 'border-border hover:border-border-hover hover:bg-muted/50'
+              }`}
+            >
+              <div className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${
+                form.sourceType === 'STATIC' ? 'bg-foreground text-background' : 'bg-muted text-foreground-secondary'
+              }`}>
+                <FileCode className="size-4.5" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium">Static Site</p>
+                <p className="mt-0.5 text-xs text-foreground-muted">HTML / CSS / JS</p>
               </div>
             </button>
           </div>
@@ -602,32 +628,34 @@ export default function NewProjectPage() {
               />
               <FieldError msg={form.domain ? basicErrors.domain : undefined} />
             </div>
-            <div className="space-y-2">
-              <Label className="text-[13px] text-foreground-secondary">
-                Port
-                <span className="font-normal text-foreground-muted">(optional, auto-assigned if empty)</span>
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  placeholder="3001–3999"
-                  value={form.port}
-                  onChange={(e) => update({ port: e.target.value })}
-                />
-                {form.port && (
-                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
-                    {portStatus === 'checking' && <Loader2 className="size-3.5 animate-spin text-foreground-muted" />}
-                    {portStatus === 'available' && <CheckCircle2 className="size-3.5 text-status-ready" />}
-                    {portStatus === 'taken' && <AlertCircle className="size-3.5 text-destructive" />}
-                  </div>
-                )}
+            {!isStatic && (
+              <div className="space-y-2">
+                <Label className="text-[13px] text-foreground-secondary">
+                  Port
+                  <span className="font-normal text-foreground-muted">(optional, auto-assigned if empty)</span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    placeholder="3001–3999"
+                    value={form.port}
+                    onChange={(e) => update({ port: e.target.value })}
+                  />
+                  {form.port && (
+                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                      {portStatus === 'checking' && <Loader2 className="size-3.5 animate-spin text-foreground-muted" />}
+                      {portStatus === 'available' && <CheckCircle2 className="size-3.5 text-status-ready" />}
+                      {portStatus === 'taken' && <AlertCircle className="size-3.5 text-destructive" />}
+                    </div>
+                  )}
+                </div>
+                {form.port && basicErrors.port ? (
+                  <FieldError msg={basicErrors.port} />
+                ) : form.port && portStatus === 'available' ? (
+                  <p className="text-xs text-status-ready">Port {form.port} is available</p>
+                ) : null}
               </div>
-              {form.port && basicErrors.port ? (
-                <FieldError msg={basicErrors.port} />
-              ) : form.port && portStatus === 'available' ? (
-                <p className="text-xs text-status-ready">Port {form.port} is available</p>
-              ) : null}
-            </div>
+            )}
           </div>
 
           <div className="rounded-xl border p-4">
@@ -703,7 +731,7 @@ export default function NewProjectPage() {
             <Button variant="ghost" onClick={() => setStep('source')} className="h-9 text-foreground-secondary">
               Back
             </Button>
-            <Button onClick={() => setStep('env')} disabled={!canContinueFromBasic} className="h-9 px-4">
+            <Button onClick={goToConfirmOrSkipEnv} disabled={!canContinueFromBasic} className="h-9 px-4">
               Continue <ChevronRight className="ml-1 size-3.5" />
             </Button>
           </div>
@@ -828,6 +856,74 @@ export default function NewProjectPage() {
           <Button variant="ghost" onClick={() => router.push(`/projects/${createdProjectId}`)} className="h-9 text-foreground-secondary">
             Skip for now
           </Button>
+        </div>
+      )}
+
+      {step === 'static-ready' && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-border p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background">
+                <Check className="size-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Project created</p>
+                <p className="text-xs text-foreground-muted">Choose how to add your files</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-border p-4">
+                <p className="text-sm font-medium mb-1">Upload zip</p>
+                <p className="text-xs text-foreground-muted mb-3">Extract and deploy a .zip file</p>
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={() => setDragOver(false)}
+                  className={`rounded-lg border-2 border-dashed p-4 text-center cursor-pointer transition-colors ${dragOver ? 'border-foreground bg-muted' : 'border-border hover:border-border-hover'}`}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="size-4 mx-auto mb-1 text-foreground-muted" />
+                  <p className="text-xs text-foreground-muted">Drop zip here or click</p>
+                  <input ref={fileInputRef} type="file" accept=".zip,.tar.gz,.tgz" className="hidden" onChange={(e) => handleFileSelect(e.target.files?.[0] ?? null)} />
+                </div>
+                {uploadFile && (
+                  <div className="mt-2 flex items-center justify-between rounded-md bg-muted px-2 py-1.5">
+                    <span className="text-xs truncate">{uploadFile.name}</span>
+                    <button onClick={removeFile}><X className="size-3 text-foreground-muted" /></button>
+                  </div>
+                )}
+                {uploadFileError && <p className="mt-1 text-xs text-destructive">{uploadFileError}</p>}
+                {uploadFile && (
+                  <Button size="sm" className="w-full mt-2" disabled={uploading} onClick={async () => {
+                    setUploading(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append('file', uploadFile);
+                      const token = getAccessToken();
+                      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+                      const res = await fetch(`${apiUrl}/projects/${createdProjectId}/upload`, {
+                        method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: formData,
+                      });
+                      if (!res.ok) { const e = await res.json().catch(() => ({ message: 'Upload failed' })); throw new Error(e.message); }
+                      router.push(`/projects/${createdProjectId}`);
+                    } catch (err: any) {
+                      setCreateError(err.message || 'Upload failed');
+                    } finally { setUploading(false); }
+                  }}>
+                    {uploading ? <><Loader2 className="size-3 animate-spin mr-1" />Uploading…</> : 'Deploy zip'}
+                  </Button>
+                )}
+              </div>
+              <div className="rounded-lg border border-border p-4">
+                <p className="text-sm font-medium mb-1">Online editor</p>
+                <p className="text-xs text-foreground-muted mb-3">Edit files in the browser and publish</p>
+                <Button size="sm" variant="outline" className="w-full" onClick={() => router.push(`/projects/${createdProjectId}/editor`)}>
+                  Open editor
+                </Button>
+              </div>
+            </div>
+            {createError && <p className="mt-3 text-xs text-destructive">{createError}</p>}
+          </div>
         </div>
       )}
 
