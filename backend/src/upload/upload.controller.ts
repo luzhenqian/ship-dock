@@ -7,9 +7,9 @@ import { MinRole } from '../common/decorators/roles.decorator';
 import { DeployService } from '../deploy/deploy.service';
 import { PrismaService } from '../common/prisma.service';
 import { StaticFilesService } from '../static-files/static-files.service';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { join } from 'path';
-import { mkdirSync, existsSync, writeFileSync, readdirSync } from 'fs';
+import { mkdirSync, existsSync, writeFileSync, readdirSync, statSync } from 'fs';
 
 @Controller('projects/:projectId/upload')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -44,18 +44,24 @@ export class UploadController {
     const projectDir = join(projectsDir, project.directory || project.slug);
     if (!existsSync(projectDir)) mkdirSync(projectDir, { recursive: true });
 
-    if (isZip) {
-      execSync(`unzip -o ${tempPath} -d ${projectDir}`);
-    } else {
-      execSync(`tar -xzf ${tempPath} -C ${projectDir}`);
+    try {
+      if (isZip) {
+        execSync(`unzip -o ${tempPath} -d ${projectDir}`);
+      } else {
+        execSync(`tar -xzf ${tempPath} -C ${projectDir}`);
+      }
+    } finally {
+      try { execSync(`rm -f ${tempPath}`); } catch {}
     }
-    execSync(`rm ${tempPath}`);
 
     if (project.sourceType === 'STATIC') {
       // Validate that index.html exists at root or inside a single top-level subdirectory
       const entries = readdirSync(projectDir);
       const hasRootIndex = entries.includes('index.html');
-      const hasSingleSubdirIndex = entries.length === 1 && existsSync(join(projectDir, entries[0], 'index.html'));
+      const hasSingleSubdirIndex =
+        entries.length === 1 &&
+        statSync(join(projectDir, entries[0])).isDirectory() &&
+        existsSync(join(projectDir, entries[0], 'index.html'));
       if (!hasRootIndex && !hasSingleSubdirIndex) {
         execSync(`rm -rf ${projectDir}`);
         throw new BadRequestException('Zip must contain index.html at root or inside a single subdirectory');
@@ -63,7 +69,11 @@ export class UploadController {
       // If files were in a single subdirectory, hoist them
       if (!hasRootIndex && hasSingleSubdirIndex) {
         const subdir = entries[0];
-        execSync(`mv ${join(projectDir, subdir)}/* ${projectDir}/ && rmdir ${join(projectDir, subdir)}`);
+        const subdirPath = join(projectDir, subdir);
+        for (const name of readdirSync(subdirPath)) {
+          execFileSync('mv', [join(subdirPath, name), projectDir]);
+        }
+        execFileSync('rmdir', [subdirPath]);
       }
       // Clear editor files — zip is now the source of truth
       await this.staticFiles.clearAll(projectId);
