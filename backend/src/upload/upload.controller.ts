@@ -5,14 +5,21 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { MinRole } from '../common/decorators/roles.decorator';
 import { DeployService } from '../deploy/deploy.service';
+import { PrismaService } from '../common/prisma.service';
+import { StaticFilesService } from '../static-files/static-files.service';
 import { execSync } from 'child_process';
 import { join } from 'path';
-import { mkdirSync, existsSync, writeFileSync } from 'fs';
+import { mkdirSync, existsSync, writeFileSync, readdirSync } from 'fs';
 
 @Controller('projects/:projectId/upload')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UploadController {
-  constructor(private config: ConfigService, private deployService: DeployService) {}
+  constructor(
+    private config: ConfigService,
+    private deployService: DeployService,
+    private prisma: PrismaService,
+    private staticFiles: StaticFilesService,
+  ) {}
 
   @Post() @MinRole('DEVELOPER')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 200 * 1024 * 1024 } }))
@@ -26,12 +33,15 @@ export class UploadController {
       throw new BadRequestException('Only .zip and .tar.gz files are supported');
     }
 
+    const project = await this.prisma.project.findUnique({ where: { id: projectId }, select: { sourceType: true, directory: true, slug: true } });
+    if (!project) throw new BadRequestException('Project not found');
+
     const projectsDir = this.config.get('PROJECTS_DIR', '/var/www');
     const ext = isZip ? '.zip' : '.tar.gz';
     const tempPath = join(projectsDir, `.upload-${projectId}${ext}`);
     writeFileSync(tempPath, file.buffer);
 
-    const projectDir = join(projectsDir, projectId);
+    const projectDir = join(projectsDir, project.directory || project.slug);
     if (!existsSync(projectDir)) mkdirSync(projectDir, { recursive: true });
 
     if (isZip) {
@@ -40,6 +50,27 @@ export class UploadController {
       execSync(`tar -xzf ${tempPath} -C ${projectDir}`);
     }
     execSync(`rm ${tempPath}`);
+
+    if (project.sourceType === 'STATIC') {
+      // Validate that index.html exists at root or inside a single top-level subdirectory
+      const entries = readdirSync(projectDir);
+      const hasRootIndex = entries.includes('index.html');
+      const hasSingleSubdirIndex = entries.length === 1 && existsSync(join(projectDir, entries[0], 'index.html'));
+      if (!hasRootIndex && !hasSingleSubdirIndex) {
+        execSync(`rm -rf ${projectDir}`);
+        throw new BadRequestException('Zip must contain index.html at root or inside a single subdirectory');
+      }
+      // If files were in a single subdirectory, hoist them
+      if (!hasRootIndex && hasSingleSubdirIndex) {
+        const subdir = entries[0];
+        execSync(`mv ${join(projectDir, subdir)}/* ${projectDir}/ && rmdir ${join(projectDir, subdir)}`);
+      }
+      // Clear editor files — zip is now the source of truth
+      await this.staticFiles.clearAll(projectId);
+      // Start from nginx stage (index 1) — files are already on disk
+      const deployment = await this.deployService.trigger(projectId, req.user.id, 1);
+      return { message: 'Upload complete, deployment started', deployment };
+    }
 
     const deployment = await this.deployService.trigger(projectId, req.user.id, 1);
     return { message: 'Upload complete, deployment started', deployment };
