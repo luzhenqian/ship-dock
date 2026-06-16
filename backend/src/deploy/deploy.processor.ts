@@ -228,6 +228,10 @@ export class DeployProcessor extends WorkerHost {
       case 'static-sync': {
         const projectsDir = this.config.get('PROJECTS_DIR', '/var/www');
         const targetDir = join(projectsDir, project.directory || project.slug);
+        if (!targetDir.startsWith(projectsDir + '/')) {
+          onLog('Invalid project directory');
+          return { success: false, error: 'Invalid project directory' };
+        }
         const staticFiles = await this.prisma.staticFile.findMany({ where: { projectId: project.id } });
         if (staticFiles.length === 0) {
           onLog('No static files to deploy');
@@ -235,11 +239,15 @@ export class DeployProcessor extends WorkerHost {
         }
         try {
           if (existsSync(targetDir)) {
-            execSync(`rm -rf ${targetDir}`);
+            execFileSync('rm', ['-rf', targetDir]);
           }
           mkdirSync(targetDir, { recursive: true });
           for (const file of staticFiles) {
             const filePath = join(targetDir, file.path);
+            if (!filePath.startsWith(targetDir + '/')) {
+              onLog(`Skipping unsafe path: ${file.path}`);
+              continue;
+            }
             mkdirSync(dirname(filePath), { recursive: true });
             writeFileSync(filePath, file.content, 'utf8');
             onLog(`Wrote ${file.path}`);
