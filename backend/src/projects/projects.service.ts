@@ -102,6 +102,10 @@ export class ProjectsService {
     const envVarsObj: Record<string, string> = dto.envVars || {};
     let dbName: string | undefined;
 
+    if (dto.sourceType === 'STATIC' && (dto.useLocalDb || dto.useLocalRedis || dto.useLocalMinio)) {
+      throw new BadRequestException('Static sites cannot use local database, Redis, or MinIO');
+    }
+
     // Auto-provision database if requested
     if (dto.useLocalDb) {
       dbName = await this.dbProvisioner.generateDbName(dto.slug);
