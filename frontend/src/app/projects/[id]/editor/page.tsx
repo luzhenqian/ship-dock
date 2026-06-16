@@ -1,5 +1,5 @@
 'use client';
-import { use, useState, useCallback, useRef, useEffect } from 'react';
+import { use, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import CodeMirror from '@uiw/react-codemirror';
@@ -8,12 +8,12 @@ import { css } from '@codemirror/lang-css';
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
-import { File as FileIcon, FolderOpen, Plus, Trash2, Loader2, Globe, ChevronLeft } from 'lucide-react';
+import { File as FileIcon, FolderOpen, Plus, Trash2, Loader2, Globe, ChevronLeft, PanelRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useProject } from '@/hooks/use-projects';
-import { useStaticFiles, useUpsertStaticFile, useDeleteStaticFile } from '@/hooks/use-static-files';
+import { useStaticFiles, useUpsertStaticFile, useDeleteStaticFile, type StaticFile } from '@/hooks/use-static-files';
 import { api } from '@/lib/api';
 
 function getLanguageExtension(path: string) {
@@ -22,6 +22,30 @@ function getLanguageExtension(path: string) {
   if (ext === 'css') return css();
   if (ext === 'js' || ext === 'mjs' || ext === 'ts') return javascript({ typescript: ext === 'ts' });
   return [];
+}
+
+function isHtmlPath(path: string | null): boolean {
+  if (!path) return false;
+  const ext = path.split('.').pop()?.toLowerCase();
+  return ext === 'html' || ext === 'htm';
+}
+
+// Inline relative CSS/JS references so the srcdoc iframe resolves them correctly
+function buildPreviewHtml(htmlContent: string, files: StaticFile[]): string {
+  return htmlContent
+    .replace(/<link([^>]+)href=["']([^"']+)["']([^>]*)>/gi, (match, before, href, after) => {
+      if (href.startsWith('http') || href.startsWith('//') || href.startsWith('data:')) return match;
+      if (!before.includes('stylesheet') && !after.includes('stylesheet')) return match;
+      const normalized = href.replace(/^\.\//, '');
+      const file = files.find((f) => f.path === normalized || f.path === href);
+      return file ? `<style>${file.content}</style>` : match;
+    })
+    .replace(/<script([^>]+)src=["']([^"']+)["']([^>]*)><\/script>/gi, (match, before, src, after) => {
+      if (src.startsWith('http') || src.startsWith('//') || src.startsWith('data:')) return match;
+      const normalized = src.replace(/^\.\//, '');
+      const file = files.find((f) => f.path === normalized || f.path === src);
+      return file ? `<script${before}${after}>${file.content}</script>` : match;
+    });
 }
 
 type SaveStatus = 'saved' | 'saving' | 'unsaved';
@@ -42,10 +66,15 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   const [publishing, setPublishing] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [showNewFile, setShowNewFile] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const upsertRef = useRef(upsert);
   useEffect(() => { upsertRef.current = upsert; });
+
+  useEffect(() => {
+    return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
+  }, []);
 
   // Select first file on load
   useEffect(() => {
@@ -56,14 +85,13 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     }
   }, [files, selectedPath]);
 
-  // Cleanup autosave timer on unmount
-  useEffect(() => {
-    return () => {
-      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    };
-  }, []);
+  // Live preview HTML — uses current editor content for HTML, saved files for CSS/JS
+  const previewHtml = useMemo(() => {
+    if (!showPreview) return '';
+    if (!isHtmlPath(selectedPath)) return '';
+    return buildPreviewHtml(editorContent, files);
+  }, [showPreview, selectedPath, editorContent, files]);
 
-  // Sync content when switching files
   function selectFile(path: string) {
     const file = files.find((f) => f.path === path);
     if (!file) return;
@@ -117,10 +145,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   }
 
   async function handlePublish() {
-    if (files.length === 0) {
-      toast.error('No files to publish');
-      return;
-    }
+    if (files.length === 0) { toast.error('No files to publish'); return; }
     setPublishing(true);
     try {
       await api(`/projects/${projectId}/deployments`, { method: 'POST' });
@@ -165,19 +190,24 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
             {saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving…' : 'Unsaved'}
           </span>
         </div>
-        <Button size="sm" onClick={handlePublish} disabled={publishing || files.length === 0}>
-          {publishing ? (
-            <>
-              <Loader2 className="size-3 animate-spin mr-1" />
-              Publishing…
-            </>
-          ) : (
-            <>
-              <Globe className="size-3 mr-1" />
-              Publish
-            </>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant={showPreview ? 'default' : 'outline'}
+            onClick={() => setShowPreview((v) => !v)}
+            title="Toggle preview"
+          >
+            <PanelRight className="size-3 mr-1" />
+            Preview
+          </Button>
+          <Button size="sm" onClick={handlePublish} disabled={publishing || files.length === 0}>
+            {publishing ? (
+              <><Loader2 className="size-3 animate-spin mr-1" />Publishing…</>
+            ) : (
+              <><Globe className="size-3 mr-1" />Publish</>
+            )}
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -200,10 +230,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                 onChange={(e) => setNewFileName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleAddFile();
-                  if (e.key === 'Escape') {
-                    setShowNewFile(false);
-                    setNewFileName('');
-                  }
+                  if (e.key === 'Escape') { setShowNewFile(false); setNewFileName(''); }
                 }}
                 placeholder="filename.html"
                 className="h-6 text-xs"
@@ -227,10 +254,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                 </div>
                 <button
                   className="opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteFile(f.path);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.path); }}
                 >
                   <Trash2 className="size-3 text-foreground-muted hover:text-destructive" />
                 </button>
@@ -249,7 +273,9 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
         </div>
 
         {/* Editor pane */}
-        <div className="flex-1 overflow-hidden">
+        <div className={`flex-1 overflow-hidden ${showPreview ? 'border-r border-border' : ''}`}
+          style={showPreview ? { maxWidth: '50%' } : undefined}
+        >
           {selectedPath ? (
             <CodeMirror
               value={editorContent}
@@ -266,6 +292,30 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
             </div>
           )}
         </div>
+
+        {/* Preview pane */}
+        {showPreview && (
+          <div className="flex-1 flex flex-col overflow-hidden bg-white">
+            <div className="flex h-8 items-center px-3 border-b border-border bg-background shrink-0">
+              <span className="text-xs text-foreground-muted">Preview</span>
+              {selectedPath && !isHtmlPath(selectedPath) && (
+                <span className="ml-2 text-xs text-foreground-muted">— open an HTML file to preview</span>
+              )}
+            </div>
+            {isHtmlPath(selectedPath) ? (
+              <iframe
+                srcDoc={previewHtml}
+                className="flex-1 w-full border-none"
+                sandbox="allow-scripts"
+                title="Preview"
+              />
+            ) : (
+              <div className="flex flex-1 items-center justify-center text-sm text-foreground-muted">
+                Open an HTML file to preview
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
