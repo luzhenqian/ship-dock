@@ -71,19 +71,33 @@ export class SslStage {
     return false;
   }
 
-  private async waitForDns(domain: string, expectedIp: string, onLog: (line: string) => void, maxAttempts = 10): Promise<boolean> {
-    const { resolve4 } = await import('dns/promises');
+  private async waitForDns(domain: string, expectedIp: string, onLog: (line: string) => void, maxAttempts = 24): Promise<boolean> {
+    const { Resolver } = await import('dns/promises');
+    // Use the same public resolvers Let's Encrypt uses for validation
+    const publicResolvers = ['8.8.8.8', '1.1.1.1'];
+
     for (let i = 1; i <= maxAttempts; i++) {
-      try {
-        const addresses = await resolve4(domain);
-        if (addresses.includes(expectedIp)) {
-          onLog(`DNS verified: ${domain} → ${expectedIp}`);
-          return true;
-        }
-        onLog(`Waiting for DNS propagation (${i}/${maxAttempts})... got ${addresses.join(', ')}`);
-      } catch {
-        onLog(`Waiting for DNS propagation (${i}/${maxAttempts})...`);
+      const results = await Promise.all(
+        publicResolvers.map(async (server) => {
+          const resolver = new Resolver();
+          resolver.setServers([server]);
+          try {
+            const addrs = await resolver.resolve4(domain);
+            return addrs.includes(expectedIp);
+          } catch {
+            return false;
+          }
+        }),
+      );
+
+      if (results.every(Boolean)) {
+        onLog(`DNS verified on public resolvers: ${domain} → ${expectedIp}`);
+        // Brief extra buffer so Let's Encrypt's secondary validators also see it
+        await new Promise((r) => setTimeout(r, 10000));
+        return true;
       }
+
+      onLog(`Waiting for DNS propagation (${i}/${maxAttempts})...`);
       await new Promise((r) => setTimeout(r, 5000));
     }
     onLog('DNS propagation timeout — attempting certbot anyway');
