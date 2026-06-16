@@ -225,6 +225,31 @@ export class DeployProcessor extends WorkerHost {
     const ctx = { projectDir, onLog, envVars: projectEnvVars };
 
     switch (name) {
+      case 'static-sync': {
+        const projectsDir = this.config.get('PROJECTS_DIR', '/var/www');
+        const targetDir = join(projectsDir, project.directory || project.slug);
+        const staticFiles = await this.prisma.staticFile.findMany({ where: { projectId: project.id } });
+        if (staticFiles.length === 0) {
+          onLog('No static files to deploy');
+          return { success: false, error: 'No static files to deploy. Use the editor to add files.' };
+        }
+        try {
+          if (existsSync(targetDir)) {
+            execSync(`rm -rf ${targetDir}`);
+          }
+          mkdirSync(targetDir, { recursive: true });
+          for (const file of staticFiles) {
+            const filePath = join(targetDir, file.path);
+            mkdirSync(dirname(filePath), { recursive: true });
+            writeFileSync(filePath, file.content, 'utf8');
+            onLog(`Wrote ${file.path}`);
+          }
+          onLog(`Static files deployed to ${targetDir}`);
+          return { success: true };
+        } catch (err: any) {
+          return { success: false, error: err.message };
+        }
+      }
       case 'clone': {
         let githubToken: string | undefined;
         if (project.githubInstallationId) {
@@ -268,6 +293,14 @@ export class DeployProcessor extends WorkerHost {
       }
       case 'nginx': {
         if (!project.domain) { onLog('No domain configured, skipping nginx'); return { success: true }; }
+        if (project.sourceType === 'STATIC') {
+          const projectsDir = this.config.get('PROJECTS_DIR', '/var/www');
+          const rootDir = join(projectsDir, project.directory || project.slug);
+          return this.nginxStage.executeStatic({
+            domain: project.domain, slug: project.slug,
+            rootDir, hasSsl: this.sslStage.hasCert(project.domain),
+          }, ctx);
+        }
         const nginxConfig = await this.prisma.nginxConfig.findUnique({ where: { projectId: project.id } });
         return this.nginxStage.execute({
           domain: project.domain, port: project.port, slug: project.slug,
@@ -291,22 +324,30 @@ export class DeployProcessor extends WorkerHost {
         const serverIp = this.config.get('SERVER_IP');
         const sslResult = await this.sslStage.execute(project.domain, ctx, this.domainsService, serverIp);
         if (sslResult.success) {
-          const nginxConfig = await this.prisma.nginxConfig.findUnique({ where: { projectId: project.id } });
-          await this.nginxStage.execute({
-            domain: project.domain, port: project.port, slug: project.slug, hasSsl: true,
-            ...(nginxConfig && {
-              clientMaxBodySize: nginxConfig.clientMaxBodySize,
-              proxyReadTimeout: nginxConfig.proxyReadTimeout,
-              proxySendTimeout: nginxConfig.proxySendTimeout,
-              proxyConnectTimeout: nginxConfig.proxyConnectTimeout,
-              gzipEnabled: nginxConfig.gzipEnabled,
-              gzipMinLength: nginxConfig.gzipMinLength,
-              gzipTypes: nginxConfig.gzipTypes,
-              proxyBuffering: nginxConfig.proxyBuffering,
-              proxyBufferSize: nginxConfig.proxyBufferSize,
-              proxyBuffers: nginxConfig.proxyBuffers,
-            }),
-          }, ctx);
+          if (project.sourceType === 'STATIC') {
+            const projectsDir = this.config.get('PROJECTS_DIR', '/var/www');
+            const rootDir = join(projectsDir, project.directory || project.slug);
+            await this.nginxStage.executeStatic({
+              domain: project.domain, slug: project.slug, rootDir, hasSsl: true,
+            }, ctx);
+          } else {
+            const nginxConfig = await this.prisma.nginxConfig.findUnique({ where: { projectId: project.id } });
+            await this.nginxStage.execute({
+              domain: project.domain, port: project.port, slug: project.slug, hasSsl: true,
+              ...(nginxConfig && {
+                clientMaxBodySize: nginxConfig.clientMaxBodySize,
+                proxyReadTimeout: nginxConfig.proxyReadTimeout,
+                proxySendTimeout: nginxConfig.proxySendTimeout,
+                proxyConnectTimeout: nginxConfig.proxyConnectTimeout,
+                gzipEnabled: nginxConfig.gzipEnabled,
+                gzipMinLength: nginxConfig.gzipMinLength,
+                gzipTypes: nginxConfig.gzipTypes,
+                proxyBuffering: nginxConfig.proxyBuffering,
+                proxyBufferSize: nginxConfig.proxyBufferSize,
+                proxyBuffers: nginxConfig.proxyBuffers,
+              }),
+            }, ctx);
+          }
         }
         return sslResult;
       }
