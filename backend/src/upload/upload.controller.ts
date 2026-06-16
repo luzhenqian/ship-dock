@@ -7,9 +7,9 @@ import { MinRole } from '../common/decorators/roles.decorator';
 import { DeployService } from '../deploy/deploy.service';
 import { PrismaService } from '../common/prisma.service';
 import { StaticFilesService } from '../static-files/static-files.service';
-import { execSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { join } from 'path';
-import { mkdirSync, existsSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { mkdirSync, existsSync, writeFileSync, readdirSync, statSync, unlinkSync } from 'fs';
 
 @Controller('projects/:projectId/upload')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -46,12 +46,12 @@ export class UploadController {
 
     try {
       if (isZip) {
-        execSync(`unzip -o ${tempPath} -d ${projectDir}`);
+        execFileSync('unzip', ['-o', tempPath, '-d', projectDir]);
       } else {
-        execSync(`tar -xzf ${tempPath} -C ${projectDir}`);
+        execFileSync('tar', ['-xzf', tempPath, '-C', projectDir]);
       }
     } finally {
-      try { execSync(`rm -f ${tempPath}`); } catch {}
+      try { unlinkSync(tempPath); } catch {}
     }
 
     if (project.sourceType === 'STATIC') {
@@ -63,7 +63,7 @@ export class UploadController {
         statSync(join(projectDir, entries[0])).isDirectory() &&
         existsSync(join(projectDir, entries[0], 'index.html'));
       if (!hasRootIndex && !hasSingleSubdirIndex) {
-        execSync(`rm -rf ${projectDir}`);
+        execFileSync('rm', ['-rf', projectDir]);
         throw new BadRequestException('Zip must contain index.html at root or inside a single subdirectory');
       }
       // If files were in a single subdirectory, hoist them
