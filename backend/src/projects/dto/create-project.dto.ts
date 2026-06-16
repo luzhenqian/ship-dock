@@ -7,7 +7,7 @@ export class CreateProjectDto {
   @IsString()
   slug: string;
 
-  @IsEnum(['GITHUB', 'UPLOAD'])
+  @IsEnum(['GITHUB', 'UPLOAD', 'STATIC'])
   sourceType: string;
 
   @IsUrl()

@@ -16,6 +16,7 @@ import {
   Settings,
   Play,
   FolderOpen,
+  Code2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -42,40 +43,42 @@ function getStatusKey(project: any): string {
   return 'ready';
 }
 
-const groups: { label: string; items: { href: string; label: string; icon: LucideIcon }[] }[] = [
-  {
-    label: 'Project',
-    items: [
-      { href: 'deployments', label: 'Deployments', icon: Shield },
-      { href: 'pipeline', label: 'Pipeline', icon: GitBranch },
-      { href: 'tasks', label: 'Tasks', icon: Play },
-      { href: 'logs', label: 'Logs', icon: ScrollText },
-      { href: 'analytics', label: 'Analytics', icon: BarChart3 },
-      { href: 'files', label: 'Files', icon: FolderOpen },
-    ],
-  },
-  {
-    label: 'Data',
-    items: [
-      { href: 'database', label: 'Database', icon: Database },
-      { href: 'redis', label: 'Redis', icon: Server },
-      { href: 'storage', label: 'Storage', icon: HardDrive },
-    ],
-  },
-  {
-    label: 'Config',
-    items: [
-      { href: 'nginx', label: 'Nginx', icon: Globe },
-      { href: 'pm2', label: 'PM2', icon: Cpu },
-      { href: 'webhooks', label: 'Webhooks', icon: Webhook },
-      { href: 'settings', label: 'Settings', icon: Settings },
-    ],
-  },
-];
-
 export function ProjectSidebar({ projectId, projectName, project }: ProjectSidebarProps) {
   const pathname = usePathname();
   const statusKey = getStatusKey(project);
+  const isStatic = project?.sourceType === 'STATIC';
+
+  const groups: { label: string; items: { href: string; label: string; icon: LucideIcon }[] }[] = [
+    {
+      label: 'Project',
+      items: [
+        { href: 'deployments', label: 'Deployments', icon: Shield },
+        ...(isStatic ? [{ href: 'editor', label: 'Editor', icon: Code2 }] : []),
+        { href: 'pipeline', label: 'Pipeline', icon: GitBranch },
+        { href: 'tasks', label: 'Tasks', icon: Play },
+        { href: 'logs', label: 'Logs', icon: ScrollText },
+        { href: 'analytics', label: 'Analytics', icon: BarChart3 },
+        { href: 'files', label: 'Files', icon: FolderOpen },
+      ],
+    },
+    ...(!isStatic ? [{
+      label: 'Data',
+      items: [
+        { href: 'database', label: 'Database', icon: Database },
+        { href: 'redis', label: 'Redis', icon: Server },
+        { href: 'storage', label: 'Storage', icon: HardDrive },
+      ],
+    }] : []),
+    {
+      label: 'Config',
+      items: [
+        { href: 'nginx', label: 'Nginx', icon: Globe },
+        ...(!isStatic ? [{ href: 'pm2', label: 'PM2', icon: Cpu }] : []),
+        { href: 'webhooks', label: 'Webhooks', icon: Webhook },
+        { href: 'settings', label: 'Settings', icon: Settings },
+      ],
+    },
+  ];
 
   return (
     <aside className="w-[200px] shrink-0 border-r py-5 px-3">
