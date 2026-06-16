@@ -25,7 +25,9 @@ enum SourceType {
 
 ### Project model
 
-No new fields on `Project`. The existing `port` field stores `0` and `pm2Name` stores `""` for static projects. All static-specific branching is done via `sourceType === STATIC` — no reliance on these placeholder values.
+No new fields on `Project`. The existing `port` field stores `0` and `pm2Name` stores `""` for static projects. All static-specific branching is done via `sourceType === STATIC` — no reliance on these placeholder values. Static projects do **not** create a `PortAllocation` record.
+
+The `pipeline` JSON field stores `{ "stages": ["static-sync", "nginx"] }` for static projects (no install, build, or pm2 stages).
 
 ### StaticFile table (new)
 
@@ -95,11 +97,9 @@ The existing multi-step flow (`source → basic → env → confirm`) is extende
 
 **`env` step:** Skipped entirely for static projects.
 
-**`confirm` step:** Two options:
-- **Upload zip** — drag-and-drop; triggers immediate deploy on upload
-- **Open Editor** — navigates to `/projects/<id>/editor`; no deploy until user clicks Publish
-
-On project creation, the backend automatically seeds one `StaticFile` row with a minimal `index.html` skeleton so the editor is never blank.
+**`confirm` step:** User clicks **Create Project** — the project record is created immediately (no deploy triggered). The backend seeds a default `index.html` `StaticFile` row at this point. The page then transitions to show two "next step" options:
+- **Upload zip** — drag-and-drop; triggers a deploy immediately on upload
+- **Open Editor** — navigates to `/projects/<id>/editor`; no deploy until user clicks Publish inside the editor
 
 ---
 
