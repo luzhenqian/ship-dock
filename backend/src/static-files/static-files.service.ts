@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 
 @Injectable()
@@ -9,7 +9,7 @@ export class StaticFilesService {
     if (!path || path.trim() === '') throw new BadRequestException('File path cannot be empty');
     if (path.startsWith('/')) throw new BadRequestException('Path must be relative');
     if (path.includes('..')) throw new BadRequestException('Path traversal not allowed');
-    if (/[;&|`$]/.test(path)) throw new BadRequestException('Invalid characters in path');
+    if (/[;&|`$\x00]/.test(path)) throw new BadRequestException('Invalid characters in path');
   }
 
   async list(projectId: string) {
@@ -30,6 +30,11 @@ export class StaticFilesService {
 
   async remove(projectId: string, path: string) {
     this.validatePath(path);
+    const existing = await this.prisma.staticFile.findFirst({
+      where: { projectId, path },
+      select: { path: true },
+    });
+    if (!existing) throw new NotFoundException(`File not found: ${path}`);
     return this.prisma.staticFile.delete({
       where: { projectId_path: { projectId, path } },
     });

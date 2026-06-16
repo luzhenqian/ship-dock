@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { StaticFilesService } from './static-files.service';
 import { PrismaService } from '../common/prisma.service';
 
@@ -7,6 +8,7 @@ const mockPrisma = {
     findMany: jest.fn(),
     upsert: jest.fn(),
     delete: jest.fn(),
+    findFirst: jest.fn(),
   },
 };
 
@@ -45,11 +47,22 @@ describe('StaticFilesService', () => {
   });
 
   it('remove deletes a file', async () => {
+    mockPrisma.staticFile.findFirst.mockResolvedValue({ path: 'index.html' });
     mockPrisma.staticFile.delete.mockResolvedValue({});
     await service.remove('p1', 'index.html');
     expect(mockPrisma.staticFile.delete).toHaveBeenCalledWith({
       where: { projectId_path: { projectId: 'p1', path: 'index.html' } },
     });
+  });
+
+  it('remove throws NotFoundException when file does not exist', async () => {
+    mockPrisma.staticFile.findFirst = jest.fn().mockResolvedValue(null);
+    await expect(service.remove('p1', 'missing.html')).rejects.toThrow(NotFoundException);
+  });
+
+  it('upsert throws when content exceeds 1 MB', async () => {
+    const bigContent = 'x'.repeat(1024 * 1024 + 1);
+    await expect(service.upsert('p1', 'index.html', bigContent)).rejects.toThrow(BadRequestException);
   });
 
   it('validatePath rejects path traversal', () => {

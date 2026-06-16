@@ -3,6 +3,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { MinRole } from '../common/decorators/roles.decorator';
 import { StaticFilesService } from './static-files.service';
+import { UpsertStaticFileDto } from './dto/upsert-static-file.dto';
 
 @Controller('projects/:projectId/static-files')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -17,7 +18,7 @@ export class StaticFilesController {
   @Put() @MinRole('DEVELOPER')
   upsert(
     @Param('projectId') projectId: string,
-    @Body() body: { path: string; content: string },
+    @Body() body: UpsertStaticFileDto,
   ) {
     return this.service.upsert(projectId, body.path, body.content);
   }
